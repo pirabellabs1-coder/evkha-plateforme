@@ -6,6 +6,7 @@ from . import (
     actions,
     annonces,
     boutique,
+    formations,
     prospection,
     qualite,
     signalements,
@@ -130,6 +131,63 @@ urlpatterns = [
     path("boutique/avis/<str:avis_id>/", boutique.avis_un, name="boutique-avis-un"),
     path("boutique/<str:produit_id>/", boutique.produit, name="boutique-produit"),
     path("boutique/<str:produit_id>/avis/", boutique.avis, name="boutique-avis"),
+    # Les formations : la fiche, ses modules, et les lecons de chaque module.
+    # Aucune de ces routes n'accepte DELETE : un module ou une lecon se retire
+    # et se retablit, une formation se met hors ligne.
+    #
+    # `modules/` et `lecons/` AVANT le motif a parametre, pour la raison ecrite
+    # plus haut. `<str:…>` et non `<uuid:…>` : l'identifiant est lu DANS la vue
+    # (`formations._trouver`), qui rend un 404 dans la forme `{"erreur",
+    # "code"}` — le 404 du routeur est une page, que l'ecran ne sait pas lire.
+    path("formations/", formations.formations, name="formations"),
+    path(
+        "formations/modules/<str:module_id>/",
+        formations.module,
+        name="formations-module",
+    ),
+    path(
+        "formations/modules/<str:module_id>/lecons/",
+        formations.lecons,
+        name="formations-lecons",
+    ),
+    path(
+        "formations/modules/<str:module_id>/ordre/",
+        formations.ordre_des_lecons,
+        name="formations-ordre-des-lecons",
+    ),
+    path(
+        "formations/lecons/<str:lecon_id>/",
+        formations.lecon,
+        name="formations-lecon",
+    ),
+    # Un achat : retirer l'acces qu'il donne, ou le retablir. Jamais de
+    # suppression. AVANT le motif a parametre, comme `modules/` et `lecons/`.
+    path(
+        "formations/achats/<str:achat_id>/",
+        formations.achat,
+        name="formations-achat",
+    ),
+    path(
+        "formations/<str:formation_id>/",
+        formations.formation,
+        name="formations-formation",
+    ),
+    # Les achats d'une formation, retires compris.
+    path(
+        "formations/<str:formation_id>/achats/",
+        formations.achats,
+        name="formations-achats",
+    ),
+    path(
+        "formations/<str:formation_id>/modules/",
+        formations.modules,
+        name="formations-modules",
+    ),
+    path(
+        "formations/<str:formation_id>/ordre/",
+        formations.ordre_des_modules,
+        name="formations-ordre-des-modules",
+    ),
     # Ce qui fabrique chaque livrable, en lecture seule.
     path(
         "supervision/livrables/",

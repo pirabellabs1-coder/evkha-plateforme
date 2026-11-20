@@ -2,6 +2,7 @@ import { useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, type CustomerDetail, type OrderSummary } from "../api";
+import { Icone } from "../admin/icones";
 import { TIER_LABELS } from "../constants/tiers";
 import { ORDER_STATUS_LABELS } from "../constants/orders";
 import {
@@ -16,7 +17,7 @@ import "../admin/console.css";
 
 function OrderRow({ order }: { order: OrderSummary }) {
   const label = order.parent_order_id
-    ? `Ticket · ${order.period_year_month || "—"}`
+    ? `Crédit utilisé · ${order.period_year_month || "—"}`
     : order.offer_name;
 
   // Ton du statut : table unique de `Pastille` — voir `constants/orders.ts`.
@@ -88,7 +89,7 @@ export function ClientDetail() {
               qui laissait croire qu'il n'avait rien payé. */}
           {data.organisation ? (
             <Bandeau ton="succes">
-              Abonné B2B · <strong>{data.organisation.raison_sociale}</strong>
+              Abonné · <strong>{data.organisation.raison_sociale}</strong>
               {" — "}
               {data.organisation.formule
                 ? <>formule <strong>{data.organisation.formule}</strong></>
@@ -119,8 +120,8 @@ export function ClientDetail() {
 
           <dl className="compte-identite">
             <div>
-              <dt>Type</dt>
-              <dd>{data.customer_type.toUpperCase()}</dd>
+              <dt>Achète</dt>
+              <dd>{data.customer_type === "b2b" ? "Par abonnement" : "À l'unité"}</dd>
             </div>
             <div>
               <dt>Inscrit</dt>
@@ -133,7 +134,7 @@ export function ClientDetail() {
               <dd className="console-tabulaire">{parentOrders.length}</dd>
             </div>
             <div>
-              <dt>Tickets crédit</dt>
+              <dt>Crédits utilisés</dt>
               <dd className="console-tabulaire">{tickets.length}</dd>
             </div>
           </dl>
@@ -208,7 +209,7 @@ export function ClientDetail() {
       {/* Tickets de crédit */}
       {tickets.length > 0 && (
         <Carte
-          titre={`Tickets de crédit (${tickets.length})`}
+          titre={`Crédits d'abonnement utilisés (${tickets.length})`}
           action={
             data.credits_available > 0 && (
               <span className="pastille pastille-alerte">
@@ -237,7 +238,7 @@ export function ClientDetail() {
       {data.orders.length === 0 && (
         <Carte>
           <Vide
-            icone="◐"
+            icone={<Icone nom="commandes" />}
             titre="Aucune commande"
             texte="Aucune commande enregistrée pour ce client."
           />

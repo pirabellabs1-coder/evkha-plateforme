@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { adminApi, type TransactionSupervision } from "../api";
+import { Icone } from "../icones";
 import * as f from "../../espace/format";
 import {
   Bandeau,
@@ -112,7 +113,7 @@ export function TransactionsAdmin() {
         </Bandeau>
       )}
 
-      <div className="admin-periodes" role="group" aria-label="Filtrer">
+      <div className="console-segments" role="group" aria-label="Filtrer les transactions par état">
         {FILTRES.map((choix) => (
           <button
             key={choix.cle}
@@ -139,7 +140,7 @@ export function TransactionsAdmin() {
           data &&
           !isError && (
             <Vide
-              icone="◍"
+              icone={<Icone nom="transactions" />}
               titre="Aucune transaction"
               texte="Les paiements apparaîtront ici dès qu'un abonné ouvrira une souscription ou un achat de crédits."
             />
@@ -149,19 +150,23 @@ export function TransactionsAdmin() {
             <table className="tableau">
               <thead>
                 <tr>
-                  <th>Ouverte le</th>
-                  <th>Organisation</th>
-                  <th>Objet</th>
-                  <th>Montant</th>
-                  <th>État</th>
-                  <th>Relances</th>
-                  <th />
+                  <th scope="col">Ouverte le</th>
+                  <th scope="col">Organisation</th>
+                  <th scope="col">Objet</th>
+                  <th scope="col" className="nombre">
+                    Montant
+                  </th>
+                  <th scope="col">État</th>
+                  <th scope="col">Relances</th>
+                  <th scope="col">
+                    <span className="visuellement-cache">Relancer</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {lignes.map((ligne) => (
                   <tr key={ligne.id}>
-                    <td>{f.date(ligne.ouverte_le)}</td>
+                    <td className="console-tabulaire">{f.date(ligne.ouverte_le)}</td>
                     <td>
                       <strong>{ligne.organisation}</strong>
                       {/* Un achat de boutique ouvert depuis la page publique
@@ -179,6 +184,13 @@ export function TransactionsAdmin() {
                       {ligne.produit && (
                         <div className="carte-note">{ligne.produit}</div>
                       )}
+                      {/* Même raison pour une formation, dont le panier est
+                          celui qui vaut le plus d'être relancé : sans son
+                          titre, la ligne dirait « Achat d'une formation »
+                          sans dire laquelle. */}
+                      {ligne.formation && (
+                        <div className="carte-note">{ligne.formation}</div>
+                      )}
                       {ligne.formule && (
                         <div className="carte-note">{ligne.formule}</div>
                       )}
@@ -188,13 +200,13 @@ export function TransactionsAdmin() {
                         </div>
                       )}
                     </td>
-                    <td>{f.montant(ligne.montant_cents, ligne.devise)}</td>
+                    <td className="nombre">{f.montant(ligne.montant_cents, ligne.devise)}</td>
                     <td>
                       <span className={`pastille ${TONS[ligne.etat]}`}>
                         {ETIQUETTES[ligne.etat]}
                       </span>
                     </td>
-                    <td>
+                    <td className="console-tabulaire">
                       {ligne.relances === 0
                         ? "—"
                         : `${ligne.relances} · ${f.date(ligne.relancee_le)}`}

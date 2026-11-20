@@ -16,6 +16,7 @@ import { Autonomie } from "../composants/Autonomie";
 import { AutresEtudes } from "../composants/AutresEtudes";
 import { telechargerJournal } from "../journal";
 import { Colonnes } from "../../viz/Graphiques";
+import { adresseDePaiementSure } from "../../adresseDePaiement";
 
 /** Un mouvement d'entrée se lit en vert, une sortie en rouge — mais le SIGNE
  *  porte déjà l'information. La couleur n'est qu'un renfort : sans elle, le
@@ -32,6 +33,10 @@ function Quantite({ mouvement }: { mouvement: Mouvement }) {
 /** Ce qui s'écrit à la place d'un nombre qu'on n'a pas reçu. Jamais « 0 » :
  *  un zéro est une réponse, et celle-ci parle de l'argent du client. */
 const INCONNU = "—";
+
+/** La phrase d'une panne d'achat — et d'une adresse de paiement qui ne mène
+ *  pas chez Stripe. */
+const ACHAT_IMPOSSIBLE = "Achat impossible pour l'instant.";
 
 export function Credits() {
   const lectureMoi = useMoi();
@@ -58,12 +63,17 @@ export function Credits() {
     // `/espace/credits`. Les credits n'arrivent qu'au webhook, jamais au retour
     // du navigateur — celui-ci peut etre tape a la main par n'importe qui.
     onSuccess: (reponse) => {
-      window.location.href = reponse.url;
+      // L'adresse est celle de Stripe, ou l'on ne part pas : le refus se dit
+      // comme une panne d'achat.
+      const sure = adresseDePaiementSure(reponse.url);
+      if (sure === null) {
+        setErreurAchat(ACHAT_IMPOSSIBLE);
+        return;
+      }
+      window.location.href = sure;
     },
     onError: (cause: unknown) =>
-      setErreurAchat(
-        cause instanceof Error ? cause.message : "Achat impossible pour l'instant.",
-      ),
+      setErreurAchat(cause instanceof Error ? cause.message : ACHAT_IMPOSSIBLE),
   });
 
   const tarif = moi?.abonnement?.prix_credit_supplementaire_cents ?? 0;

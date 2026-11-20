@@ -687,10 +687,10 @@ function ColonneAvis({ colonne }: { colonne: 1 | 2 }) {
   return (
     <div className="acc-colonne">
       {avis.map((a) => (
-        <CarteAvis key={a.auteur} avis={a} />
+        <CarteAvis key={`${a.auteur}-${a.contexte}`} avis={a} />
       ))}
       {avis.map((a) => (
-        <CarteAvis key={`${a.auteur}-double`} avis={a} double />
+        <CarteAvis key={`${a.auteur}-${a.contexte}-double`} avis={a} double />
       ))}
     </div>
   );

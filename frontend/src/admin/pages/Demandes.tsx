@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "../api";
+import { Icone } from "../icones";
 import * as f from "../../espace/format";
 import {
   Bandeau,
@@ -85,7 +86,7 @@ export function DemandesAdmin() {
           data &&
           !isError && (
             <Vide
-              icone="✓"
+              icone={<Icone nom="coche" />}
               titre="Rien en attente"
               texte="Les demandes de changement de formule et d'achat de crédits apparaîtront ici."
             />
@@ -107,7 +108,7 @@ export function DemandesAdmin() {
               <tbody>
                 {ouvertes.map((demande) => (
                   <tr key={demande.id}>
-                    <td style={{ whiteSpace: "nowrap" }}>
+                    <td className="console-tabulaire">
                       {f.dateHeure(demande.date)}
                     </td>
                     <td>
@@ -125,14 +126,7 @@ export function DemandesAdmin() {
                       )}
                     </td>
                     <td>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "var(--e-2)",
-                          minWidth: 210,
-                        }}
-                      >
+                      <div className="console-decision">
                         <button
                           type="button"
                           className="bouton bouton-principal bouton-sm"
@@ -143,18 +137,23 @@ export function DemandesAdmin() {
                         >
                           Accorder
                         </button>
-                        <input
-                          className="champ-saisie"
-                          placeholder="Raison du refus…"
-                          aria-label="Raison du refus"
-                          value={motifRefus[demande.id] ?? ""}
-                          onChange={(evenement) =>
-                            setMotifRefus((precedent) => ({
-                              ...precedent,
-                              [demande.id]: evenement.target.value,
-                            }))
-                          }
-                        />
+                        {/* Le libellé est VISIBLE : un champ qui ne se nomme que
+                            par son texte indicatif perd son nom dès qu'on y
+                            écrit. */}
+                        <label className="champ">
+                          <span className="champ-libelle">Raison du refus</span>
+                          <input
+                            className="champ-saisie"
+                            placeholder="Affichée au client"
+                            value={motifRefus[demande.id] ?? ""}
+                            onChange={(evenement) =>
+                              setMotifRefus((precedent) => ({
+                                ...precedent,
+                                [demande.id]: evenement.target.value,
+                              }))
+                            }
+                          />
+                        </label>
                         <button
                           type="button"
                           className="bouton bouton-contour bouton-sm"
@@ -201,7 +200,7 @@ export function DemandesAdmin() {
               <tbody>
                 {traitees.map((demande) => (
                   <tr key={demande.id}>
-                    <td style={{ whiteSpace: "nowrap" }}>
+                    <td className="console-tabulaire">
                       {f.dateHeure(demande.date)}
                     </td>
                     <td>{demande.organisation}</td>

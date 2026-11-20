@@ -1,0 +1,590 @@
+/* Les formations en administration (`Formations.tsx`).
+ *
+ * Cette feuille ne dessine que ce qui est PROPRE à l'écran : la grille des
+ * formations, la bande d'état, la couverture, le programme (modules, leçons,
+ * éléments retirés). Les cartes, chiffres, boutons, champs, bandeaux,
+ * fenêtres et confirmations viennent du langage commun (`admin/console.css`).
+ *
+ * Trois règles de la charte, tenues par des tests :
+ * - aucune couleur écrite ici : tout lit `theme/tokens.css`, les translucides
+ *   sont composés par `color-mix()` sur un jeton ;
+ * - aucune durée écrite : chaque mouvement lit un jeton `--duree-*`, remis à
+ *   zéro sous mouvement réduit ;
+ * - aucun champ de saisie redimensionné sous 16 px.
+ *
+ * Écrite pour le petit écran d'abord ; les deux zones de la fiche ne se
+ * posent côte à côte qu'à partir de 1200 px.
+ *
+ * Cibles : chaque geste fait 44 px au moins, à la souris comme au doigt —
+ * les boutons du langage commun, les boutons de rang, l'en-tête repliable
+ * d'un module, le titre d'un groupe « Retirés », la case à cocher.
+ *
+ * Ce qui est retiré ou hors ligne s'efface par la TEINTE DU FOND et le texte
+ * doux (8,3:1 sur le papier) — jamais par `opacity`, qui ferait tomber le
+ * contraste des petits libellés sous le seuil.
+ */
+
+.frm,
+.frm-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+}
+
+/* ── La liste des formations ──────────────────────────────────────────────── */
+
+.frm-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: var(--e-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frm-grille:empty {
+  display: none;
+}
+
+.frm-carte {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--evkha-blanc);
+  overflow: hidden;
+}
+
+.frm-carte-hors-ligne {
+  background: var(--evkha-papier);
+}
+
+/* La place de la couverture est réservée par son rapport : la carte ne saute
+ * pas quand l'image arrive. */
+.frm-carte-image {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 2;
+  background: var(--evkha-or-voile);
+  color: var(--texte-doux);
+}
+
+.frm-carte-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frm-fanion {
+  position: absolute;
+  top: var(--e-3);
+  left: var(--e-3);
+}
+
+.frm-carte-corps {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-5);
+}
+
+.frm-carte-titre {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  line-height: 1.3;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+.frm-mesures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e-3) var(--e-4);
+  margin: 0;
+}
+
+.frm-mesures dt {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texte-tenu);
+}
+
+.frm-mesures dd {
+  margin: 0;
+  font-weight: var(--graisse-titre);
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-fort);
+}
+
+/* Ce qui manque pour publier : le serveur le dit, l'écran le répète. Un filet
+ * à gauche et la phrase — pas la teinte seule. */
+.frm-manque {
+  margin: 0;
+  padding: var(--e-2) var(--e-3);
+  border-left: 3px solid var(--evkha-alerte);
+  border-radius: var(--rayon-xs);
+  background: var(--evkha-alerte-voile);
+  color: var(--evkha-alerte);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+}
+
+/* Le bouton reste en bas de la carte, quelle que soit la longueur du titre. */
+.frm-carte-ouvrir {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+/* ── Une formation ouverte ────────────────────────────────────────────────── */
+
+.frm-retour {
+  align-self: flex-start;
+}
+
+.frm-etat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+.frm-etat-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-4);
+}
+
+.frm-etat-texte {
+  flex: 1 1 18rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-2);
+}
+
+.frm-etat-titre {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-titre);
+  line-height: 1.25;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+/* Le titre reçoit le focus à l'ouverture, pour situer : il n'est pas un
+ * geste, il ne se dessine donc pas de contour. */
+.frm-etat-titre:focus {
+  outline: none;
+}
+
+.frm-etat-ou {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2) var(--e-3);
+  margin: 0;
+}
+
+/* Un bouton qui attend la réponse du serveur : atteignable, mais sans effet. */
+.frm .bouton[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.frm-zones {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--e-6);
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .frm-zones {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+/* ── La fiche ─────────────────────────────────────────────────────────────── */
+
+.frm-couverture {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--e-4);
+  align-items: start;
+}
+
+@media (min-width: 600px) {
+  .frm-couverture {
+    grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  }
+}
+
+.frm-couverture-cadre {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 2;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-papier);
+  overflow: hidden;
+}
+
+.frm-couverture-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.frm-couverture-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-1);
+  color: var(--texte-doux);
+  font-size: var(--t-sm);
+}
+
+/* Le sélecteur de fichier : la hauteur d'une cible, et son bouton au ton des
+ * boutons de contour. */
+.frm-fichier {
+  max-width: 100%;
+  min-height: 44px;
+  font: inherit;
+  color: var(--texte-doux);
+}
+
+.frm-fichier::file-selector-button {
+  min-height: 44px;
+  margin-right: var(--e-3);
+  padding: 0 var(--e-4);
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-blanc);
+  color: var(--texte-fort);
+  font: inherit;
+  font-weight: var(--graisse-forte);
+  cursor: pointer;
+}
+
+.frm-fichier::file-selector-button:hover {
+  border-color: var(--evkha-encre);
+  background: var(--evkha-or-brume);
+}
+
+/* ── La fenêtre d'une leçon ───────────────────────────────────────────────── */
+
+.frm-document {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.frm-document-en-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-4);
+  margin: 0;
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-papier);
+  overflow-wrap: anywhere;
+}
+
+.frm .frm-court,
+.frm-fenetre .frm-court {
+  max-width: 10rem;
+}
+
+.frm-case-bloc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+}
+
+/* La case et son libellé forment UNE cible de 44 px de haut. */
+.frm-case {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-3);
+  min-height: 44px;
+  color: var(--texte-fort);
+  font-weight: var(--graisse-forte);
+  cursor: pointer;
+}
+
+.frm-case input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--evkha-encre);
+}
+
+/* ── Le programme ─────────────────────────────────────────────────────────── */
+
+.frm-programme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+/* La zone d'annonce (`role="status"`) reste dans la page même vide : elle ne
+ * prend de place que lorsqu'elle parle. */
+.frm-annonce {
+  margin: 0;
+  color: var(--texte-doux);
+  font-size: var(--t-sm);
+}
+
+.frm-programme-vide {
+  margin: 0;
+  padding: var(--e-6) var(--e-4);
+  border: 1px dashed var(--evkha-bordure-forte);
+  border-radius: var(--rayon-md);
+  color: var(--texte-doux);
+  text-align: center;
+}
+
+.frm-modules,
+.frm-lecons,
+.frm-retires-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frm-modules:empty {
+  display: none;
+}
+
+.frm-module {
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+}
+
+.frm-module-entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-3);
+  padding: var(--e-3) var(--e-4);
+}
+
+.frm-module-titre {
+  flex: 1 1 14rem;
+  min-width: 0;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* L'en-tête d'un module est un bouton : il replie et déplie ses leçons. */
+.frm-bascule {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--e-1) var(--e-2);
+  border: 0;
+  border-radius: var(--rayon-sm);
+  background: transparent;
+  color: var(--texte-fort);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duree-micro) var(--ease-doux);
+}
+
+.frm-bascule:hover {
+  background: var(--evkha-or-brume);
+}
+
+.frm-module-texte {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.frm-module-rang {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texte-tenu);
+}
+
+.frm-module-nom {
+  font-weight: var(--graisse-titre);
+  overflow-wrap: anywhere;
+}
+
+.frm-module-compte {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* Les flèches : UNE icône du jeu commun, tournée. Vers la droite au repos
+ * (un module replié), vers le bas ou le haut selon le geste. */
+.frm-fleche {
+  flex: none;
+  display: grid;
+  place-items: center;
+  transition: transform var(--duree-micro) var(--ease-doux);
+}
+
+.frm-fleche-bas {
+  transform: rotate(90deg);
+}
+
+.frm-fleche-haut {
+  transform: rotate(-90deg);
+}
+
+/* En bout de liste, ou pendant un envoi : le bouton reste atteignable et
+ * garde le focus, mais il se montre au repos. */
+.frm-rang[aria-disabled="true"],
+.frm-rang[aria-disabled="true"]:hover {
+  border-color: var(--evkha-bordure);
+  background: var(--evkha-papier);
+  color: var(--texte-tenu);
+  cursor: not-allowed;
+}
+
+.frm-module-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+/* `display: flex` l'emporterait sur l'attribut `hidden` d'un module replié. */
+.frm-module-corps[hidden] {
+  display: none;
+}
+
+.frm-module-description {
+  margin: 0;
+  color: var(--texte-doux);
+  white-space: pre-line;
+}
+
+.frm-lecon,
+.frm-retire {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-sm);
+}
+
+.frm-lecon {
+  background: var(--evkha-papier);
+}
+
+.frm-lecon-corps {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.frm-lecon-titre {
+  margin: 0;
+  color: var(--texte-fort);
+  font-weight: var(--graisse-forte);
+  overflow-wrap: anywhere;
+}
+
+.frm-ajout {
+  align-self: flex-start;
+}
+
+/* ── Retirés ──────────────────────────────────────────────────────────────── */
+
+/* Replié par défaut : ce qui est retiré ne s'efface pas, mais il ne se mêle
+ * pas à ce qui est en place. */
+.frm-retires {
+  border: 1px dashed var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  background: var(--fond-enfonce);
+}
+
+/* `list-item` : le triangle du navigateur reste, il dit « replié / déplié ».
+ * 12 px de rembourrage de part et d'autre d'une ligne de 20 px : 44 px. */
+.frm-retires > summary {
+  display: list-item;
+  min-height: 44px;
+  padding: var(--e-3) var(--e-4);
+  border-radius: var(--rayon-sm);
+  color: var(--texte-doux);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  cursor: pointer;
+}
+
+.frm-retires > summary:hover {
+  color: var(--texte-fort);
+}
+
+.frm-retires-liste {
+  padding: 0 var(--e-3) var(--e-3);
+}
+
+.frm-retire {
+  border-style: dashed;
+  background: var(--evkha-papier);
+}
+
+.frm-retire-nom {
+  flex: 1 1 12rem;
+  min-width: 0;
+  color: var(--texte-doux);
+  overflow-wrap: anywhere;
+}
+
+/* ── Les inscrits ─────────────────────────────────────────────────────────── */
+
+/* Le corps de la carte, une fois dépliée : le refus, l'annonce, le tableau
+ * (langage commun, `console.css`), puis la confirmation d'un retrait. Posé
+ * sur un bloc INTÉRIEUR, monté à l'ouverture : `display: flex` sur le bloc
+ * porteur de `hidden` l'aurait laissé visible. */
+.frm-inscrits-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  min-width: 0;
+}
+
+/* Le motif et les deux gestes, dans le cadre de confirmation. */
+.frm-retrait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+/* Les durées valent déjà 0 ms sous ce réglage (`tokens.css`) ; ceci est le
+ * filet, comme dans `console.css`. */
+@media (prefers-reduced-motion: reduce) {
+  .frm-bascule,
+  .frm-fleche {
+    transition: none;
+  }
+}

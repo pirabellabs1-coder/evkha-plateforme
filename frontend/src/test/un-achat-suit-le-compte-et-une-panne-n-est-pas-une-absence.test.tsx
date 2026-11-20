@@ -32,7 +32,7 @@ import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErreurApi, jeton } from "../espace/api";
-import { payerUnProduit, payerUneEtude } from "../public/achat";
+import { AdresseDePaiementRefusee, payerUnProduit, payerUneEtude } from "../public/achat";
 import { server } from "./server";
 
 const parametres = { livrable: "etude-de-marche", slug: "foodtrucks" };
@@ -54,7 +54,10 @@ const { Inscription } = await import("../public/Inscription");
 const ORIGINE = window.location.origin;
 const API = `${ORIGINE}/api`;
 
-const STRIPE = "https://checkout.stripe.exemple/c/pay/cs_test_1";
+// L'hôte est le VRAI : `achat.ts` ne rend qu'une adresse de Stripe Checkout
+// (`adresseDePaiementSure`, 20/11/2026). L'hôte inventé d'avant
+// (`checkout.stripe.exemple`) serait refusé.
+const STRIPE = "https://checkout.stripe.com/c/pay/cs_test_1";
 
 /** Ce qui est parti au serveur, route par route. */
 type Appel = { corps: Record<string, unknown>; autorisation: string | null };
@@ -351,6 +354,65 @@ describe("un achat suit le compte, et une panne n'est pas une absence", () => {
     // Le refus de l'espace n'est pas contourné par la route publique.
     expect(appels.publicEtude).toEqual([]);
   });
+
+  // ── 2 bis. L'adresse de paiement est celle de Stripe ──────────────────────
+  //
+  // 20/11/2026. Les pages suivaient l'adresse rendue par le serveur sans
+  // regarder où elle menait. `payerUneEtude` et `payerUnProduit` ne rendent
+  // plus qu'une adresse de Stripe Checkout, hôte comparé exactement.
+
+  const RESSEMBLANT = "https://checkout.stripe.com.evil.tld/c/pay/cs_test_1";
+  const PANNE_DE_PAIEMENT = "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.";
+
+  it("étude et produit : une adresse qui ressemble à Stripe est refusée, pas rendue", async () => {
+    brancherLesPaiements(() => HttpResponse.json({ adresse: RESSEMBLANT }));
+    jeton.ecrire("jeton-de-session");
+
+    await expect(payerUneEtude("etude-de-marche")).rejects.toBeInstanceOf(AdresseDePaiementRefusee);
+    await expect(payerUnProduit("foodtrucks")).rejects.toBeInstanceOf(AdresseDePaiementRefusee);
+    // Le serveur a bien été interrogé : c'est SA réponse qui est refusée.
+    expect(appels.espaceEtude).toHaveLength(1);
+    expect(appels.espaceProduit).toHaveLength(1);
+    // Et le refus n'est pas contourné par la route publique.
+    expect(appels.publicEtude).toEqual([]);
+    expect(appels.publicProduit).toEqual([]);
+  });
+
+  it("fiche de boutique : une adresse hors de Stripe n'est pas suivie, la panne de paiement se dit", async () => {
+    brancherLesPaiements(() => HttpResponse.json({ adresse: RESSEMBLANT }));
+    server.use(http.get(`${API}/public/boutique/foodtrucks/`, () => HttpResponse.json(FICHE)));
+    jeton.ecrire("jeton-de-session");
+    render(<FicheProduit />);
+
+    const acheter = await screen.findByRole("button", { name: /Acheter/ });
+    fireEvent.click(acheter);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(PANNE_DE_PAIEMENT);
+    expect(appels.espaceProduit).toHaveLength(1);
+    expect(departs).toEqual([]);
+    expect(document.body.innerHTML).not.toContain("evil.tld");
+    // On peut réessayer.
+    expect(acheter).not.toBeDisabled();
+  });
+
+  it("page d'achat : une adresse en http: n'est pas suivie, la panne de paiement se dit", async () => {
+    poserLAdresse("/acheter/etude-de-marche");
+    brancherLesPaiements(() =>
+      HttpResponse.json({ adresse: "http://checkout.stripe.com/c/pay/cs_test_1" }),
+    );
+    server.use(http.get(`${API}/public/livrables/`, () => HttpResponse.json(CATALOGUE)));
+    jeton.ecrire("jeton-de-session");
+    render(<Acheter />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Payer/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(PANNE_DE_PAIEMENT);
+    expect(appels.espaceEtude).toHaveLength(1);
+    expect(departs).toEqual([]);
+  });
+
+  // La contre-épreuve — la vraie adresse de Stripe est suivie — est jouée par
+  // les quatre écrans du bloc 2, qui attendent tous `departs = [STRIPE]`.
 
   // ── 3. Une panne n'est pas une absence ────────────────────────────────────
 

@@ -19,6 +19,13 @@
 #   Relancer la commande ne touche pas aux fiches déjà créées. En faire une
 #   étape manuelle, c'est l'oublier, et l'API de Coolify n'expose aucune
 #   exécution de commande dans le conteneur pour la rattraper.
+# - `seed_formations` crée les trois fiches de formation HORS LIGNE, sans
+#   module : la gérante saisit le programme puis met en ligne depuis
+#   l'administration. Les pages publiques repèrent chaque formation par son
+#   adresse (`methode-pop`…), d'où l'amorçage plutôt qu'une saisie libre.
+#   Relancée, elle ne touche à aucune fiche existante. Elle non plus ne peut
+#   pas faire tomber la plateforme : même liaison que la démonstration.
+#
 # - `seed_boutique_demo` remplit ces fiches de quoi MONTRER la boutique :
 #   description, sommaire, couverture, PDF, extrait et avis. C'est un jeu de
 #   DÉMONSTRATION, et sa page de garde le dit. Une fiche qui porte déjà un
@@ -65,6 +72,7 @@ services:
       && python manage.py seed_formules
       && python manage.py seed_boutique
       && (python manage.py seed_boutique_demo || echo 'AVERTISSEMENT - jeu de demonstration non depose, la boutique demarre vide')
+      && (python manage.py seed_formations || echo 'AVERTISSEMENT - fiches de formation non creees, a creer depuis l administration')
       && python manage.py assurer_admin
       && python manage.py reinitialiser_la_plateforme
       && python manage.py collectstatic --noinput

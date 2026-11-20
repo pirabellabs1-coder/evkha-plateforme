@@ -35,6 +35,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { adminApi, type SignalementAdmin, type StatutSignalement } from "../api";
+import { Icone } from "../icones";
 import * as f from "../../espace/format";
 import { jeton as jetonEspace } from "../../espace/api";
 import {
@@ -162,7 +163,7 @@ export function SignalementsAdmin() {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--e-5)" }}>
+    <div className="console-empile">
       {/* Deux lectures, deux bandeaux. Sans le premier, un échec se lisait
           « Aucun signalement — rien n'est remonté des espaces clients » : le
           problème d'un client restait sans réponse derrière un écran vide.
@@ -220,8 +221,8 @@ export function SignalementsAdmin() {
             : undefined
         }
         action={
-          <label className="champ" style={{ minWidth: 200 }}>
-            <span className="visuellement-cache">Filtrer par statut</span>
+          <label className="champ">
+            <span className="visuellement-cache">Filtrer les signalements par statut</span>
             <select
               className="champ-saisie"
               value={filtre}
@@ -243,6 +244,7 @@ export function SignalementsAdmin() {
         {/* « Aucun signalement » ne se dit que sur une liste REÇUE et à jour. */}
         {data && !isError && liste.length === 0 && (
           <Vide
+            icone={<Icone nom="coche" />}
             titre="Aucun signalement"
             texte="Rien n'est remonté des espaces clients pour ce filtre."
           />
@@ -275,18 +277,11 @@ export function SignalementsAdmin() {
                     </p>
                   )}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "var(--e-2)",
-                      flexWrap: "wrap",
-                      marginTop: "var(--e-3)",
-                    }}
-                  >
+                  <div className="console-gestes" style={{ marginTop: "var(--e-3)" }}>
                     {suivant && (
                       <button
                         type="button"
-                        className="bouton bouton-sm"
+                        className="bouton bouton-principal bouton-sm"
                         disabled={traiter.isPending}
                         onClick={() =>
                           traiter.mutate({
@@ -329,12 +324,13 @@ export function SignalementsAdmin() {
                         Rouvrir
                       </button>
                     )}
-                    {/* En dernier, et en discret : c'est l'action qu'on ne veut
-                        pas atteindre par erreur en visant « Prendre en
-                        charge ». */}
+                    {/* En dernier, loin de « Prendre en charge », et au ton
+                        d'échec : c'est l'action qu'on ne veut pas atteindre
+                        par erreur, et qui doit se reconnaître avant le clic.
+                        La confirmation, elle, récite ce qu'on efface. */}
                     <button
                       type="button"
-                      className="bouton bouton-discret bouton-sm"
+                      className="bouton bouton-echec bouton-sm"
                       disabled={suppression.isPending}
                       onClick={() => supprimerApresConfirmation(signalement)}
                     >
@@ -347,7 +343,7 @@ export function SignalementsAdmin() {
                       Réponse au client (visible dans son espace)
                     </span>
                     <textarea
-                      className="champ-saisie"
+                      className="champ-saisie champ-zone"
                       rows={2}
                       value={reponses[signalement.id] ?? signalement.reponse}
                       placeholder="Ce que vous avez fait, en une ou deux phrases."

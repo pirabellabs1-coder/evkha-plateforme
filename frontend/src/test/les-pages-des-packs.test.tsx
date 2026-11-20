@@ -25,15 +25,26 @@
  * 9. la stratégie : « réalisé par Evangeline » dès l'ouverture, une passerelle
  *    vers `/etudes` sans un prix ;
  * 10. aucune adresse du CDN de l'ancien site dans `Packs.tsx` ni `Packs.css`,
- *     ni dans le DOM.
+ *     ni dans le DOM ;
+ * 11. la formation P.O.P offerte avec le Premium : sa « valeur » et sa durée
+ *     sont celles que le SERVEUR rend pour `methode-pop`
+ *     (`GET /api/public/formations/`), servies ici à des valeurs inhabituelles
+ *     (913 €, 11 h). Tant que la réponse n'est pas arrivée, si l'appel échoue,
+ *     si la réponse est mal formée ou si la formation n'est pas en ligne, les
+ *     trois pages restent ENTIÈRES et la mention disparaît proprement de
+ *     chaque phrase — ni « valeur  € », ni parenthèse vide ; ni le prix ni la
+ *     durée de la formation ne sont écrits dans les sources.
  *
  * Contre-épreuves (règle 6) : les détecteurs voient bien un montant, une
- * ancienneté nue, une adresse du CDN — et laissent passer ce qui est juste.
+ * ancienneté nue, une adresse du CDN, une durée écrite en dur, une phrase
+ * amputée — et laissent passer ce qui est juste.
  *
- * PAS ENCORE JOUÉ au moment de son écriture (machine à court de mémoire,
- * consigne du lot) : ni contre la page, ni par mutation. À rejouer, puis à
- * éprouver par mutations — un montant en dur dans une carte, un bouton d'achat
- * croisé, le formulaire rendu, un `dire` retiré de l'experte.
+ * PAS ENCORE JOUÉ au moment de son écriture ni de sa mise à jour du
+ * 19/11/2026 (consigne du lot : ni `vitest` ni `tsc`) : ni contre la page, ni
+ * par mutation. À rejouer, puis à éprouver par mutations — un montant en dur
+ * dans une carte, un bouton d'achat croisé, le formulaire rendu, un `dire`
+ * retiré de l'experte, la valeur de la P.O.P écrite en dur, un passage
+ * facultatif dont on retire les crochets.
  *
  * `React` est importé nommément : `src/test` est hors du `tsconfig`, le JSX y
  * est compilé en `React.createElement` classique.
@@ -41,9 +52,11 @@
 import React from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { delay, http, HttpResponse } from "msw";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { composerTout, type Chiffres } from "../public/chiffres";
 import {
   ARTICULATION_PACK_ESSENTIEL,
   ARTICULATION_PACK_PREMIUM,
@@ -54,17 +67,67 @@ import {
   PAGE_PACK_ESSENTIEL,
   PAGE_PACK_PREMIUM,
   TARIFS_PACKS,
+  chiffresDesPacks,
   compteRendu,
   pointDeListe,
   sansCompte,
   sansFleche,
 } from "../public/contenuPacks";
-import { DUREES_POP, TARIFS_FORMATIONS } from "../public/contenuFormations";
 import { LIENS } from "../public/contenuSite";
+import type { FormationPublique } from "../public/donnees";
 import { PackEssentiel, PackPremium, Packs } from "../public/Packs";
 // L'ancienneté n'est plus une fonction des packs : packs et formations
 // partagent celle du socle.
 import { ancienneteSure, titreDOnglet } from "../public/site";
+import { server } from "./server";
+
+// ── L'API des formations, telle que le test la sert ─────────────────────────
+
+// L'adresse que `donnees.ts` construit réellement : l'origine de jsdom.
+const FORMATIONS_API = `${window.location.origin}/api/public/formations/`;
+
+/** Une formation telle que le serveur la rend. Par défaut : la Méthode P.O.P,
+ *  à un prix et une durée que personne n'écrirait de mémoire. */
+function formation(surcharges: Partial<FormationPublique> = {}): FormationPublique {
+  return {
+    slug: "methode-pop",
+    titre: "TITRE-DU-SERVEUR",
+    sous_titre: "",
+    accroche: "",
+    prix_cents: 91300,
+    devise: "EUR",
+    duree_heures: 11,
+    heures_de_coaching: 0,
+    lien_d_achat: "",
+    image: "",
+    nombre_de_modules: 0,
+    modules: [],
+    ...surcharges,
+  };
+}
+
+const POP_EN_LIGNE = formation();
+/** Une AUTRE formation en ligne : la réponse n'est pas vide, mais la P.O.P
+ *  n'y est pas. Son prix ne doit jamais passer pour la valeur de la P.O.P. */
+const UNE_AUTRE = formation({ slug: "creer-son-entreprise", prix_cents: 123700, duree_heures: 23 });
+
+/** Les chiffres que les phrases doivent citer, écrits à la main. */
+const EN_LIGNE: Chiffres = { valeurPop: "913 €", valeurPopEntiere: 913, heuresPop: 11 };
+const SANS: Chiffres = { valeurPop: null, valeurPopEntiere: null, heuresPop: null };
+
+type Reponse = () => Response | Promise<Response>;
+
+function servir(reponse: Reponse) {
+  server.use(http.get(FORMATIONS_API, reponse));
+}
+
+const lesFormations = (liste: object[]): Reponse => () => HttpResponse.json({ formations: liste });
+const panne: Reponse = () => new HttpResponse("panne", { status: 500 });
+const malFormee: Reponse = () => HttpResponse.json({ formation: [] });
+const muet: Reponse = async () => {
+  await delay("infinite");
+  return new HttpResponse(null);
+};
 
 // ── Outils ──────────────────────────────────────────────────────────────────
 
@@ -154,13 +217,23 @@ function estUnSigne(phrase: string): boolean {
   );
 }
 
-/** Les phrases du contenu que la page n'affiche pas mot pour mot. */
-function absentes(contenu: unknown): string[] {
+/** Les phrases du contenu que la page n'affiche pas mot pour mot — une fois
+ *  les chiffres de la formation P.O.P posés (ou retirés) dans celles qui en
+ *  citent. Une phrase que son chiffre manquant a vidée n'est pas attendue. */
+function absentes(contenu: unknown, chiffres: Chiffres = EN_LIGNE): string[] {
   const page = texte();
-  return phrases(contenu, HORS_PHRASES)
+  return phrases(composerTout(contenu, chiffres), HORS_PHRASES)
+    .filter((phrase) => phrase !== "")
     .filter((phrase) => !estUnSigne(phrase))
     .filter((phrase) => !page.includes(affichee(phrase)));
 }
+
+/** Une durée de formation écrite en dur. */
+const DUREE_EN_DUR = /\b\d+\s?h de formation/g;
+
+/** Ce qu'une phrase amputée de son chiffre laisserait derrière elle. */
+const PHRASE_AMPUTEE =
+  /\(\s*\)|\(\s*valeur\s*\)|valeur\s+€|valeur de\s*,|VALEUR\s+EUROS|:\s+pour structurer|[{}]|\[\[|\]\]/i;
 
 const PAGES = {
   ensemble: { chemin: "/packs", page: <Packs /> },
@@ -174,6 +247,15 @@ const NOMS = Object.keys(PAGES) as NomDePage[];
 function rendre(nom: NomDePage) {
   window.history.pushState({}, "", PAGES[nom].chemin);
   return render(PAGES[nom].page);
+}
+
+/** Rend la page et attend qu'elle ait LU la réponse du serveur. Sur ces pages,
+ *  une formation hors ligne ou une panne ne change rien de visible : l'état de
+ *  l'appel se lit sur la racine (`data-formations`). */
+async function rendreLue(nom: NomDePage, etat: "recu" | "panne" = "recu") {
+  const rendu = rendre(nom);
+  await waitFor(() => expect(document.querySelector(".acc.pak")).toHaveAttribute("data-formations", etat));
+  return rendu;
 }
 
 function liens(conteneur: ParentNode = document): HTMLAnchorElement[] {
@@ -192,6 +274,9 @@ function liensDePaiement(): HTMLAnchorElement[] {
 }
 
 describe("les pages des packs", () => {
+  // Par défaut, la Méthode P.O.P est en ligne ; un test qui veut un autre
+  // état le sert lui-même.
+  beforeEach(() => servir(lesFormations([UNE_AUTRE, POP_EN_LIGNE])));
   afterEach(() => {
     cleanup();
     window.history.pushState({}, "", "/");
@@ -333,8 +418,8 @@ describe("les pages des packs", () => {
 
   // ── Les prix ──────────────────────────────────────────────────────────────
 
-  it("/packs affiche les deux prix de la constante de tarifs, chacun dans SA carte", () => {
-    rendre("ensemble");
+  it("/packs affiche les deux prix de la constante de tarifs, chacun dans SA carte", async () => {
+    await rendreLue("ensemble");
 
     const cartes = Array.from(document.querySelectorAll<HTMLElement>("article.pak-carte"));
     expect(cartes).toHaveLength(2);
@@ -348,7 +433,7 @@ describe("les pages des packs", () => {
       [cartes[0], PAGE_PACKS.packEssentiel],
       [cartes[1], PAGE_PACKS.packPremium],
     ] as const) {
-      const attendues = phrases(contenu, HORS_PHRASES);
+      const attendues = phrases(composerTout(contenu, EN_LIGNE), HORS_PHRASES);
       expect(attendues.length).toBeGreaterThan(12);
       for (const phrase of attendues) {
         expect(texteDe(carte), `la carte ne dit plus : « ${phrase} »`).toContain(affichee(phrase));
@@ -391,30 +476,185 @@ describe("les pages des packs", () => {
     for (const tarif of [TARIFS_PACKS.essentiel, TARIFS_PACKS.premium]) {
       expect(code.split(String(tarif.centimes)).length - 1, String(tarif.centimes)).toBe(1);
     }
-    // La valeur de la formation P.O.P : écrite ZÉRO fois ici. Elle est lue là
-    // où la formation est vendue, et les deux pages ne peuvent plus se
-    // contredire.
-    expect(TARIFS_PACKS.formationPop.centimes).toBe(TARIFS_FORMATIONS.pop.centimes);
-    expect(code.split(String(TARIFS_FORMATIONS.pop.centimes)).length - 1).toBe(0);
-    expect(code).toContain("TARIFS_FORMATIONS.pop.centimes");
+    // Et ce sont les SEULS tarifs de la constante : la valeur de la formation
+    // P.O.P n'y est plus, elle vient du serveur.
+    expect(Object.keys(TARIFS_PACKS)).toEqual(["essentiel", "premium"]);
   });
 
-  it("la durée de la Méthode P.O.P se lit dans les formations : aucun « 7h » écrit dans les packs", () => {
-    const code = sansCommentaires(source("contenuPacks.ts"));
-    expect(code.length).toBeGreaterThan(5000);
-    const DUREE_EN_DUR = /\b\d+\s?h de formation/g;
-    expect(code.match(DUREE_EN_DUR) ?? []).toEqual([]);
-    expect(code).toContain("DUREES_POP.heuresEnLigne");
+  // ── La formation P.O.P offerte : sa valeur et sa durée viennent du serveur ─
 
-    // Et la page du Premium affiche bien la durée de la formation, trois fois.
-    rendre("premium");
-    const annonce = `${DUREES_POP.heuresEnLigne}h de formation`;
-    expect(texte().split(annonce).length - 1).toBeGreaterThanOrEqual(3);
-    // Contre-épreuve : le détecteur voit une durée écrite en dur.
-    expect("7h de formation digitale".match(DUREE_EN_DUR)).toEqual(["7h de formation"]);
-    expect("18 h de formation".match(DUREE_EN_DUR)).toEqual(["18 h de formation"]);
-    expect("`${HEURES_POP} de formation digitale`".match(DUREE_EN_DUR)).toBeNull();
+  for (const fichier of ["contenuPacks.ts", "Packs.tsx"]) {
+    it(`${fichier} n'écrit ni le prix ni la durée de la formation P.O.P`, () => {
+      const code = sansCommentaires(source(fichier));
+      expect(code.length, fichier).toBeGreaterThan(5000);
+      // Ni par ses chiffres — en euros comme en centimes —, ni par une durée,
+      // ni par les constantes d'avant, qui n'existent plus.
+      expect(code.match(/(?<!\d)(?:85000|850)(?!\d)/g) ?? [], fichier).toEqual([]);
+      expect(code.match(DUREE_EN_DUR) ?? [], fichier).toEqual([]);
+      for (const supprimee of ["TARIFS_FORMATIONS", "DUREES_POP", "HEURES_POP", "VALEUR_POP", "formationPop"]) {
+        expect(code, supprimee).not.toContain(supprimee);
+      }
+    });
+  }
+
+  it("la valeur et la durée de la P.O.P se lisent dans la réponse du serveur, pour SA formation seulement", () => {
+    const lus = chiffresDesPacks([UNE_AUTRE, POP_EN_LIGNE]);
+    expect({ ...lus, valeurPop: espaces(String(lus.valeurPop)) }).toEqual(EN_LIGNE);
+    // L'insécable devant « € » y est : c'est la fonction commune du site.
+    expect(String(lus.valeurPop)).not.toMatch(/ €/);
+    // Pas de réponse (attente, panne), pas de P.O.P dans la réponse, une
+    // P.O.P sans prix lisible : aucun chiffre — jamais celui d'une autre.
+    expect(chiffresDesPacks(null)).toEqual(SANS);
+    expect(chiffresDesPacks([])).toEqual(SANS);
+    expect(chiffresDesPacks([UNE_AUTRE])).toEqual(SANS);
+    expect(chiffresDesPacks([formation({ prix_cents: 0 })])).toEqual(SANS);
+    expect(chiffresDesPacks([formation({ devise: "USD" })])).toEqual(SANS);
+    // Un prix qui ne tombe pas sur un euro rond : la forme « en euros
+    // entiers » s'en passe, plutôt que d'arrondir.
+    const nonRond = chiffresDesPacks([formation({ prix_cents: 91350 })]);
+    expect(espaces(String(nonRond.valeurPop))).toBe("913,50 €");
+    expect(nonRond.valeurPopEntiere).toBeNull();
+    // Une durée d'une heure, ou nulle, ne s'écrit pas « 1h de formation ».
+    expect(chiffresDesPacks([formation({ duree_heures: 1 })]).heuresPop).toBeNull();
+    expect(chiffresDesPacks([formation({ duree_heures: 0 })]).heuresPop).toBeNull();
   });
+
+  it("premium, P.O.P en ligne : chaque phrase cite la valeur et la durée du serveur", async () => {
+    await rendreLue("premium");
+
+    const page = texte();
+    // Écrites ici à la main, telles que la page doit les dire.
+    for (const phrase of [
+      "Formation P.O.P incluse (valeur 913 €)",
+      "BONUS : Formation P.O.P incluse (913 €)",
+      "L'accès complet à la formation Méthode P.O.P d'EVKHA : 11h de formation pour structurer votre activité",
+      "D'une valeur de 913 €, la formation P.O.P est habituellement vendue séparément.",
+      "11h de formation digitale à votre rythme",
+      "ET la formation P.O.P (valeur 913 €). Si vous visez un financement important",
+    ]) {
+      expect(page, phrase).toContain(phrase);
+    }
+    // La durée est annoncée trois fois : la carte du livrable (deux fois) et
+    // celle de la formation offerte.
+    expect(page.split("11h de formation").length - 1).toBeGreaterThanOrEqual(3);
+    // La case du comparatif : l'étoile, sa lecture, puis la valeur.
+    const ligne = Array.from(document.querySelectorAll("#comparatif tbody tr")).find(
+      (rang) => rang.querySelector("th")?.textContent === "Formation P.O.P incluse",
+    );
+    expect(texteDe(ligne?.querySelectorAll("td")[1] ?? null)).toBe("★Bonus, Valeur 913 €");
+    // Ni le prix ni la durée d'avant, ni le prix d'une AUTRE formation.
+    expect(page).not.toMatch(/850|\b7\s?h\b|1 237/);
+    expect(page).not.toMatch(PHRASE_AMPUTEE);
+    expect(brut()).not.toMatch(/ €/);
+    // Le texte du serveur ne remplace pas celui de la page.
+    expect(page).not.toContain("TITRE-DU-SERVEUR");
+  });
+
+  it("ensemble et essentiel, P.O.P en ligne : la valeur du serveur, dans leurs phrases", async () => {
+    await rendreLue("ensemble");
+    const points = () => Array.from(document.querySelectorAll(".pak-points li > span:last-child")).map(texteDe);
+    expect(points()).toContain("BONUS EXCEPTIONNEL : ACCÈS À LA FORMATION POP (VALEUR 913 EUROS)");
+    expect(texte()).toContain("★Bonus, Valeur 913 €");
+    expect(texte()).not.toMatch(/850|1 237/);
+    cleanup();
+
+    await rendreLue("essentiel");
+    expect(texte()).toContain("ET la formation P.O.P incluse (valeur 913 €). Si vous visez un financement important");
+    expect(texte()).toContain("et la formation P.O.P incluse (valeur 913 €). Pour les projets ambitieux");
+    expect(texte()).not.toMatch(/850|1 237/);
+  });
+
+  it("un prix de la P.O.P qui n'est pas rond : la valeur s'affiche avec ses centimes, la phrase en euros entiers s'en passe", async () => {
+    servir(lesFormations([formation({ prix_cents: 91350 })]));
+    await rendreLue("ensemble");
+
+    expect(texte()).toContain("★Bonus, Valeur 913,50 €");
+    const points = Array.from(document.querySelectorAll(".pak-points li > span:last-child")).map(texteDe);
+    expect(points).toContain("BONUS EXCEPTIONNEL : ACCÈS À LA FORMATION POP");
+    expect(texte()).not.toMatch(/VALEUR/);
+  });
+
+  for (const [etat, reponse, lu] of [
+    ["la réponse n'est pas arrivée", muet, null],
+    ["l'appel échoue", panne, "panne"],
+    ["la réponse est mal formée", malFormee, "panne"],
+    ["la P.O.P n'est pas en ligne (réponse vide)", lesFormations([]), "recu"],
+    ["la P.O.P n'est pas en ligne (une autre formation l'est)", lesFormations([UNE_AUTRE]), "recu"],
+  ] as [string, Reponse, "recu" | "panne" | null][]) {
+    it(`premium, quand ${etat} : la page reste entière, et la mention disparaît proprement`, async () => {
+      servir(reponse);
+      if (lu === null) rendre("premium");
+      else await rendreLue("premium", lu);
+
+      const page = texte();
+      // Écrites ici à la main : chaque phrase, sans sa mention.
+      for (const phrase of [
+        "L'accès complet à la formation Méthode P.O.P d'EVKHA pour structurer votre activité, organiser votre temps",
+        "La formation P.O.P est habituellement vendue séparément. Elle est intégralement offerte",
+        "ET la formation P.O.P. Si vous visez un financement important",
+        "Formation digitale à votre rythme",
+      ]) {
+        expect(page, phrase).toContain(phrase);
+      }
+      // Le titre du livrable, la ligne de l'encart, la case du comparatif :
+      // exactement ce qu'il reste, pas un mot de plus.
+      const livrables = Array.from(document.querySelectorAll("#contenu .pak-livrables > li > h3")).map(texteDe);
+      expect(livrables[livrables.length - 1]).toBe("Formation P.O.P incluse");
+      const encart = Array.from(document.querySelectorAll(".pak-encart-points li")).map(texteDe);
+      expect(encart[encart.length - 1]).toBe("★BONUS : Formation P.O.P incluse");
+      const ligne = Array.from(document.querySelectorAll("#comparatif tbody tr")).find(
+        (rang) => rang.querySelector("th")?.textContent === "Formation P.O.P incluse",
+      );
+      expect(texteDe(ligne?.querySelectorAll("td")[1] ?? null)).toBe("★Bonus");
+      expect(Array.from(document.querySelectorAll("#contenu .pak-etoiles li")).map(texteDe)).toContain("Formation digitale");
+
+      // Ni phrase amputée, ni chiffre de la formation — d'ici ou d'ailleurs.
+      expect(page).not.toMatch(PHRASE_AMPUTEE);
+      expect(page.match(DUREE_EN_DUR)).toBeNull();
+      expect(page).not.toMatch(/913|850|1 237|valeur de/i);
+      expect(page).not.toMatch(/\b(?:null|undefined|NaN)\b/);
+
+      // La page est entière : toutes ses sections, tout son texte, son prix de
+      // pack — et aucune alerte, aucun prix de pack ne dépendant de cet appel.
+      expect(Array.from(document.querySelectorAll("main section[id]")).map((s) => s.id)).toEqual([
+        "pour-qui", "en-plus", "contenu", "formation-offerte", "processus", "comparatif", "experte", "questions", "autrement", "commander",
+      ]);
+      const p = PAGE_PACK_PREMIUM;
+      expect(phrases(composerTout(p, SANS), HORS_PHRASES).length).toBeGreaterThan(150);
+      expect(absentes(p, SANS)).toEqual([
+        p.contenuDuPack.titre,
+        p.processus.titre,
+        p.processus.etapes[4].corps,
+        p.experte.corps,
+        p.appelFinal.corps,
+      ]);
+      expect(texteDe(document.querySelector(".pak-encart .pak-prix"))).toContain(PRIX_PREMIUM);
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(liensDePaiement()).toHaveLength(2);
+      for (const bloc of Array.from(document.querySelectorAll("[data-reveal]"))) expect(bloc).toHaveClass("est-revele");
+    });
+
+    it(`ensemble et essentiel, quand ${etat} : leurs phrases se passent de la valeur`, async () => {
+      servir(reponse);
+      if (lu === null) rendre("ensemble");
+      else await rendreLue("ensemble", lu);
+      const points = Array.from(document.querySelectorAll(".pak-points li > span:last-child")).map(texteDe);
+      expect(points).toContain("BONUS EXCEPTIONNEL : ACCÈS À LA FORMATION POP");
+      expect(texte()).not.toMatch(PHRASE_AMPUTEE);
+      expect(texte()).not.toMatch(/913|850|1 237|VALEUR/);
+      expect(absentes(PAGE_PACKS, SANS)).toEqual([PAGE_PACKS.ouverture.corps[1]]);
+      expect(screen.queryByRole("alert")).toBeNull();
+      cleanup();
+
+      if (lu === null) rendre("essentiel");
+      else await rendreLue("essentiel", lu);
+      expect(texte()).toContain("ET la formation P.O.P incluse. Si vous visez un financement important");
+      expect(texte()).toContain("et la formation P.O.P incluse. Pour les projets ambitieux");
+      expect(texte()).not.toMatch(PHRASE_AMPUTEE);
+      expect(texte()).not.toMatch(/913|850|1 237/);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  }
 
   it("contre-épreuve : les détecteurs voient un montant, des chiffres de tarif, une ancienneté nue, le CDN", () => {
     for (const faute of ["Tarif : 495 €", "995€", "1 490 € TTC", "valeur 850 euros"]) {
@@ -504,8 +744,8 @@ describe("les pages des packs", () => {
 
   // ── Rien de ce que les pages disaient n'a disparu ─────────────────────────
 
-  it("/packs : chaque phrase de PAGE_PACKS est dans la page, sauf l'ancienneté accordée", () => {
-    rendre("ensemble");
+  it("/packs : chaque phrase de PAGE_PACKS est dans la page, sauf l'ancienneté accordée", async () => {
+    await rendreLue("ensemble");
 
     expect(phrases(PAGE_PACKS, HORS_PHRASES).length).toBeGreaterThan(30);
     expect(absentes(PAGE_PACKS)).toEqual([PAGE_PACKS.ouverture.corps[1]]);
@@ -515,8 +755,8 @@ describe("les pages des packs", () => {
     expect(texte()).toContain("plus de 500 créateurs d'entreprise depuis plus de 15 ans");
   });
 
-  it("/packs/essentiel : chaque phrase du contenu est dans la page, sauf quatre anciennetés accordées", () => {
-    rendre("essentiel");
+  it("/packs/essentiel : chaque phrase du contenu est dans la page, sauf quatre anciennetés accordées", async () => {
+    await rendreLue("essentiel");
 
     const p = PAGE_PACK_ESSENTIEL;
     // Règle 1 : une collecte vide ferait passer la comparaison sans rien vérifier.
@@ -537,8 +777,8 @@ describe("les pages des packs", () => {
     expect(page).toContain("3 livrables professionnels, 2 appels personnalisés");
   });
 
-  it("/packs/premium : chaque phrase du contenu est dans la page, sauf cinq phrases accordées", () => {
-    rendre("premium");
+  it("/packs/premium : chaque phrase du contenu est dans la page, sauf cinq phrases accordées", async () => {
+    await rendreLue("premium");
 
     const p = PAGE_PACK_PREMIUM;
     expect(phrases(p, HORS_PHRASES).length).toBeGreaterThan(150);
@@ -635,10 +875,12 @@ describe("les pages des packs", () => {
   // ── Le comparatif ─────────────────────────────────────────────────────────
 
   for (const nom of ["ensemble", "premium"] as NomDePage[]) {
-    it(`${nom} : le comparatif est un vrai tableau, nommé, à en-têtes de colonne et de ligne`, () => {
-      rendre(nom);
+    it(`${nom} : le comparatif est un vrai tableau, nommé, à en-têtes de colonne et de ligne`, async () => {
+      await rendreLue(nom);
 
-      const lignes = PAGE_PACK_PREMIUM.comparatif.lignes;
+      // Les lignes telles que la page les affiche : la case de la formation
+      // P.O.P porte la valeur que le serveur rend.
+      const lignes = composerTout(PAGE_PACK_PREMIUM.comparatif.lignes, EN_LIGNE);
       expect(lignes.length).toBeGreaterThanOrEqual(12);
       const tableau = screen.getByRole("table");
       expect(tableau.querySelector("caption")).toHaveTextContent(COMPARATIF_PACKS.legende);

@@ -37,7 +37,14 @@ import { adminApi, type AvisBoutique, type ProduitBoutique } from "../api";
 // « des » dans sa liste d'articles, et « Le marché des X » n'y donnait pas la
 // même lettre que sur la fiche (règle 5).
 import { etoiles, initiale } from "../../public/catalogue";
-import { ErreurDeChargement } from "../../espace/composants/Interface";
+import { ActionsDePage } from "../ActionsDePage";
+import { Icone } from "../icones";
+import {
+  Chiffre,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../../espace/composants/Interface";
 import "./BoutiqueAdmin.css";
 
 function montant(cents: number): string {
@@ -260,8 +267,13 @@ function Assistant({
             Étape {etape + 1} sur {ETAPES.length} — {ETAPES[etape].aide}
           </p>
         </div>
-        <button type="button" className="bqa-fermer" onClick={onAnnuler} aria-label="Fermer">
-          ✕
+        <button
+          type="button"
+          className="console-bouton-icone"
+          onClick={onAnnuler}
+          aria-label="Fermer l'assistant"
+        >
+          <Icone nom="fermer" />
         </button>
       </header>
 
@@ -275,7 +287,7 @@ function Assistant({
       />
 
       {erreur && (
-        <p className="bqa-erreur" role="alert">
+        <p className="bandeau bandeau-echec" role="alert">
           {erreur}
         </p>
       )}
@@ -710,8 +722,15 @@ function Carte({
         ) : (
           <span className="bqa-carte-initiale">{initiale(produit.titre)}</span>
         )}
-        <span className={`bqa-fanion ${produit.en_ligne ? "bqa-fanion-vif" : ""}`}>
-          {produit.en_ligne ? "en ligne" : "hors ligne"}
+        {/* L'étiquette d'état du langage commun, posée sur la couverture. */}
+        <span
+          className={
+            produit.en_ligne
+              ? "bqa-fanion pastille pastille-succes"
+              : "bqa-fanion pastille pastille-neutre"
+          }
+        >
+          {produit.en_ligne ? "En ligne" : "Hors ligne"}
         </span>
       </div>
 
@@ -753,13 +772,19 @@ function Carte({
           <button type="button" className="bouton bouton-contour bouton-sm" onClick={onModifier}>
             Modifier
           </button>
+          {/* Mettre en ligne est le geste attendu d'une étude prête : il prend
+              l'or. La retirer de la vente reste discret. */}
           <button
             type="button"
-            className="bouton bouton-discret bouton-sm"
+            className={
+              produit.en_ligne
+                ? "bouton bouton-discret bouton-sm"
+                : "bouton bouton-principal bouton-sm"
+            }
             disabled={occupe || (!produit.en_ligne && !produit.publiable)}
             onClick={onBasculer}
           >
-            {produit.en_ligne ? "Retirer" : "Mettre en ligne"}
+            {produit.en_ligne ? "Retirer de la vente" : "Mettre en ligne"}
           </button>
           <button
             type="button"
@@ -772,7 +797,7 @@ function Carte({
           {produit.ventes === 0 && (
             <button
               type="button"
-              className="bouton bouton-discret bouton-sm"
+              className="bouton bouton-echec bouton-sm"
               disabled={occupe}
               onClick={onSupprimer}
             >
@@ -835,7 +860,7 @@ export function BoutiqueAdmin() {
   const ventes = produits.reduce((somme, p) => somme + p.ventes, 0);
   const vendues = produits.filter((p) => p.ventes > 0).length;
 
-  if (isPending) return <p>Chargement…</p>;
+  if (isPending) return <Squelette lignes={5} />;
   // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « 0 au
   // catalogue », « 0 vente », « 0 € » de recette et « Aucune étude. Ajoutez-en
   // une pour ouvrir la boutique » — sur une boutique en ligne, avec ses
@@ -851,53 +876,51 @@ export function BoutiqueAdmin() {
           perimees={isRefetchError}
         />
       )}
-      <header className="bqa-entete">
-        <dl className="bqa-chiffres">
-          <div>
-            <dt>Au catalogue</dt>
-            <dd>{produits.length}</dd>
-            <span className="bqa-chiffres-detail">
-              {produits.length - enLigne} en préparation
-            </span>
-          </div>
-          <div>
-            <dt>En ligne</dt>
-            <dd>{enLigne}</dd>
-            <span className="bqa-chiffres-detail">visibles en boutique</span>
-          </div>
-          <div>
-            <dt>Ventes</dt>
-            <dd>{ventes}</dd>
-            <span className="bqa-chiffres-detail">
-              {ventes === 0
-                ? "aucune pour l'instant"
-                : `sur ${vendues} étude${vendues > 1 ? "s" : ""}`}
-            </span>
-          </div>
-          <div>
-            <dt>Recette</dt>
-            <dd>{montant(recette)}</dd>
-            <span className="bqa-chiffres-detail">
-              {ventes === 0 ? "—" : `${montant(Math.round(recette / ventes))} en moyenne`}
-            </span>
-          </div>
-        </dl>
-        {!ajoute && !edite && (
+      {/* Le geste principal de l'écran vit dans l'en-tête de la page. */}
+      {!ajoute && !edite && (
+        <ActionsDePage>
           <button
             type="button"
-            className="bouton"
+            className="bouton bouton-principal"
             onClick={() => {
               setErreur("");
               setAjoute(true);
             }}
           >
+            <Icone nom="plus" taille={16} />
             Ajouter une étude
           </button>
-        )}
-      </header>
+        </ActionsDePage>
+      )}
+
+      {/* Les quatre chiffres qui disent où en est la boutique : les cartes de
+          chiffre du langage commun. */}
+      <div className="grille-chiffres">
+        <Chiffre
+          libelle="Au catalogue"
+          valeur={produits.length}
+          detail={`${produits.length - enLigne} en préparation`}
+        />
+        <Chiffre libelle="En ligne" valeur={enLigne} detail="Visibles en boutique" />
+        <Chiffre
+          libelle="Ventes"
+          valeur={ventes}
+          detail={
+            ventes === 0
+              ? "Aucune pour l'instant"
+              : `Sur ${vendues} étude${vendues > 1 ? "s" : ""}`
+          }
+        />
+        <Chiffre
+          libelle="Recette"
+          valeur={montant(recette)}
+          detail={ventes === 0 ? "—" : `${montant(Math.round(recette / ventes))} en moyenne`}
+          accent
+        />
+      </div>
 
       {erreur && (
-        <p className="bqa-erreur" role="alert">
+        <p className="bandeau bandeau-echec" role="alert">
           {erreur}
         </p>
       )}
@@ -915,7 +938,7 @@ export function BoutiqueAdmin() {
       )}
 
       {!ajoute && !edite && (
-        <div className="bqa-filtres" role="group" aria-label="Filtrer le catalogue">
+        <div className="console-segments" role="group" aria-label="Filtrer le catalogue">
           {(
             [
               ["toutes", `Toutes (${produits.length})`],
@@ -926,7 +949,8 @@ export function BoutiqueAdmin() {
             <button
               key={cle}
               type="button"
-              className={`bqa-filtre ${filtre === cle ? "bqa-filtre-actif" : ""}`}
+              className={filtre === cle ? "bouton bouton-sm" : "bouton bouton-contour bouton-sm"}
+              aria-pressed={filtre === cle}
               onClick={() => setFiltre(cle)}
             >
               {libelle}
@@ -937,7 +961,11 @@ export function BoutiqueAdmin() {
 
       {/* Sous une mise à jour ratée, « aucune » ne se redit pas. */}
       {produits.length === 0 && !ajoute && !isError && (
-        <p className="carte-note">Aucune étude. Ajoutez-en une pour ouvrir la boutique.</p>
+        <Vide
+          icone={<Icone nom="boutique" />}
+          titre="Aucune étude"
+          texte="Ajoutez-en une pour ouvrir la boutique."
+        />
       )}
 
       <ul className="bqa-grille">

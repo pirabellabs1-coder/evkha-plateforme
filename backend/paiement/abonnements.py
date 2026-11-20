@@ -255,8 +255,9 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     # eux, mais en ouvrant un incident « inexploitable » sur un paiement
     # simplement en cours, et personne n'écoutait la confirmation.
     #
-    # La garde est ici, avant l'aiguillage, pour les trois achats à la fois
-    # (règle 4) ; la confirmation différée repasse par cette même fonction
+    # La garde est ici, avant l'aiguillage, pour TOUS les achats à la fois —
+    # crédits, étude, boutique, formation (règle 4) ; la confirmation
+    # différée repasse par cette même fonction
     # (`checkout.session.async_payment_succeeded`, voir `_TRAITEMENTS`). Une
     # souscription n'est pas concernée : elle peut légitimement s'ouvrir sans
     # encaissement immédiat, et c'est `invoice.paid` qui la dote.
@@ -278,6 +279,13 @@ def sur_session_terminee(session: dict[str, Any]) -> str:
     # une branche de plus dans la livraison d'un livrable.
     if str((session.get("metadata") or {}).get("achat") or "") == "produit":
         return _livrer_un_produit_de_boutique(session)
+
+    # Une formation ouvre la LECTURE d'un programme dans l'espace : ni crédit,
+    # ni fichier. Sans cet aiguillage, elle tomberait dans la souscription
+    # ci-dessous, qui ouvrirait un incident sur un paiement valide — et
+    # l'acheteur aurait payé sans rien recevoir.
+    if str((session.get("metadata") or {}).get("achat") or "") == "formation":
+        return _livrer_une_formation(session)
 
     # Un achat A L'UNITE emprunte lui aussi cet evenement, et il n'a NI
     # organisation NI formule : tout est a creer. Sans cet aiguillage,
@@ -379,6 +387,43 @@ def _livrer_un_produit_de_boutique(session: dict[str, Any]) -> str:
         boutique.prevenir_l_acheteur(resultat)
         return f"produit de boutique livre ({resultat.produit.slug})"
     return "produit de boutique deja livre"
+
+
+def _livrer_une_formation(session: dict[str, Any]) -> str:
+    """Ouvre l'accès à la formation payée, et l'espace s'il n'existe pas encore.
+
+    Même contrat que `_livrer_un_produit_de_boutique` : le courriel part APRÈS
+    la transaction, une seule fois (achat nouveau) ; un échec est un incident
+    de gravité haute, parce que l'argent a été pris.
+
+    Un paiement EN DOUBLE n'est pas un échec : il est livré (l'accès existe
+    déjà), et `formations.livrer_la_formation` a ouvert son propre incident
+    pour le remboursement.
+    """
+    from . import achats, formations  # noqa: PLC0415 — évite un cycle à l'import
+
+    try:
+        resultat = formations.livrer_la_formation(session)
+    except formations.AchatInexploitable as exc:
+        # La session est ABRÉGÉE — entière, elle ouvre la première session du
+        # compte né du paiement (`achats.reference_abregee`). C'est par
+        # l'intention de paiement, écrite entière, que la gérante retrouve le
+        # paiement chez Stripe. Le motif est écrit par nous, sans adresse.
+        _incident(
+            "Achat de formation inexploitable",
+            IncidentSeverity.HIGH,
+            session=achats.reference_abregee(session.get("id")),
+            paiement=formations.intention_de_paiement(session),
+            motif=str(exc),
+        )
+        return "achat de formation inexploitable"
+
+    if resultat.nouveau:
+        formations.prevenir_l_acheteur(resultat)
+        return f"formation livree ({resultat.formation.slug})"
+    if resultat.en_double:
+        return f"formation payee deux fois ({resultat.formation.slug})"
+    return "formation deja livree"
 
 
 def _crediter_l_achat(session: dict[str, Any]) -> str:
@@ -650,6 +695,143 @@ def _fin_de_periode(abonnement_stripe: dict[str, Any]) -> datetime | None:
         return None
 
 
+def _montant(valeur: object) -> int:
+    """Un montant en centimes, ou zéro s'il est illisible.
+
+    Zéro et non une erreur : ces événements ne font qu'ouvrir un incident, et
+    un montant mal formé ne doit pas faire échouer le webhook — Stripe le
+    rejouerait trois jours pour un incident qui n'arriverait jamais.
+    """
+    if isinstance(valeur, bool) or not isinstance(valeur, int | float | str):
+        return 0
+    try:
+        return int(valeur)
+    except (ValueError, OverflowError):
+        return 0
+
+
+def _signaler_un_paiement_repris(
+    objet: dict[str, Any], *, titre: str, gravite: str, type_incident: str, **propres: Any
+) -> str:
+    """L'incident d'un paiement REMBOURSÉ ou CONTESTÉ. Ne retire aucun accès.
+
+    ## Pourquoi ces événements, et pourquoi un incident seulement
+
+    Audit de sécurité du 20/11/2026 : ni `charge.refunded` ni
+    `charge.dispute.created` n'étaient écoutés. Un acheteur remboursé — ou
+    qui faisait opposition auprès de sa banque — gardait son accès, et
+    personne ne l'apprenait.
+
+    **AUCUNE révocation automatique, et c'est délibéré.** Retirer un accès
+    est une décision humaine : un remboursement partiel, un geste commercial
+    ou une erreur de montant corrigée ne retirent pas forcément la formation,
+    et une contestation peut être gagnée. L'incident dit à la gérante ce qui
+    s'est passé ; c'est ELLE qui retire l'accès, depuis l'administration
+    (`dashboard.formations.achat`), et elle peut le rétablir.
+
+    ## Ce que l'événement permet de retrouver, et ce qu'il ne permet pas
+
+    Un prélèvement et un litige citent l'INTENTION de paiement (`pi_…`),
+    jamais la session Checkout qui sert de référence à nos achats. Remonter
+    de l'une à l'autre demande d'interroger le prestataire, ce que ce
+    traitement ne fait pas : un webhook qui dépend d'un second appel réseau
+    échoue quand le prestataire tousse, et Stripe le rejouerait en boucle.
+
+    Un achat de FORMATION note son intention de paiement à la livraison
+    (`AchatFormation.intention_de_paiement`) : il est retrouvé, et l'incident
+    nomme l'achat, la formation et l'organisation. Pour tout le reste — un
+    abonnement, une étude à l'unité, une étude de boutique, un achat d'avant
+    ce champ —, l'incident porte ce que l'événement donne, et le DIT
+    (`rattachement`) plutôt que de se taire (règle 1).
+
+    Sans adresse en clair : l'événement porte celle du payeur, l'incident ne
+    la recopie pas. L'intention de paiement, elle, est écrite entière : c'est
+    par elle que l'on retrouve le paiement chez le prestataire, et elle
+    n'ouvre rien chez nous.
+    """
+    from . import formations  # noqa: PLC0415 — évite un cycle à l'import
+
+    intention = formations.intention_de_paiement(objet)
+    details: dict[str, Any] = {
+        "type": type_incident,
+        "paiement": intention,
+        "montant_cents": _montant(objet.get("amount")),
+        "devise": str(objet.get("currency") or "").upper()[:3],
+        **propres,
+    }
+
+    achat = formations.achat_de_l_intention(intention)
+    if achat is not None:
+        details.update(
+            achat=achat.id,
+            formation=achat.formation.slug,
+            organisation=achat.organisation_id,
+            acces="déjà retiré" if achat.revoque_le else "toujours ouvert",
+            a_faire=(
+                "Ce paiement est celui d'une formation. Rien n'a été retiré "
+                "automatiquement : si l'accès doit l'être, retirez-le depuis "
+                "l'administration (Formations, achats de la formation)."
+            ),
+        )
+    else:
+        details.update(
+            rattachement=(
+                "L'achat n'a pas été retrouvé automatiquement : l'événement ne "
+                "cite que l'intention de paiement, et seuls les achats de "
+                "formation la conservent."
+            ),
+            a_faire=(
+                "Retrouvez ce paiement dans Stripe par son intention de "
+                "paiement, puis décidez s'il faut retirer un accès ou des "
+                "crédits. Rien n'a été retiré automatiquement."
+            ),
+        )
+
+    _incident(titre, gravite, **details)
+    return "incident ouvert, achat de formation retrouve" if achat else "incident ouvert"
+
+
+def sur_remboursement(prelevement: dict[str, Any]) -> str:
+    """`charge.refunded` — un paiement a été remboursé, en tout ou partie.
+
+    L'objet est le PRÉLÈVEMENT (`ch_…`). Voir `_signaler_un_paiement_repris`.
+    """
+    rembourse = _montant(prelevement.get("amount_refunded"))
+    return _signaler_un_paiement_repris(
+        prelevement,
+        titre="Paiement remboursé",
+        # Moyenne : l'argent est déjà rendu, rien ne presse — mais un accès
+        # est peut-être à retirer.
+        gravite=IncidentSeverity.MEDIUM,
+        type_incident="paiement_rembourse",
+        prelevement=prelevement.get("id") or "",
+        rembourse_cents=rembourse,
+        remboursement_total="oui" if prelevement.get("refunded") else "non",
+    )
+
+
+def sur_contestation(litige: dict[str, Any]) -> str:
+    """`charge.dispute.created` — le payeur a fait opposition auprès de sa banque.
+
+    L'objet est le LITIGE (`dp_…`), qui cite son prélèvement et l'intention de
+    paiement. Voir `_signaler_un_paiement_repris`.
+    """
+    brut = litige.get("charge")
+    prelevement = brut.get("id") if isinstance(brut, dict) else brut
+    return _signaler_un_paiement_repris(
+        litige,
+        titre="Paiement contesté",
+        # Haute : la réponse au prestataire a une échéance, et la somme est
+        # reprise si personne ne répond.
+        gravite=IncidentSeverity.HIGH,
+        type_incident="paiement_conteste",
+        litige=litige.get("id") or "",
+        prelevement=prelevement or "",
+        motif_du_litige=litige.get("reason") or "",
+        etat_du_litige=litige.get("status") or "",
+    )
+
+
 #: Evenements traites, et eux seuls. Une liste fermee plutot qu'un `else` qui
 #: tenterait sa chance : Stripe en envoie des dizaines par defaut, et un
 #: traitement approximatif de `customer.subscription.updated` suffirait a doter
@@ -664,6 +846,12 @@ _TRAITEMENTS = {
     "invoice.payment_failed": sur_prelevement_refuse,
     "customer.subscription.updated": sur_abonnement_modifie,
     "customer.subscription.deleted": sur_abonnement_supprime,
+    # Un paiement remboursé, un paiement contesté : un INCIDENT, jamais une
+    # révocation automatique (voir `_signaler_un_paiement_repris`). La liste
+    # reste fermée : tout autre événement est rendu « non traité », sans
+    # erreur.
+    "charge.refunded": sur_remboursement,
+    "charge.dispute.created": sur_contestation,
 }
 
 

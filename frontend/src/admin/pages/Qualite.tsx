@@ -9,6 +9,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { adminApi } from "../api";
+import { Icone } from "../icones";
 import * as f from "../../espace/format";
 import {
   Carte,
@@ -44,7 +45,7 @@ export function QualiteAdmin() {
       <ErreurDeChargement quoi="le rapport de qualité" erreur={error} perimees={isRefetchError} />
     ) : (
       <Vide
-        icone="◇"
+        icone={<Icone nom="qualite" />}
         titre="Aucune étude contrôlée pour l'instant"
         texte="Le rapport se remplit avec les études produites avec la mémoire de l'étude, ou relues après rendu."
       />
@@ -74,9 +75,15 @@ export function QualiteAdmin() {
               <tr>
                 <th scope="col">Étude</th>
                 <th scope="col">Chapitre</th>
-                <th scope="col">Passages</th>
-                <th scope="col">Reprises</th>
-                <th scope="col">Replis</th>
+                <th scope="col" className="nombre">
+                  Passages
+                </th>
+                <th scope="col" className="nombre">
+                  Reprises
+                </th>
+                <th scope="col" className="nombre">
+                  Replis
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -97,12 +104,14 @@ export function QualiteAdmin() {
       </Carte>
 
       <Carte titre="Genres de reprises" note="Ce que le contrôle de chaque chapitre a trouvé.">
-        <div className="tableau-cadre">
+        <div className="tableau-cadre tableau-defile">
           <table className="tableau">
             <thead>
               <tr>
                 <th scope="col">Motif</th>
-                <th scope="col">Occurrences</th>
+                <th scope="col" className="nombre">
+                  Occurrences
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -130,11 +139,21 @@ export function QualiteAdmin() {
               <tr>
                 <th scope="col">Étude</th>
                 <th scope="col">Créée le</th>
-                <th scope="col">Chapitres contrôlés</th>
-                <th scope="col">Reprises</th>
-                <th scope="col">Replis</th>
-                <th scope="col">Constats PDF</th>
-                <th scope="col">Coût</th>
+                <th scope="col" className="nombre">
+                  Chapitres contrôlés
+                </th>
+                <th scope="col" className="nombre">
+                  Reprises
+                </th>
+                <th scope="col" className="nombre">
+                  Replis
+                </th>
+                <th scope="col" className="nombre">
+                  Constats PDF
+                </th>
+                <th scope="col" className="nombre">
+                  Coût
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -144,7 +163,7 @@ export function QualiteAdmin() {
                     {TYPES[d.type] ?? d.type}
                     <div className="carte-note">{d.id.slice(0, 8)}</div>
                   </td>
-                  <td style={{ whiteSpace: "nowrap" }}>{f.date(d.cree_le)}</td>
+                  <td className="console-tabulaire">{f.date(d.cree_le)}</td>
                   <td className="nombre">{f.nombre(d.chapitres_controles)}</td>
                   <td className="nombre">{f.nombre(d.motifs)}</td>
                   <td className="nombre">{f.nombre(d.replis)}</td>

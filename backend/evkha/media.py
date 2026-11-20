@@ -32,6 +32,7 @@ l'énumération et la validité sans fin.
 """
 from __future__ import annotations
 
+import posixpath
 from pathlib import PurePosixPath
 
 from django.http import Http404, HttpRequest, HttpResponseBase
@@ -58,8 +59,8 @@ EXTENSIONS_EN_LIGNE: frozenset[str] = frozenset(
 def _prefixes_publics() -> tuple[str, ...]:
     """Prefixes servis SANS signature et EN LIGNE.
 
-    Un seul aujourd'hui : la vitrine de la boutique — les couvertures.
-    Ce sont des supports de vente, et les deux protections qui couvrent les
+    Deux : la vitrine de la boutique et celle des formations — les
+    couvertures. Ce sont des supports de vente, et les deux protections qui couvrent les
     livrables les rendraient inutilisables : une image en
     `Content-Disposition: attachment` ne s'affiche pas dans une balise `<img>`,
     et une signature qui expire ferait disparaitre les couvertures d'un
@@ -73,9 +74,18 @@ def _prefixes_publics() -> tuple[str, ...]:
     Import differe : ce module est charge tot, et importer les modeles a son
     sommet imposerait l'ordre de chargement des applications.
     """
-    from catalog.models import PREFIXE_VITRINE  # noqa: PLC0415
+    from catalog.models import (  # noqa: PLC0415
+        PREFIXE_VITRINE,
+        PREFIXE_VITRINE_FORMATIONS,
+    )
 
-    return (f"{PREFIXE_VITRINE.strip('/')}/",)
+    # Les couvertures des formations suivent la même règle que celles de la
+    # boutique. Les documents des leçons, eux, vivent sous `formations/` —
+    # hors de cette liste, donc signés.
+    return tuple(
+        f"{prefixe.strip('/')}/"
+        for prefixe in (PREFIXE_VITRINE, PREFIXE_VITRINE_FORMATIONS)
+    )
 
 
 def _est_une_vitrine(chemin: str) -> bool:
@@ -84,6 +94,21 @@ def _est_une_vitrine(chemin: str) -> bool:
     if not propre.startswith(_prefixes_publics()):
         return False
     return PurePosixPath(propre).suffix.lower() in EXTENSIONS_EN_LIGNE
+
+
+def _est_canonique(chemin: str) -> bool:
+    """Le chemin désigne-t-il son fichier sans détour ?
+
+    Ni `..`, ni `.`, ni barre doublée, ni barre oblique inversée (que Windows
+    lit comme un séparateur), ni octet nul. On compare à la normalisation au
+    lieu d'énumérer les détours (règle 4).
+    """
+    if "\\" in chemin or "\x00" in chemin:
+        return False
+    propre = chemin.lstrip("/")
+    if not propre:
+        return False
+    return posixpath.normpath(propre) == propre and not propre.startswith("..")
 
 
 def servir_media(
@@ -95,6 +120,18 @@ def servir_media(
     les images de la boutique, dont le rôle EST d'être vues par des
     visiteurs sans compte.
     """
+    # Le chemin est JUGÉ et SERVI sous une seule forme. `django.views.static.
+    # serve` normalise le sien (`posixpath.normpath`) ; juger le chemin brut
+    # puis servir le chemin normalisé laissait passer
+    # `formations-vitrine/../formations/<slug>/support.pdf` : préfixe public
+    # reconnu, signature jamais consultée, document payant rendu (audit du
+    # 20/11/2026 ; la boutique avait le même défaut depuis sa vitrine). Un
+    # chemin qui n'est pas déjà sous sa forme canonique n'a aucune raison
+    # légitime d'exister : nos liens n'en fabriquent pas. On le refuse, au lieu
+    # de le corriger.
+    if not _est_canonique(path):
+        raise Http404
+
     if _est_une_vitrine(path):
         vitrine = servir_statique(request, path, **kwargs)  # type: ignore[arg-type]
         vitrine.headers["Content-Disposition"] = "inline"

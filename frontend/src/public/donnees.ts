@@ -252,6 +252,164 @@ export async function chargerLivrables(): Promise<LivrablePublic[]> {
   return charge.livrables as LivrablePublic[];
 }
 
+// ── Les formations de l'Académie ────────────────────────────────────────────
+
+/** Une leçon telle que le public la voit : son intitulé, sa nature, sa durée.
+ *  Jamais son contenu — l'adresse de la vidéo, le texte et le document sont ce
+ *  que l'acheteur paie, et le serveur ne les rend pas ici. `en_apercu_libre`
+ *  est une étiquette, pas un accès. */
+export type LeconPublique = {
+  /** La place dans le module, de 1 à n. */
+  rang: number;
+  titre: string;
+  /** `video`, `texte`, `document` ou `quiz`. */
+  nature: string;
+  duree_minutes: number;
+  en_apercu_libre: boolean;
+};
+
+export type ModulePublic = {
+  /** La place dans le programme, de 1 à n. */
+  rang: number;
+  titre: string;
+  description: string;
+  lecons: LeconPublique[];
+};
+
+/** Une formation EN LIGNE, telle que `vues_formations.catalogue` la rend. Une
+ *  formation que la gérante n'a pas publiée n'est pas dans la réponse. */
+export type FormationPublique = {
+  slug: string;
+  titre: string;
+  sous_titre: string;
+  accroche: string;
+  prix_cents: number;
+  devise: string;
+  duree_heures: number;
+  heures_de_coaching: number;
+  /** Encore rendu par le serveur, mais la page ne le SUIT PAS : une formation
+   *  se vend par le paiement de la plateforme, pas par un lien extérieur
+   *  (voir `Formations.BoutonDInscription`). */
+  lien_d_achat: string;
+  image: string;
+  nombre_de_modules: number;
+  modules: ModulePublic[];
+};
+
+/** Les formations en ligne, avec leur prix, leurs durées et leur programme.
+ *
+ *  Même règle que pour les études : ces chiffres viennent du serveur, jamais
+ *  d'une constante écrite dans une page (règle 5). Les pages des formations
+ *  ET celles des packs — le Pack Premium offre la Méthode P.O.P — lisent cette
+ *  seule réponse.
+ */
+export async function chargerFormations(): Promise<FormationPublique[]> {
+  const reponse = await fetch(`${BASE}/api/public/formations/`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!reponse.ok) {
+    throw new Error(`Catalogue indisponible (${reponse.status})`);
+  }
+  const charge = (await reponse.json()) as { formations?: unknown } | null;
+  // Même garde que `chargerFormules` : une réponse 200 sans la liste attendue
+  // lève une erreur. Rendre `[]` ferait lire une panne comme « aucune
+  // formation en ligne » — et les trois pages diraient « Indisponible » au
+  // lieu de dire la panne (règle 1).
+  if (!Array.isArray(charge?.formations)) {
+    throw new Error("Catalogue illisible : liste des formations absente");
+  }
+  return charge.formations as FormationPublique[];
+}
+
+/** Ouvre le paiement d'une FORMATION en visiteur, et rend l'adresse Stripe.
+ *
+ *  `POST /api/public/formations/acheter/` (`vues_formations.acheter`). On
+ *  n'envoie qu'un slug : le montant est celui de la formation, côté serveur.
+ *  L'adresse e-mail est facultative — elle ne fait que préremplir la page du
+ *  prestataire — et n'est envoyée que si elle est renseignée.
+ *
+ *  Une réponse 200 sans adresse (`{}`, la page d'un relais) est un REFUS, pas
+ *  une adresse vide : l'écran naviguerait sinon vers nulle part (règle 1). */
+export async function ouvrirLePaiementDUneFormation(
+  formation: string,
+  email = "",
+): Promise<string> {
+  const reponse = await fetch(`${BASE}/api/public/formations/acheter/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(email ? { formation, email } : { formation }),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    adresse?: unknown;
+    erreur?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.erreur ?? `Paiement impossible (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  if (typeof charge.adresse !== "string" || charge.adresse === "") {
+    // Message vide : l'écran dit sa propre phrase de panne.
+    throw new RefusInscription("", "illisible");
+  }
+  return charge.adresse;
+}
+
+export type AchatDeFormationConfirme = {
+  /** `null` quand aucune session n'est ouverte par ce retour : le compte
+   *  existait déjà, ou ce retour a déjà servi une fois. */
+  jeton: string | null;
+  /** Vrai quand la personne doit se connecter pour ouvrir sa formation. */
+  connexion_requise: boolean;
+  titre: string;
+  slug: string;
+};
+
+/** Constitue l'achat d'une formation au retour du paiement. N'écrit AUCUN
+ *  jeton : ce que l'écran en fait se décide dans
+ *  `accueillirUnRetourDePaiement` (`espace/api.ts`).
+ *
+ *  `POST /api/public/formations/retour/` (`vues_formations.retour`). La
+ *  réponse ne porte aucun contenu de leçon : le programme se lit dans
+ *  l'espace, derrière une session.
+ *
+ *  Une réponse 200 qui ne nomme pas la formation est un REFUS : la lire comme
+ *  une confirmation afficherait « votre formation est à vous » sur la page
+ *  d'un relais (règle 1). */
+export async function confirmerLAchatDUneFormation(
+  session: string,
+): Promise<AchatDeFormationConfirme> {
+  const reponse = await fetch(`${BASE}/api/public/formations/retour/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ session }),
+  });
+  const charge = (await reponse.json().catch(() => ({}))) as {
+    jeton?: unknown;
+    connexion_requise?: unknown;
+    titre?: unknown;
+    slug?: unknown;
+    erreur?: string;
+    code?: string;
+  };
+  if (!reponse.ok) {
+    throw new RefusInscription(
+      charge.erreur ?? `Confirmation impossible (${reponse.status})`,
+      charge.code ?? "",
+    );
+  }
+  if (typeof charge.slug !== "string" || charge.slug === "") {
+    throw new RefusInscription("", "illisible");
+  }
+  return {
+    ...sessionDUnRetour(charge),
+    titre: typeof charge.titre === "string" ? charge.titre : "",
+    slug: charge.slug,
+  };
+}
+
 /** Destination d'un bouton « Commander » : la création de compte, avec
  *  l'étude choisie dans l'adresse.
  *

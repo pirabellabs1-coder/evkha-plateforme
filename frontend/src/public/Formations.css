@@ -114,12 +114,142 @@
   white-space: nowrap;
 }
 
+/* La phrase qui remplace un prix : attente, panne ou formation qui n'est pas
+   en ligne. À la taille du texte, pas à celle d'un montant : ce n'en est pas
+   un. */
+.for-prix-absent {
+  color: var(--acc-gris);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* L'alerte du socle (`Site.css`), une fois remplie, raccourcit l'ouverture
+   qui la suit. */
+.acc-alerte:not(:empty) + .for-ouverture {
+  padding-top: 76px;
+}
+
+.acc-alerte:not(:empty) + .for-ouverture .acc-pause-rang {
+  top: 20px;
+}
+
 /* Le bouton du socle, autorisé à passer à la ligne : un libellé long prend
    deux lignes plutôt que de sortir de l'écran. Deux classes, pour ne pas
    dépendre de l'ordre d'arrivée des feuilles. */
 .acc-btn.for-bouton {
   padding-block: 8px;
   white-space: normal;
+}
+
+/* ── L'inscription : le bouton qui ouvre le paiement, et son refus ───────── */
+
+/* Le bouton et, dessous, le refus du serveur s'il y en a un : le message
+   s'affiche contre le bouton qui l'a provoqué. */
+.for-inscription {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Dans l'appel final, tout est centré. */
+.for-fin .for-inscription {
+  align-items: center;
+}
+
+/* Un vrai bouton : le texte reste à gauche de sa flèche sur deux lignes, et
+   la lame de lumière de l'attente (`.bouton-chargement`, espace.css) se pose
+   sur lui. */
+.acc-btn.for-bouton-achat {
+  position: relative;
+  text-align: left;
+}
+
+/* Pendant l'ouverture du paiement : plus de soulèvement, et le curseur dit
+   qu'on attend — comme le bouton d'achat de la boutique. */
+.acc-btn.for-bouton-achat:disabled {
+  box-shadow: none;
+  cursor: progress;
+  transform: none;
+}
+
+/* Le refus : le rouge de la charte sur son voile (4,5:1), un filet à gauche —
+   jamais la couleur seule, le texte dit ce qui se passe. Même habillage que
+   `.bou-erreur`. */
+.for-refus {
+  max-width: 34em;
+  padding: 14px 18px;
+  border-left: 4px solid var(--evkha-echec);
+  border-radius: 12px;
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+  font-size: 0.93rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.for-refus a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Le paiement abandonné : un bandeau discret, sous la barre fixe ──────── */
+
+.for-abandon {
+  padding: 96px 0 0;
+}
+
+/* Après l'alerte des tarifs, qui a déjà passé la barre. */
+.acc-alerte:not(:empty) + .for-abandon {
+  padding-top: 16px;
+}
+
+.for-abandon > .acc-w {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.for-abandon p {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--acc-or-fonce);
+  border-radius: 12px;
+  background: var(--acc-or-brume);
+  color: var(--acc-encre);
+  font-size: 0.93rem;
+  font-weight: 600;
+}
+
+/* Une cible de 44 px, quel que soit le dessin de la croix. */
+.for-abandon-fermer {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--acc-encre);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.for-abandon-fermer:hover {
+  background: var(--acc-or-brume);
+}
+
+/* Comme l'alerte : le bandeau a passé la barre, l'ouverture se raccourcit. */
+.for-abandon + .for-ouverture {
+  padding-top: 76px;
+}
+
+.for-abandon + .for-ouverture .acc-pause-rang {
+  top: 20px;
 }
 
 /* La preuve chiffrée du catalogue. */
@@ -815,7 +945,13 @@
   margin-bottom: 4px;
 }
 
-/* La liste des modules, le jour où elle est renseignée. */
+/* Sans module, pas de grand chiffre : le texte prend toute la carte. */
+.for-programme-seul {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* La liste des modules que le serveur rend. `> li` : chaque module porte à
+   son tour la liste de ses leçons, qui n'a pas cette grille. */
 .for-modules {
   display: grid;
   width: 100%;
@@ -825,15 +961,14 @@
   list-style: none;
 }
 
-.for-modules li {
+.for-modules > li {
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 12px;
   align-items: baseline;
-  padding: 14px 0;
+  padding: 16px 0;
   border-bottom: 1.5px dashed var(--acc-pointille);
   color: var(--acc-encre);
-  font-weight: 600;
 }
 
 .for-module-numero {
@@ -842,6 +977,80 @@
   font-style: italic;
   font-weight: 500;
   font-size: 1.2rem;
+}
+
+/* `min-width: 0` : un intitulé saisi sans espace passe à la ligne au lieu
+   d'élargir la carte. */
+.for-module {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.for-module h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.for-module-description {
+  color: var(--acc-gris);
+  font-size: 0.95rem;
+}
+
+/* Les leçons d'un module : l'intitulé, puis ses repères en petites pastilles
+   (nature, durée, aperçu libre). */
+.for-lecons {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.for-lecons li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 8px 0;
+  font-size: 0.95rem;
+}
+
+.for-lecons li + li {
+  border-top: 1px solid var(--acc-trait);
+}
+
+/* L'intitulé prend la place libre ; les repères se rangent à sa suite, ou
+   passent dessous quand la ligne est trop étroite. */
+.for-lecon-titre {
+  flex: 1 1 14em;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.for-lecon-repere,
+.for-lecon-apercu {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.for-lecon-repere {
+  box-shadow: inset 0 0 0 1.5px var(--acc-trait);
+  color: var(--acc-gris);
+}
+
+/* L'aperçu libre : l'or de la charte, texte à l'encre — comme les pastilles
+   des statuts. */
+.for-lecon-apercu {
+  background: var(--acc-or);
+  color: var(--acc-encre);
 }
 
 /* ── Formation : ce qui est inclus ───────────────────────────────────────── */
@@ -1179,6 +1388,12 @@
   font-weight: 600;
   font-size: clamp(1.6rem, 2.8vw, 2.2rem);
   line-height: 1;
+}
+
+/* À la place du prix, la phrase qui dit pourquoi il manque : à la taille du
+   texte de l'appel final, en gras. */
+.acc-fin-corps.for-fin-sans-prix {
+  font-weight: 700;
 }
 
 .for-fin-boutons {

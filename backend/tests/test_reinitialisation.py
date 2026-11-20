@@ -202,3 +202,32 @@ def test_la_commande_annonce_ce_qu_elle_a_efface(
     # Et il rappelle de retirer la variable : la date protege de demain, pas
     # d'un second redemarrage aujourd'hui.
     assert "RETIREZ" in sortie
+
+
+@pytest.mark.django_db
+def test_une_formation_vendue_n_empeche_pas_la_remise_a_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AchatFormation.organisation` est en PROTECT : sans vider les achats
+    d'abord, la commande levait — et elle est reliée par un `&&` sec au
+    démarrage du conteneur. La formation, elle, est du catalogue : elle reste."""
+    from catalog.models import AchatFormation, Formation
+
+    _peupler()
+    formation = Formation.objects.create(
+        slug="methode-pop", titre="Méthode P.O.P", prix_cents=85_000
+    )
+    AchatFormation.objects.create(
+        organisation=Organisation.objects.get(),
+        formation=formation,
+        reference_paiement="cs_test_reinitialisation0001",
+        montant_cents=85_000,
+        devise="EUR",
+        email="partenaire@exemple.fr",
+    )
+
+    _jouer(monkeypatch, phrase_attendue())
+
+    assert not AchatFormation.objects.exists()
+    assert not Organisation.objects.exists()
+    assert Formation.objects.filter(slug="methode-pop").exists()

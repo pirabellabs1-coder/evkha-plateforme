@@ -22,6 +22,17 @@
  * Aucun montant n'est écrit dans ce fichier ; le test
  * `les-pages-des-packs` le verrouille.
  *
+ * ## La formation P.O.P offerte : sa valeur et sa durée viennent du serveur
+ *
+ * Le Premium offre la Méthode P.O.P, et les trois pages en citent la
+ * « valeur » ou la durée. Ces deux chiffres sont ceux de la formation telle
+ * qu'elle est vendue : les pages lisent la MÊME réponse que les pages des
+ * formations (`donnees.chargerFormations`) et composent leur texte avec
+ * (`chiffresDesPacks`, `composerTout`). Tant que la réponse n'est pas arrivée,
+ * si l'appel échoue ou si la formation n'est pas en ligne, la mention
+ * disparaît de la phrase — sans parenthèse vide — et la page reste entière.
+ * Pas de région d'alerte ici : aucun prix de pack ne dépend de cet appel.
+ *
  * ## Où mènent les boutons
  *
  * Les boutons d'achat sortent vers les pages de paiement du site
@@ -45,6 +56,7 @@
  */
 import { useRef, type ReactNode } from "react";
 
+import { composerTout, type Chiffres } from "./chiffres";
 import {
   ARTICULATION_PACK_ESSENTIEL,
   ARTICULATION_PACK_PREMIUM,
@@ -62,6 +74,7 @@ import {
   TITRES_PACK_ESSENTIEL,
   TITRES_PACK_PREMIUM,
   UNITES_A_ACCORDER,
+  chiffresDesPacks,
   compteRendu,
   pointDeListe,
   sansCompte,
@@ -77,6 +90,7 @@ import {
   type QuestionDePack,
 } from "./contenuPacks";
 import { ID_DU_CONTENU, LIENS } from "./contenuSite";
+import { chargerFormations, type FormationPublique } from "./donnees";
 import { EnTeteSite } from "./EnTeteSite";
 import { Bouton, BoutonPause } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
@@ -85,10 +99,12 @@ import {
   ancienneteSure,
   titreDOnglet,
   useAimants,
+  useChargement,
   useMenu,
   usePause,
   useTitreDePage,
   variables,
+  type Chargement,
 } from "./site";
 // Le socle d'abord, la feuille du lot ensuite : à spécificité égale, c'est la
 // page qui a le dernier mot.
@@ -158,6 +174,28 @@ type Dire = (texte: string) => string;
 
 function numero(rang: number): string {
   return String(rang + 1).padStart(2, "0");
+}
+
+// ── La formation P.O.P offerte : ce que le serveur en dit ───────────────────
+
+/** Où en est l'appel au catalogue des formations. */
+type Appel = Chargement<FormationPublique[]>["etat"];
+
+/** Les chiffres de la Méthode P.O.P que les pages des packs citent (sa valeur,
+ *  sa durée), lus dans la réponse du serveur — et l'état de l'appel, pour que
+ *  la coquille observe les blocs qui changent à son arrivée.
+ *
+ *  Tant que la réponse n'est pas là, en cas de panne, ou si la formation n'est
+ *  pas en ligne : aucun chiffre. Les phrases s'affichent alors sans leur
+ *  mention (voir `chiffresDesPacks`). */
+function useFormationOfferte(): { chiffres: Chiffres; appel: Appel } {
+  const formations = useChargement(chargerFormations);
+  return {
+    chiffres: chiffresDesPacks(
+      formations.etat === "recu" ? formations.donnees : null,
+    ),
+    appel: formations.etat,
+  };
 }
 
 // ── Petites pièces ──────────────────────────────────────────────────────────
@@ -449,24 +487,39 @@ function SectionPortes({ portes, dire }: { portes: Porte[]; dire: Dire }) {
 function Coquille({
   titre,
   description,
+  appel,
   children,
 }: {
   titre: string;
   description: string;
+  /** Où en est l'appel au catalogue des formations (voir
+   *  `useFormationOfferte`). */
+  appel: Appel;
   children: (pause: Pause) => ReactNode;
 }) {
   const menu = useMenu();
   const pause = usePause();
   const page = useRef<HTMLDivElement>(null);
 
-  // Tout le contenu est là dès le premier rendu : pas de clé. L'option : le
-  // mouvement réduit garde la révélation, en fondu seul (voir `Site.css`).
-  useReveler(page, undefined, { memeEnMouvementReduit: true });
+  // La clé : à l'arrivée de la réponse, quelques phrases reçoivent leur
+  // chiffre, et un bloc dont la clé de liste est son texte se remonte — il
+  // doit être observé à son tour, un bloc à révéler naissant effacé.
+  // L'option : le mouvement réduit garde la révélation, en fondu seul (voir
+  // `Site.css`).
+  useReveler(page, appel, { memeEnMouvementReduit: true });
   useAimants(page);
   useTitreDePage(titreDOnglet(titre), description);
 
   return (
-    <div className={pause.fige ? "acc pak acc-fige" : "acc pak"} ref={page}>
+    // `data-formations` : où en est l'appel. Sur ces pages, une formation hors
+    // ligne ou une panne ne change RIEN de visible — c'est voulu — et rien
+    // d'autre ne permettrait de savoir, en test comme en diagnostic, que la
+    // réponse a bien été lue.
+    <div
+      className={pause.fige ? "acc pak acc-fige" : "acc pak"}
+      data-formations={appel}
+      ref={page}
+    >
       <EnTeteSite menu={menu} />
 
       {/* `tabIndex={-1}` : la cible du lien d'évitement doit pouvoir recevoir
@@ -554,11 +607,19 @@ function CarteDEnsemble({
 }
 
 export function Packs() {
-  const p = PAGE_PACKS;
+  // Le texte relevé, avec la valeur de la formation P.O.P offerte si le
+  // serveur la rend ; sans elle, les phrases s'affichent sans cette mention.
+  const { chiffres, appel } = useFormationOfferte();
+  const p = composerTout(PAGE_PACKS, chiffres);
+  const comparatif = composerTout(PAGE_PACK_PREMIUM.comparatif, chiffres);
   const dire: Dire = ancienneteSure;
 
   return (
-    <Coquille titre={p.titreDeLOnglet} description={p.metaDescription}>
+    <Coquille
+      titre={p.titreDeLOnglet}
+      description={p.metaDescription}
+      appel={appel}
+    >
       {(pause) => (
         <>
           {/* ── Ouverture ──────────────────────────────────────────────── */}
@@ -642,7 +703,7 @@ export function Packs() {
           <Ruban mots={ENSEMBLE_PACKS.ruban} pause={pause} />
 
           {/* ── Comparatif ─────────────────────────────────────────────── */}
-          <SectionComparatif comparatif={PAGE_PACK_PREMIUM.comparatif} dire={dire} />
+          <SectionComparatif comparatif={comparatif} dire={dire} />
 
           {/* ── Une experte, pas un junior ─────────────────────────────── */}
           <SectionExperte
@@ -705,7 +766,10 @@ function PageDePack({
    *  le comparatif quand la page en a un. */
   versLAutre: { route: string; libelle: string };
 }) {
-  const c = contenu;
+  // Le texte relevé, avec la valeur et la durée de la formation P.O.P offerte
+  // si le serveur les rend ; sans elles, les phrases s'en passent.
+  const { chiffres, appel } = useFormationOfferte();
+  const c = composerTout(contenu, chiffres);
   const s = articulation.surtitres;
   const etapes = c.processus.etapes;
 
@@ -735,7 +799,11 @@ function PageDePack({
   portes.push(PORTE_DES_ETUDES);
 
   return (
-    <Coquille titre={articulation.titreDeLOnglet} description={c.ouverture.corps}>
+    <Coquille
+      titre={articulation.titreDeLOnglet}
+      description={c.ouverture.corps}
+      appel={appel}
+    >
       {(pause) => (
         <>
           {/* ── Ouverture : le texte, et l'encart du prix ──────────────── */}
@@ -902,8 +970,12 @@ function PageDePack({
                 <p>{dire(c.contenuDuPack.corps)}</p>
               </Entree>
               <ul className="pak-livrables">
-                {c.contenuDuPack.livrables.map((livrable) => (
-                  <li key={livrable.titre} data-reveal="">
+                {/* La clé est le RANG, pas le titre : celui de la formation
+                    offerte reçoit sa valeur à l'arrivée de la réponse, et une
+                    clé qui change remonterait la carte — donc la révélerait
+                    une seconde fois. */}
+                {c.contenuDuPack.livrables.map((livrable, k) => (
+                  <li key={k} data-reveal="">
                     <h3>{dire(livrable.titre)}</h3>
                     <p>{dire(livrable.corps)}</p>
                     <ul className="pak-etoiles">

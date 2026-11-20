@@ -40,7 +40,7 @@ import { describe, expect, it } from "vitest";
 
 import { Accueil } from "../public/Accueil";
 import { ETUDES, ETUDES_PAGE } from "../public/contenu";
-import { RELECTURE } from "../public/contenuAccueil";
+import { AVIS, RELECTURE } from "../public/contenuAccueil";
 import { server } from "./server";
 
 // L'adresse que `donnees.ts` et `catalogue.ts` construisent réellement :
@@ -536,5 +536,27 @@ describe("l'accueil lit ses prix au serveur", () => {
       expect(juste, juste).not.toMatch(MONTANT_ECRIT);
     }
     expect(espaces(`dès${INSECABLE}93${FINE_INSECABLE}€`)).toMatch(MONTANT);
+  });
+});
+
+// ── Les avis : une clé par carte ────────────────────────────────────────────
+
+describe("les avis de l'accueil", () => {
+  /** La clé de `Accueil.ColonneAvis` : l'auteur ET le contexte. Le même client
+   *  laisse plusieurs avis, et deux clients en laissent le même jour. */
+  const cle = (a: { auteur: string; contexte: string }) => `${a.auteur}-${a.contexte}`;
+
+  it("chaque avis a un couple auteur-contexte qui n'est qu'à lui", () => {
+    // Règle 1 : une liste vide n'aurait aucun doublon.
+    expect(AVIS.liste.length).toBeGreaterThanOrEqual(10);
+    const cles = AVIS.liste.map(cle);
+    expect(cles.filter((c, k) => cles.indexOf(c) !== k)).toEqual([]);
+  });
+
+  it("contre-épreuve : l'auteur seul ne suffirait pas, et un vrai doublon serait vu", () => {
+    const auteurs = AVIS.liste.map((a) => a.auteur);
+    expect(new Set(auteurs).size).toBeLessThan(auteurs.length);
+    const cles = [...AVIS.liste, AVIS.liste[0]].map(cle);
+    expect(cles.filter((c, k) => cles.indexOf(c) !== k)).toEqual([cle(AVIS.liste[0])]);
   });
 });

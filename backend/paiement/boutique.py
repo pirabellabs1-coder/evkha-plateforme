@@ -26,7 +26,13 @@ from organisations import courriels, identifiants
 from organisations.models import CompteClient, Encaissement, Organisation
 
 from .achats import AchatInexploitable as AchatInexploitable
-from .achats import _texte, espace_de_l_acheteur
+from .achats import (
+    _texte,
+    compte_ne_de_l_achat,
+    espace_de_l_acheteur,
+    exiger_ce_qui_a_ete_ouvert,
+    reference_abregee,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -36,7 +42,9 @@ class AchatDeProduit:
     """Ce qu'un paiement de boutique a produit."""
 
     organisation: Organisation
-    compte: CompteClient
+    #: `None` seulement au REJEU d'une session deja livree dont l'acheteur
+    #: avait deja un compte (voir `achats.compte_ne_de_l_achat`).
+    compte: CompteClient | None
     produit: ProduitBoutique
     achat: AchatProduit
     #: Faux quand la session avait deja ete traitee — le webhook et la page de
@@ -48,18 +56,29 @@ def est_un_achat_de_produit(session: dict[str, Any]) -> bool:
     return str((session.get("metadata") or {}).get("achat") or "") == "produit"
 
 
-def _enregistrer_l_encaissement(
+def enregistrer_la_recette(
     organisation: Organisation,
-    produit: ProduitBoutique,
+    *,
+    slug: str,
+    prix_cents: int,
     session: dict[str, Any],
     reference: str,
 ) -> None:
     """Une recette reelle, a cote de celles des abonnements et des livrables.
 
-    Sans cette ligne, une vente de boutique serait invisible du chiffre
-    d'affaires : la supervision ne compte que des `Encaissement`.
+    Sans cette ligne, une vente serait invisible du chiffre d'affaires : la
+    supervision ne compte que des `Encaissement`.
+
+    Ecrite une fois pour ce qui se vend SANS formule — l'etude de boutique et
+    la formation (`paiement.formations`) : deux ecritures de la meme ligne
+    comptable finiraient par ne plus arrondir, ni dater, de la meme facon
+    (regle 5).
+
+    `get_or_create` sur la reference de la session : rejouee, elle ne compte
+    pas deux fois ; deux sessions distinctes font deux recettes — y compris
+    quand elles paient deux fois la meme chose, ce qui est alors VRAI.
     """
-    montant = int(session.get("amount_total") or produit.prix_cents or 0)
+    montant = int(session.get("amount_total") or prix_cents or 0)
     if montant <= 0:
         return
     Encaissement.objects.get_or_create(
@@ -67,12 +86,28 @@ def _enregistrer_l_encaissement(
         defaults={
             "organisation": organisation,
             # Pas de formule : cette vente n'en depend d'aucune. Le champ garde
-            # le slug du produit, pour que la ligne dise ce qui a ete vendu.
-            "formule_code": produit.slug[:60],
+            # le slug de ce qui a ete vendu, pour que la ligne le dise.
+            "formule_code": slug[:60],
             "montant_cents": montant,
             "devise": str(session.get("currency") or "eur").upper()[:3],
             "paye_le": timezone.now(),
         },
+    )
+
+
+def _enregistrer_l_encaissement(
+    organisation: Organisation,
+    produit: ProduitBoutique,
+    session: dict[str, Any],
+    reference: str,
+) -> None:
+    """La recette d'une etude de boutique (voir `enregistrer_la_recette`)."""
+    enregistrer_la_recette(
+        organisation,
+        slug=produit.slug,
+        prix_cents=produit.prix_cents,
+        session=session,
+        reference=reference,
     )
 
 
@@ -83,11 +118,40 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
     Rejouable sans effet. La garde est l'unicite de `reference_paiement` sur
     `AchatProduit` : deux appels concurrents sur la meme session ne creent
     qu'une ligne, le second recevant `nouveau=False`.
+
+    **L'idempotence d'abord** (audit de securite du 20/11/2026). L'achat deja
+    livre est cherche AVANT `espace_de_l_acheteur`, qui revoque des
+    invitations jamais acceptees et ouvre une organisation : une session se
+    rejoue — le prestataire renvoie ses evenements pendant trois jours,
+    l'identifiant se represente a volonte sur la page de retour — et un rejeu
+    ne doit plus rien ecrire. Meme regle que
+    `paiement.formations._deja_traitee`.
+
+    **Ce qui est livre est ce qui a ete ouvert** : un paiement unique, au
+    montant et dans la devise du panier (`achats.exiger_ce_qui_a_ete_ouvert`).
     """
     reference = str(session.get("id") or "").strip()
     if not reference:
         msg = "Session de paiement sans identifiant."
         raise AchatInexploitable(msg)
+
+    deja = (
+        AchatProduit.objects.select_related("organisation", "produit")
+        .filter(reference_paiement=reference)
+        .first()
+    )
+    if deja is not None:
+        _log.info(
+            "Achat de boutique %s déjà livré, rejeu sans effet.",
+            reference_abregee(reference),
+        )
+        return AchatDeProduit(
+            deja.organisation,
+            compte_ne_de_l_achat(reference),
+            deja.produit,
+            deja,
+            nouveau=False,
+        )
 
     # Sur un paiement unique, `payment_status` fait foi. `status: complete` dit
     # seulement que le formulaire est alle au bout.
@@ -101,6 +165,13 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
         msg = f"Session {reference} : produit « {slug} » inconnu."
         raise AchatInexploitable(msg)
 
+    exiger_ce_qui_a_ete_ouvert(
+        session,
+        reference=reference,
+        prix_cents=produit.prix_cents,
+        devise=produit.devise,
+    )
+
     email = _texte(session, "customer_details.email", "customer_email").lower()
     if not email:
         msg = f"Session {reference} : aucune adresse collectée par Stripe."
@@ -108,12 +179,17 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
 
     organisation, compte = espace_de_l_acheteur(session, email=email, reference=reference)
 
+    # Relu SOUS le verrou que `espace_de_l_acheteur` vient de poser : deux
+    # arrivees exactement simultanees ont toutes deux passe la garde du haut.
     existant = AchatProduit.objects.filter(reference_paiement=reference).first()
     if existant is not None:
         # Le webhook et la page de retour se sont croises. C'est le
         # fonctionnement normal, et le dire en journal evite qu'on le prenne
         # un jour pour une anomalie.
-        _log.info("Achat de boutique %s déjà livré, second appel sans effet.", reference)
+        _log.info(
+            "Achat de boutique %s déjà livré, second appel sans effet.",
+            reference_abregee(reference),
+        )
         return AchatDeProduit(organisation, compte, produit, existant, nouveau=False)
 
     try:
@@ -126,8 +202,9 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
                 organisation=organisation,
                 produit=produit,
                 reference_paiement=reference,
-                montant_cents=int(session.get("amount_total") or produit.prix_cents or 0),
-                devise=str(session.get("currency") or produit.devise or "EUR").upper()[:3],
+                # Verifies plus haut : ce sont ceux du prix ouvert.
+                montant_cents=int(session["amount_total"]),
+                devise=str(session["currency"]).upper()[:3],
                 email=email,
             )
     except IntegrityError:
@@ -139,9 +216,10 @@ def livrer_le_produit(session: dict[str, Any]) -> AchatDeProduit:
     _enregistrer_l_encaissement(organisation, produit, session, reference)
     solder_la_tentative(reference, organisation)
 
+    # Sans l'adresse de l'acheteur : l'organisation suffit a le retrouver.
     _log.info(
-        "Produit de boutique livré : %s pour %s (organisation %s).",
-        produit.slug, email, organisation.id,
+        "Produit de boutique livré : %s (organisation %s).",
+        produit.slug, organisation.id,
     )
     return AchatDeProduit(organisation, compte, produit, achat, nouveau=True)
 
@@ -243,6 +321,9 @@ def prevenir_l_acheteur(resultat: AchatDeProduit) -> bool:
     retour arriere : la personne aurait recu un lien vers un achat qui
     n'existe pas.
     """
+    if resultat.compte is None:
+        # Un rejeu, qui n'annonce rien : voir `AchatDeProduit.compte`.
+        return False
     return courriels.souhaiter_la_bienvenue(
         destinataire=resultat.compte.customer.email,
         livrable=resultat.produit.titre,

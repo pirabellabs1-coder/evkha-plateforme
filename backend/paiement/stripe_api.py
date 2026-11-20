@@ -455,6 +455,96 @@ def creer_paiement_de_produit(
     )
 
 
+def creer_paiement_de_formation(
+    *, formation: Any, email: str = "", organisation: Any = None
+) -> SessionOuverte:
+    """Ouvre un paiement PONCTUEL pour une formation en ligne.
+
+    Décision de la cliente du 20/11/2026 : une formation ne se vend ni par un
+    lien de paiement extérieur ni par courriel. Elle se paie ici, et l'acheteur
+    la retrouve dans son espace. La session porte `achat="formation"`, que le
+    webhook et la page de retour distinguent des trois autres achats.
+
+    **Rien de ce que le navigateur envoie ne fixe le prix.** Montant et devise
+    sont lus sur la formation et transmis à la volée, pour la raison écrite
+    dans `creer_paiement_de_produit`.
+
+    **On n'encaisse pas pour rien.** Une formation sans prix ou sans leçon
+    présente est refusée ICI aussi, avec la règle de `catalog.formations` et
+    non une copie : les vues passent déjà par `a_vendre`, mais c'est cette
+    fonction qui parle au prestataire, et un troisième appelant ne doit pas
+    pouvoir vendre un espace vide.
+
+    `organisation` est fournie quand l'achat part de l'espace client : le
+    rattachement se fait alors sur elle, et non sur l'adresse collectée.
+    """
+    from catalog import formations as regles  # noqa: PLC0415 — évite un cycle
+
+    prix = int(getattr(formation, "prix_cents", 0) or 0)
+    if prix <= 0 or not regles.a_un_programme(formation):
+        raise PaiementIndisponible(
+            "Cette formation n'est pas disponible à la vente pour le moment."
+        )
+
+    facultatifs: dict[str, Any] = {}
+    if email:
+        facultatifs["customer_email"] = email
+
+    try:
+        session: Any = stripe.checkout.Session.create(
+            api_key=cle_secrete(),
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": str(
+                        getattr(formation, "devise", "EUR") or "EUR"
+                    ).lower(),
+                    "unit_amount": prix,
+                    "product_data": {"name": f"Formation — {formation.titre}"},
+                },
+                "quantity": 1,
+            }],
+            success_url=_adresse_de_retour(
+                "/formations/retour?session={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=_adresse_de_retour("/formations?paiement=abandon"),
+            metadata={
+                # Ce qui distingue cet achat d'une souscription, d'un achat de
+                # crédits, d'un livrable à produire et d'une étude de boutique.
+                "achat": "formation",
+                "formation_slug": str(formation.slug),
+                **(
+                    {"organisation_id": str(organisation.id)}
+                    if organisation is not None
+                    else {}
+                ),
+            },
+            **facultatifs,
+        )
+    except stripe.StripeError as exc:
+        # Le TYPE de l'erreur, pas son message : celui de Stripe cite
+        # volontiers la cle, un identifiant de requete, ou l'adresse que le
+        # visiteur vient de saisir (audit de securite du 20/11/2026).
+        _log.error(
+            "Stripe a refuse l'achat de la formation %s : %s",
+            formation.slug, type(exc).__name__,
+        )
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        ) from exc
+
+    adresse = str(session.get("url") or "")
+    if not adresse:
+        raise PaiementIndisponible(
+            "Le paiement est momentanément indisponible. Réessayez dans "
+            "quelques minutes."
+        )
+    return SessionOuverte(
+        identifiant=str(session.get("id") or ""), adresse=adresse
+    )
+
+
 def relire_la_session(identifiant: str) -> dict[str, Any]:
     """Relit une session Checkout chez Stripe, pour la page de retour.
 
@@ -468,7 +558,15 @@ def relire_la_session(identifiant: str) -> dict[str, Any]:
             identifiant, api_key=cle_secrete()
         )
     except stripe.StripeError as exc:
-        _log.warning("Session Stripe %s illisible : %s", identifiant, exc)
+        # Reference abregee et TYPE de l'erreur seulement : l'identifiant
+        # entier ouvre la premiere session du compte ne de ce paiement, et le
+        # message de Stripe le repete (audit de securite du 20/11/2026).
+        from .achats import reference_abregee  # noqa: PLC0415 — evite un cycle
+
+        _log.warning(
+            "Session Stripe %s illisible : %s",
+            reference_abregee(identifiant), type(exc).__name__,
+        )
         raise PaiementIndisponible(
             "Ce paiement n'a pas pu être vérifié. Réessayez dans quelques "
             "minutes, ou écrivez-nous."

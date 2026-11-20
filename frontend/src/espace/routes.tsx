@@ -27,6 +27,8 @@ const FicheClient = ecranDiffere(ecrans, "FicheClient");
 const Livrables = ecranDiffere(ecrans, "Livrables");
 const MaMarque = ecranDiffere(ecrans, "MaMarque");
 const MesAchats = ecranDiffere(ecrans, "MesAchats");
+const MesFormations = ecranDiffere(ecrans, "MesFormations");
+const FormationSuivie = ecranDiffere(ecrans, "FormationSuivie");
 const MonCompte = ecranDiffere(ecrans, "MonCompte");
 const Signalements = ecranDiffere(ecrans, "Signalements");
 const Souscription = ecranDiffere(ecrans, "Souscription");
@@ -116,6 +118,20 @@ export function routesEspace(racine: AnyRoute) {
       getParentRoute: () => coquille,
       path: "achats",
       component: MesAchats,
+    }),
+    // Les formations achetées : la liste, puis une formation ouverte, à une
+    // adresse que l'on peut garder en favori. C'est le SEUL endroit où se lit
+    // le contenu des leçons — le serveur ne le rend qu'à l'organisation qui
+    // l'a acheté.
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "formations",
+      component: MesFormations,
+    }),
+    createRoute({
+      getParentRoute: () => coquille,
+      path: "formations/$slug",
+      component: FormationSuivie,
     }),
     createRoute({
       getParentRoute: () => coquille,

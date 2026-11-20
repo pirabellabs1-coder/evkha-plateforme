@@ -36,6 +36,7 @@ from organisations.models import (
     Encaissement,
     MembreOrganisation,
     Organisation,
+    TentativePaiement,
     TypeDeCompte,
 )
 
@@ -80,6 +81,37 @@ def _texte(source: dict[str, Any], *chemins: str) -> str:
         if courant not in (None, ""):
             return str(courant).strip()
     return ""
+
+
+#: Ce qu'une référence abrégée garde de son début et de sa fin.
+_DEBUT_DE_REFERENCE = 12
+_FIN_DE_REFERENCE = 4
+
+
+def reference_abregee(reference: object) -> str:
+    """Une référence de paiement telle qu'on l'écrit dans un journal.
+
+    L'identifiant d'une session Checkout n'est pas un simple numéro de
+    dossier : présenté à une page de retour, il ouvre la première session du
+    compte né de ce paiement (`authentification.ouvrir_la_session_d_un_achat`).
+    Écrit en entier dans un journal ou dans un incident, il est lisible par
+    quiconque lit ce journal.
+
+    Le début dit l'environnement et commence l'identifiant, la fin le
+    distingue de ses voisins : assez pour reconnaître une ligne, trop peu
+    pour la rejouer. La référence ENTIÈRE reste en base, là où elle sert de
+    verrou (`AchatFormation.reference_paiement`, `Encaissement`,
+    `TentativePaiement`).
+
+    Une seule écriture, pour les journaux, les incidents et l'administration
+    (règle 5).
+    """
+    texte = str(reference or "")
+    if len(texte) <= _DEBUT_DE_REFERENCE + _FIN_DE_REFERENCE:
+        # Trop courte pour être coupée sans être rendue entière : on n'en
+        # garde que la moitié.
+        return f"{texte[: len(texte) // 2]}…" if texte else ""
+    return f"{texte[:_DEBUT_DE_REFERENCE]}…{texte[-_FIN_DE_REFERENCE:]}"
 
 
 def est_un_achat_de_livrable(session: dict[str, Any]) -> bool:
@@ -242,6 +274,96 @@ def espace_de_l_acheteur(
         contact, ne_de_l_achat=reference if ouvert_par_ce_paiement else ""
     )
     return organisation, compte
+
+
+def compte_ne_de_l_achat(reference: str) -> CompteClient | None:
+    """Le compte que CE paiement a créé, s'il en a créé un. Ne modifie rien.
+
+    Sert au REJEU d'une session déjà livrée (audit du 20/11/2026) : la
+    livraison ne repasse alors plus par `espace_de_l_acheteur`, qui révoque
+    des invitations et ouvre un espace — un rejeu ne doit rien écrire.
+
+    `None` quand l'acheteur avait déjà un compte : la page de retour n'ouvre
+    de toute façon de session que sur le compte né du paiement
+    (`authentification.ouvrir_la_session_d_un_achat`), et le courriel
+    d'annonce ne part qu'à la première livraison.
+    """
+    if not reference:
+        return None
+    return (
+        CompteClient.objects.select_related("customer", "user")
+        # Même coupe que `identifiants.compte_sans_mot_de_passe`, qui l'inscrit.
+        .filter(ne_de_l_achat=reference[:255])
+        .first()
+    )
+
+
+def _entier_strict(valeur: object) -> int | None:
+    """Un entier, ou `None`. `True` n'est pas 1, « 100 » n'est pas 100."""
+    if isinstance(valeur, bool) or not isinstance(valeur, int):
+        return None
+    return valeur
+
+
+def exiger_ce_qui_a_ete_ouvert(
+    session: dict[str, Any], *, reference: str, prix_cents: int, devise: str
+) -> None:
+    """Refuse une session payée qui n'est pas celle que nous avons ouverte.
+
+    ## Le défaut, trouvé à l'audit de sécurité du 20/11/2026
+
+    La livraison d'une formation ou d'une étude de boutique ne regardait que
+    `payment_status` et le slug des métadonnées. Elle ne vérifiait ni que la
+    session était un paiement UNIQUE, ni que le montant encaissé était le
+    prix : toute session payée portant le bon slug ouvrait l'accès, quel
+    qu'en soit le montant.
+
+    ## La règle
+
+    - `mode == "payment"` : une session d'abonnement ou d'enregistrement de
+      carte n'achète rien ici ;
+    - `amount_total` et `currency` sont ceux du PANIER enregistré à
+      l'ouverture de cette session (`TentativePaiement`), quand il existe. Le
+      prix du catalogue peut changer entre l'ouverture et l'encaissement : qui
+      a payé le prix affiché au clic est livré, et un prix baissé depuis ne
+      rend pas juste un montant qui n'est pas celui qui a été ouvert ;
+    - à défaut de panier — son enregistrement ne lève jamais, il peut donc
+      manquer —, le prix courant passé par l'appelant.
+
+    Un écart lève `AchatInexploitable` : rien n'est livré, et le webhook en
+    fait un incident. Sans montant de référence, on refuse aussi (règle 1).
+
+    Une seule écriture pour la boutique et les formations (règle 5).
+
+    **Non couvert ici** : une session réglée dans une autre devise que celle
+    du prix (conversion proposée par le prestataire sur sa page) serait
+    refusée, et signalée. C'est le comportement voulu tant que personne n'a
+    décidé de vendre en plusieurs devises.
+    """
+    abrege = reference_abregee(reference)
+    mode = str(session.get("mode") or "")
+    if mode != "payment":
+        msg = f"Session {abrege} : ce n'est pas un paiement unique (mode {mode!r})."
+        raise AchatInexploitable(msg)
+
+    panier = TentativePaiement.objects.filter(reference_session=reference).first()
+    if panier is not None and panier.montant_cents > 0:
+        attendu, devise_attendue, origine = (
+            int(panier.montant_cents), str(panier.devise or ""), "ouvert",
+        )
+    else:
+        attendu, devise_attendue, origine = int(prix_cents or 0), str(devise or ""), "courant"
+    devise_attendue = devise_attendue.upper()[:3]
+
+    paye = _entier_strict(session.get("amount_total"))
+    devise_payee = str(session.get("currency") or "").upper()
+    if attendu <= 0 or not devise_attendue or paye != attendu or devise_payee != devise_attendue:
+        msg = (
+            f"Session {abrege} : le montant payé "
+            f"({session.get('amount_total')!r} {devise_payee or 'sans devise'}) ne "
+            f"correspond pas au prix {origine} ({attendu} {devise_attendue or 'sans devise'})."
+        )
+        raise AchatInexploitable(msg)
 
 
 def _enregistrer_l_encaissement(

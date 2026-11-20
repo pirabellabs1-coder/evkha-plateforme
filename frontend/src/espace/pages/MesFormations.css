@@ -1,0 +1,331 @@
+/* Mes formations : la liste, et la lecture d'une formation.
+ *
+ * La liste reprend les cartes de « Mes achats » (`.achats-grille`,
+ * `.achat-carte`, dans `theme/espace.css`) ; cette feuille ne porte que ce qui
+ * est propre à la lecture — le programme, la leçon ouverte, le lecteur.
+ *
+ * Aucune couleur ni aucune durée ici : tout se lit dans `theme/tokens.css`.
+ * Écrite pour le téléphone d'abord : une colonne, le programme au-dessus de la
+ * leçon ; deux colonnes à partir de 900 px, la largeur où la barre de l'espace
+ * est dépliée.
+ *
+ * Toute cible que l'on touche fait au moins 44 px de haut.
+ */
+
+/* ── La liste ───────────────────────────────────────────────────────────── */
+
+/* La phrase d'introduction, en tête de la carte. La carte n'a pas de titre —
+   le `h1` de la coquille dit déjà « Mes formations » — et donc pas d'en-tête :
+   la phrase reprend l'écart que l'en-tête laissait sous lui. */
+.frs-introduction {
+  margin: 0 0 var(--e-5);
+}
+
+/* Le titre d'une formation est un vrai titre (`h2`, sous le `h1` de la
+   coquille) : il garde l'habillage de `.achat-titre`. */
+.frs-carte-titre {
+  margin: 0;
+  font-size: inherit;
+}
+
+.frs-ouvrir {
+  min-height: 44px;
+}
+
+/* ── Une formation ouverte ──────────────────────────────────────────────── */
+
+.frs-retour {
+  margin: 0;
+}
+
+.frs-retour .bouton {
+  min-height: 44px;
+}
+
+.frs-sorties {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--e-3);
+}
+
+.frs-sorties .bouton {
+  min-height: 44px;
+}
+
+.frs-accroche {
+  margin: 0 0 var(--e-5);
+  max-width: 68ch;
+  color: var(--texte-doux);
+}
+
+.frs-lecteur {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--e-6);
+}
+
+@media (min-width: 900px) {
+  .frs-lecteur {
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.frs-intertitre {
+  margin: 0 0 var(--e-3);
+  font-family: var(--police-titre);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+
+/* ── Le programme ───────────────────────────────────────────────────────── */
+
+.frs-modules,
+.frs-lecons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.frs-modules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.frs-module {
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  background: var(--fond-carte);
+}
+
+/* L'en-tête d'un module : il se replie et se déplie (`<details>`), à la
+   souris comme au clavier. */
+.frs-module-tete {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--e-1) var(--e-3);
+  align-items: center;
+  min-height: 44px;
+  padding: var(--e-3) var(--e-4);
+  border-radius: var(--rayon-md);
+  cursor: pointer;
+}
+
+.frs-module-tete:focus-visible {
+  outline: 2px solid var(--texte-fort);
+  outline-offset: 2px;
+}
+
+.frs-module-rang {
+  grid-column: 1 / -1;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+
+.frs-module-titre {
+  font-weight: var(--graisse-forte);
+  color: var(--texte-fort);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.frs-module-compte {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+  white-space: nowrap;
+}
+
+.frs-module-description {
+  margin: 0;
+  padding: 0 var(--e-4) var(--e-3);
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.frs-lecons {
+  padding: 0 var(--e-2) var(--e-2);
+}
+
+/* Une leçon du programme : un bouton sur toute la largeur. */
+.frs-lecon {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--e-2) var(--e-3);
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: var(--rayon-xs);
+  background: transparent;
+  color: var(--texte-fort);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duree-micro) var(--ease-doux);
+}
+
+.frs-lecon:hover {
+  background: var(--fond-enfonce);
+}
+
+.frs-lecon:focus-visible {
+  outline: 2px solid var(--texte-fort);
+  outline-offset: 2px;
+}
+
+/* La leçon ouverte : un filet, un fond et une graisse — jamais la couleur
+   seule. `aria-current` le dit aussi à qui ne voit pas l'écran. */
+.frs-lecon[aria-current="true"] {
+  border-left-color: var(--evkha-or-profond);
+  background: var(--evkha-or-brume);
+}
+
+.frs-lecon[aria-current="true"] .frs-lecon-titre {
+  font-weight: var(--graisse-titre);
+}
+
+.frs-lecon-titre {
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.frs-lecon-reperes {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+/* ── La leçon ouverte ───────────────────────────────────────────────────── */
+
+.frs-lecon-ouverte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  min-width: 0;
+}
+
+.frs-fil {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.frs-lecon-titre-ouvert {
+  margin: 0;
+  font-family: var(--police-titre);
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-titre);
+  line-height: 1.25;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+/* Le titre reçoit le focus au changement de leçon : il le montre, pour qui
+   navigue au clavier. */
+.frs-lecon-titre-ouvert:focus-visible {
+  outline: 2px solid var(--texte-fort);
+  outline-offset: 4px;
+  border-radius: var(--rayon-xs);
+}
+
+/* Le lecteur : le cadre réserve le rapport 16/9 avant l'arrivée de la vidéo,
+   rien ne se décale. */
+.frs-video {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: var(--rayon-md);
+  overflow: hidden;
+  background: var(--evkha-noir);
+}
+
+.frs-video iframe,
+.frs-video video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Le texte d'une leçon : une mesure lisible, et les retours à la ligne de la
+   saisie respectés. */
+.frs-texte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  max-width: 68ch;
+  color: var(--texte-fort);
+  line-height: 1.65;
+}
+
+.frs-texte p {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.frs-absent {
+  margin: 0;
+  padding: var(--e-4);
+  border-radius: var(--rayon-md);
+  background: var(--fond-enfonce);
+  color: var(--texte-doux);
+}
+
+.frs-geste {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-3);
+  margin: 0;
+}
+
+/* Un nom de fichier peut être long : le bouton passe à la ligne plutôt que de
+   sortir de l'écran. */
+.frs-geste .bouton {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.frs-geste .bandeau {
+  margin: 0;
+}
+
+/* Précédente à gauche, suivante à droite ; empilées sur un écran étroit. */
+.frs-pas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--e-3);
+  margin-top: var(--e-2);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.frs-pas .bouton {
+  min-height: 44px;
+}
+
+@media (max-width: 560px) {
+  .frs-pas .bouton {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frs-lecon {
+    transition: none;
+  }
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, type CustomerSummary } from "../api";
+import { Icone } from "../admin/icones";
 import { TIER_LABELS_SHORT, tierTon } from "../constants/tiers";
 import * as f from "../espace/format";
 import {
@@ -42,8 +43,8 @@ export function Clients() {
               onChange={(evenement) => setTypeFilter(evenement.target.value)}
             >
               <option value="all">Tous les types</option>
-              <option value="b2c">B2C — achats unitaires</option>
-              <option value="b2b">B2B — abonnements</option>
+              <option value="b2c">Achats à l'unité</option>
+              <option value="b2b">Abonnés</option>
             </select>
           </label>
         </div>
@@ -56,7 +57,7 @@ export function Clients() {
 
       {data?.length === 0 && (
         <Vide
-          icone="◉"
+          icone={<Icone nom="clients" />}
           titre={`Aucun client${typeFilter !== "all" ? " pour ce type" : ""} pour l'instant.`}
         />
       )}
@@ -67,7 +68,7 @@ export function Clients() {
             <thead>
               <tr>
                 <th scope="col">Client</th>
-                <th scope="col">Type</th>
+                <th scope="col">Achète</th>
                 <th scope="col">Abonnement</th>
                 <th scope="col">Inscrit le</th>
                 <th scope="col">
@@ -97,7 +98,7 @@ export function Clients() {
                           : "pastille pastille-neutre"
                       }
                     >
-                      {c.customer_type.toUpperCase()}
+                      {c.customer_type === "b2b" ? "Abonné" : "À l'unité"}
                     </span>
                   </td>
                   <td>

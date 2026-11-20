@@ -70,6 +70,7 @@ OUVRENT_UN_PAIEMENT = {
     "acheter_une_etude",
     "acheter_des_credits",
     "acheter_un_produit",
+    "acheter_une_formation",
     "reprendre_l_abonnement",
     "changer_de_formule",
 }
@@ -212,6 +213,9 @@ def test_l_assistance_ne_donne_ni_ne_retire_d_acces() -> None:
         # qui prouve qu'elle avait TRAVERSE le decorateur ; en production, elle
         # aurait rendu 200 avec une adresse de paiement au nom du client.
         ("/api/espace/achats/acheter/", {"produit": "marche-foodtrucks-2026"}),
+        # L'achat d'une formation, ouvert le 20/11/2026 : le panier le plus
+        # cher de la plateforme.
+        ("/api/espace/formations/acheter/", {"formation": "methode-pop"}),
         # Ni argent ni Stripe, et pourtant refusees : ce qu'elles creent survit
         # a la fermeture de l'assistance.
         ("/api/espace/equipe/inviter/", {"email": "complice@exemple.fr",

@@ -88,7 +88,7 @@ export function LivrablesAdmin() {
         </Bandeau>
       )}
 
-      <div className="admin-periodes" role="group" aria-label="Livrable">
+      <div className="console-segments" role="group" aria-label="Livrable affiché">
         {livrables.map((livrable) => (
           <button
             key={livrable.type}
@@ -108,7 +108,7 @@ export function LivrablesAdmin() {
 
       {actif && (
         <Carte titre={actif.libelle} note={actif.description}>
-          <div className="admin-periodes" role="group" aria-label="Volet">
+          <div className="console-segments" role="group" aria-label="Volet du livrable">
             {VOLETS.map((v) => (
               <button
                 key={v.cle}
@@ -131,17 +131,19 @@ export function LivrablesAdmin() {
               <table className="tableau">
                 <thead>
                   <tr>
-                    <th>N°</th>
-                    <th>Chapitre</th>
-                    <th>Mots au plus</th>
+                    <th scope="col">N°</th>
+                    <th scope="col">Chapitre</th>
+                    <th scope="col" className="nombre">
+                      Mots au plus
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {actif.chapitres.map((chapitre) => (
                     <tr key={chapitre.numero}>
-                      <td>{chapitre.numero}</td>
+                      <td className="console-tabulaire">{chapitre.numero}</td>
                       <td>{chapitre.titre}</td>
-                      <td>{chapitre.mots_max || "—"}</td>
+                      <td className="nombre">{chapitre.mots_max || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -154,12 +156,12 @@ export function LivrablesAdmin() {
               <table className="tableau">
                 <thead>
                   <tr>
-                    <th>Identifiant</th>
-                    <th>Ce que c'est</th>
-                    <th>Périmètre</th>
-                    <th>Unité</th>
-                    <th>Obligatoire</th>
-                    <th>Chapitres</th>
+                    <th scope="col">Identifiant</th>
+                    <th scope="col">Ce que c'est</th>
+                    <th scope="col">Périmètre</th>
+                    <th scope="col">Unité</th>
+                    <th scope="col">Obligatoire</th>
+                    <th scope="col">Chapitres</th>
                   </tr>
                 </thead>
                 <tbody>

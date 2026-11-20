@@ -19,7 +19,16 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { adminApi, type Annonce } from "../api";
-import { ErreurDeChargement } from "../../espace/composants/Interface";
+import { ActionsDePage } from "../ActionsDePage";
+import { Icone } from "../icones";
+import {
+  Bandeau,
+  Carte,
+  Chiffre,
+  ErreurDeChargement,
+  Squelette,
+  Vide,
+} from "../../espace/composants/Interface";
 import "./Annonces.css";
 
 function quand(iso: string): string {
@@ -75,7 +84,8 @@ function Redaction({
 
   return (
     <form
-      className="ann-redaction"
+      className="carte console-formulaire"
+      aria-labelledby="annonce-redaction-titre"
       onSubmit={(evenement) => {
         evenement.preventDefault();
         if (!titre.trim()) {
@@ -89,62 +99,84 @@ function Redaction({
         enregistrement.mutate();
       }}
     >
-      <header className="ann-redaction-tete">
-        <h3>{annonce ? "Modifier l'annonce" : "Rédiger une annonce"}</h3>
-        <button type="button" className="ann-fermer" onClick={onAnnuler} aria-label="Fermer">
-          ✕
+      <header className="carte-entete">
+        <h2 className="carte-titre" id="annonce-redaction-titre">
+          {annonce ? "Modifier l'annonce" : "Rédiger une annonce"}
+        </h2>
+        <button
+          type="button"
+          className="console-bouton-icone"
+          onClick={onAnnuler}
+          aria-label="Fermer la rédaction"
+        >
+          <Icone nom="fermer" />
         </button>
       </header>
 
       {erreur && (
-        <p className="ann-erreur" role="alert">
+        <p className="bandeau bandeau-echec" role="alert">
           {erreur}
         </p>
       )}
 
-      <label className="ann-champ">
-        <span>Titre</span>
+      {/* Chaque champ a son libellé visible, et son aide lui est reliée
+          (`aria-describedby`) : elle est lue en arrivant sur le champ. */}
+      <label className="champ">
+        <span className="champ-libelle">Titre</span>
         <input
+          className="champ-saisie"
           value={titre}
           onChange={(e) => setTitre(e.currentTarget.value)}
           placeholder="Le business plan arrive en octobre"
           maxLength={160}
           autoFocus
+          aria-describedby="annonce-titre-aide"
         />
-        <small>
+        <span className="champ-aide" id="annonce-titre-aide">
           C'est aussi l'objet du courriel. {160 - titre.length} caractères restants.
-        </small>
+        </span>
       </label>
 
-      <label className="ann-champ">
-        <span>Message</span>
+      <label className="champ">
+        <span className="champ-libelle">Message</span>
         <textarea
+          className="champ-saisie champ-zone"
           rows={7}
           value={message}
           onChange={(e) => setMessage(e.currentTarget.value)}
           placeholder={
             "Écrivez votre annonce.\n\nLaissez une ligne vide entre deux paragraphes : ils seront séparés à l'affichage comme dans le courriel."
           }
+          aria-describedby="annonce-message-aide"
         />
-        <small>
+        <span className="champ-aide" id="annonce-message-aide">
           {message.split(/\n\s*\n/).filter((p) => p.trim()).length} paragraphe(s).
-        </small>
+        </span>
       </label>
 
-      <div className="ann-duo">
-        <label className="ann-champ">
-          <span>Texte du bouton</span>
+      <div className="console-champs">
+        <label className="champ">
+          <span className="champ-libelle">Texte du bouton</span>
           <input
+            className="champ-saisie"
             value={libelle}
             onChange={(e) => setLibelle(e.currentTarget.value)}
             placeholder="Voir les livrables"
             maxLength={60}
+            aria-describedby="annonce-bouton-aide"
           />
-          <small>Laissez vide pour une annonce sans bouton.</small>
+          <span className="champ-aide" id="annonce-bouton-aide">
+            Laissez vide pour une annonce sans bouton.
+          </span>
         </label>
-        <label className="ann-champ">
-          <span>Le bouton mène à</span>
-          <select value={cible} onChange={(e) => setCible(e.currentTarget.value)}>
+        <label className="champ">
+          <span className="champ-libelle">Le bouton mène à</span>
+          <select
+            className="champ-saisie"
+            value={cible}
+            onChange={(e) => setCible(e.currentTarget.value)}
+            aria-describedby="annonce-cible-aide"
+          >
             <option value="">Aucune destination</option>
             {destinations.map((d) => (
               <option key={d.cible} value={d.cible}>
@@ -152,7 +184,9 @@ function Redaction({
               </option>
             ))}
           </select>
-          <small>Les pages de l'espace client, et elles seules.</small>
+          <span className="champ-aide" id="annonce-cible-aide">
+            Les pages de l'espace client, et elles seules.
+          </span>
         </label>
       </div>
 
@@ -174,19 +208,21 @@ function Redaction({
         </div>
       </div>
 
-      <footer className="ann-redaction-pied">
-        <p className="ann-portee">
+      <footer className="console-formulaire-pied">
+        <p className="carte-note">
           Une fois envoyée, elle partira à <b>{destinataires}</b>{" "}
           {destinataires > 1 ? "personnes" : "personne"}.
         </p>
-        <div className="ann-boutons">
-          <button type="button" className="bouton bouton-discret" onClick={onAnnuler}>
-            Annuler
-          </button>
-          <button type="submit" className="bouton" disabled={enregistrement.isPending}>
-            {enregistrement.isPending ? "Enregistrement…" : "Enregistrer le brouillon"}
-          </button>
-        </div>
+        <button type="button" className="bouton bouton-discret" onClick={onAnnuler}>
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="bouton bouton-principal"
+          disabled={enregistrement.isPending}
+        >
+          {enregistrement.isPending ? "Enregistrement…" : "Enregistrer le brouillon"}
+        </button>
       </footer>
     </form>
   );
@@ -235,7 +271,7 @@ export function Annonces() {
       setErreur(cause instanceof Error ? cause.message : "Suppression impossible."),
   });
 
-  if (isPending) return <p>Chargement…</p>;
+  if (isPending) return <Squelette lignes={4} />;
   // Rien reçu : on le dit, et on s'arrête là. L'écran affichait « 0 annonce »,
   // « 0 destinataire », et ouvrait quand même la rédaction — dont la
   // confirmation d'envoi aurait annoncé « à 0 personne » un message qui part
@@ -248,50 +284,46 @@ export function Annonces() {
   const brouillons = annonces.filter((a) => !a.envoyee).length;
 
   return (
-    <section className="ann">
+    <>
       {isError && (
         <ErreurDeChargement quoi="les annonces" erreur={error} perimees={isRefetchError} />
       )}
-      <header className="ann-entete">
-        <dl className="ann-chiffres">
-          <div>
-            <dt>Annonces</dt>
-            <dd>{annonces.length}</dd>
-          </div>
-          <div>
-            <dt>Brouillons</dt>
-            <dd>{brouillons}</dd>
-          </div>
-          <div>
-            <dt>Destinataires</dt>
-            <dd>{destinataires}</dd>
-          </div>
-        </dl>
-        {!ouvre && !redige && (
+
+      {/* Le geste principal de l'écran vit dans l'en-tête de la page. */}
+      {!ouvre && !redige && (
+        <ActionsDePage>
           <button
             type="button"
-            className="bouton"
+            className="bouton bouton-principal"
             onClick={() => {
               setErreur("");
               setSucces("");
               setOuvre(true);
             }}
           >
+            <Icone nom="plus" taille={16} />
             Rédiger une annonce
           </button>
-        )}
-      </header>
+        </ActionsDePage>
+      )}
+
+      <div className="grille-chiffres">
+        <Chiffre libelle="Annonces" valeur={annonces.length} detail="Brouillons et envoyées" />
+        <Chiffre libelle="Brouillons" valeur={brouillons} detail="Invisibles pour vos clients" />
+        <Chiffre
+          libelle="Destinataires"
+          valeur={destinataires}
+          detail="Recevront la prochaine annonce"
+          accent
+        />
+      </div>
 
       {erreur && (
-        <p className="ann-erreur" role="alert">
+        <p className="bandeau bandeau-echec" role="alert">
           {erreur}
         </p>
       )}
-      {succes && (
-        <p className="ann-succes" role="status">
-          {succes}
-        </p>
-      )}
+      {succes && <Bandeau ton="succes">{succes}</Bandeau>}
 
       {(ouvre || redige) && (
         <Redaction
@@ -311,17 +343,21 @@ export function Annonces() {
           irréversible et touche tout le monde. Elle rappelle le titre exact et
           le nombre de personnes. */}
       {confirme && (
-        <div className="ann-confirmation" role="alertdialog" aria-label="Confirmer l'envoi">
+        <div
+          className="console-confirmation"
+          role="alertdialog"
+          aria-label="Confirmer l'envoi"
+        >
           <p>
             Envoyer <b>« {confirme.titre} »</b> à <b>{destinataires}</b>{" "}
             {destinataires > 1 ? "personnes" : "personne"} ?
           </p>
-          <p className="ann-confirmation-note">
+          <p className="carte-note">
             Le courriel part immédiatement et l'annonce s'affichera dans les
             espaces clients. C'est irréversible : une annonce envoyée ne se
             modifie plus.
           </p>
-          <div className="ann-boutons">
+          <div className="console-gestes">
             <button
               type="button"
               className="bouton bouton-discret"
@@ -331,7 +367,7 @@ export function Annonces() {
             </button>
             <button
               type="button"
-              className="bouton"
+              className="bouton bouton-principal"
               disabled={envoi.isPending}
               onClick={() => envoi.mutate(confirme.id)}
             >
@@ -343,20 +379,28 @@ export function Annonces() {
 
       {/* Sous une mise à jour ratée, « aucune » ne se redit pas. */}
       {annonces.length === 0 && !ouvre && !isError && (
-        <p className="carte-note">
-          Aucune annonce. Rédigez-en une pour prévenir vos clients d'un nouveau
-          livrable, d'une disponibilité ou d'une date.
-        </p>
+        <Carte>
+          <Vide
+            icone={<Icone nom="annonces" />}
+            titre="Aucune annonce"
+            texte="Rédigez-en une pour prévenir vos clients d'un nouveau livrable, d'une disponibilité ou d'une date."
+          />
+        </Carte>
       )}
 
-      <ul className="ann-liste">
+      <ul className="console-liste">
         {annonces.map((a) => (
-          <li key={a.id} className={`ann-carte ${a.envoyee ? "ann-carte-envoyee" : ""}`}>
-            <div className="ann-carte-corps">
-              <p className="ann-carte-titre">
+          <li
+            key={a.id}
+            className={a.envoyee ? "console-element console-element-fait" : "console-element"}
+          >
+            <div className="console-element-corps">
+              <p className="console-element-titre">
                 {a.titre}
-                <span className={`ann-fanion ${a.envoyee ? "ann-fanion-vif" : ""}`}>
-                  {a.envoyee ? "envoyée" : "brouillon"}
+                {/* Le brouillon attend un geste : il est en alerte. L'envoyée
+                    est faite : en succès. Le mot le dit, la teinte l'appuie. */}
+                <span className={a.envoyee ? "pastille pastille-succes" : "pastille pastille-alerte"}>
+                  {a.envoyee ? "Envoyée" : "Brouillon"}
                 </span>
               </p>
               <p className="ann-carte-message">{a.message}</p>
@@ -367,7 +411,7 @@ export function Annonces() {
                 {a.lien_libelle && a.lien_cible ? ` · bouton « ${a.lien_libelle} »` : ""}
               </p>
             </div>
-            <div className="ann-carte-boutons">
+            <div className="console-gestes">
               {!a.envoyee && (
                 <>
                   <button
@@ -384,7 +428,7 @@ export function Annonces() {
                   </button>
                   <button
                     type="button"
-                    className="bouton bouton-sm"
+                    className="bouton bouton-principal bouton-sm"
                     onClick={() => {
                       setErreur("");
                       setSucces("");
@@ -410,6 +454,6 @@ export function Annonces() {
           </li>
         ))}
       </ul>
-    </section>
+    </>
   );
 }

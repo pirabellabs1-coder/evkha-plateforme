@@ -1,67 +1,10 @@
 /* Prospection — mise en page de l'écran admin. Réutilise les variables de
    thème de l'espace (--e-*) : pas de couleurs en dur, pas de charte parallèle. */
 
-/* Onglets principaux : des onglets soulignés, sur UNE ligne qui défile. */
-.prospection-onglets {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0 1.5rem;
-  margin-bottom: var(--e-4);
-  border-bottom: 1px solid var(--evkha-bordure);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.prospection-onglets::-webkit-scrollbar {
-  display: none;
-}
-
-.prospection-onglet {
-  position: relative;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.6rem 0.15rem;
-  margin-bottom: -1px;
-  white-space: nowrap;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: inherit;
-  font: inherit;
-  opacity: 0.6;
-  cursor: pointer;
-  transition: opacity var(--duree-micro) var(--ease-doux), border-color var(--duree-micro) var(--ease-doux);
-}
-
-.prospection-onglet:hover {
-  opacity: 1;
-}
-
-.prospection-onglet.actif {
-  opacity: 1;
-  font-weight: 600;
-  border-bottom-color: var(--evkha-or);
-}
-
-/* Compteur sobre, partagé par les onglets et les filtres d'étape. */
-.prospection-compteur {
-  min-width: 1.25rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: var(--evkha-bordure);
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1.25rem;
-  text-align: center;
-}
-
-.prospection-onglet.actif .prospection-compteur,
-.prospection-etape.actif .prospection-compteur {
-  background: var(--evkha-or);
-  color: var(--texte-sur-or);
-}
+/* Les onglets, les puces d'étape et leurs compteurs ne sont plus dessinés
+   ici : ce sont `.console-onglets`, `.console-puces` et `.console-compteur`
+   du langage commun (`admin/console.css`). De même le libellé d'un champ
+   (`.champ-libelle`) et la grille des chiffres (`.grille-chiffres`). */
 
 .prospection-formulaire {
   display: flex;
@@ -105,12 +48,6 @@
   width: 100%;
   resize: vertical;
   font-family: inherit;
-}
-
-.prospection-etiquette {
-  font-size: 0.8rem;
-  font-weight: 600;
-  opacity: 0.7;
 }
 
 /* Aperçu lisible du brouillon : le rendu, pas le code. */
@@ -161,12 +98,6 @@
   margin-top: var(--e-3);
   padding-top: var(--e-3);
   border-top: 1px solid var(--evkha-bordure);
-}
-
-.prospection-chiffres {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--e-3);
 }
 
 /* Réglages de l'automatisation. */
@@ -230,47 +161,6 @@
   align-self: flex-start;
   background: var(--fond-enfonce);
   border-bottom-left-radius: 0.25rem;
-}
-
-/* Pipeline : les étapes en filtres — UNE ligne fine qui défile (pas de pavé). */
-.prospection-etapes {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.4rem;
-  margin-bottom: var(--e-4);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.prospection-etapes::-webkit-scrollbar {
-  display: none;
-}
-
-.prospection-etape {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.8rem;
-  white-space: nowrap;
-  border: 1px solid var(--evkha-bordure);
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: background var(--duree-micro) var(--ease-doux), border-color var(--duree-micro) var(--ease-doux);
-}
-
-.prospection-etape:hover {
-  border-color: var(--evkha-or);
-}
-
-.prospection-etape.actif {
-  background: var(--evkha-or-voile);
-  border-color: var(--evkha-or);
-  font-weight: 600;
 }
 
 /* La fiche d'un prospect, dépliée sous sa ligne. */

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from . import vues_boutique
+from . import vues_boutique, vues_formations
 from . import vues_publiques as vues
 
 app_name = "public"
@@ -32,6 +32,14 @@ urlpatterns = [
     # et le retour de Stripe. Trois routes PUBLIQUES par necessite — au moment
     # ou la personne clique, elle n'a ni compte ni jeton.
     path("livrables/", vues.livrables_publics, name="livrables"),
+    # Les formations en ligne : fiche, prix et programme. Jamais le contenu
+    # des leçons, qui est ce que l'acheteur paie.
+    path("formations/", vues_formations.catalogue, name="formations"),
+    # L'achat d'une formation par Stripe, et le retour du paiement. PUBLIQUES
+    # pour la raison des deux routes « acheter » ci-dessous : au moment du
+    # clic, la personne n'a ni compte ni jeton.
+    path("formations/acheter/", vues_formations.acheter, name="formations-acheter"),
+    path("formations/retour/", vues_formations.retour, name="formations-retour"),
     path("acheter/", vues.acheter, name="acheter"),
     path("acheter/retour/", vues.retour_de_paiement, name="acheter-retour"),
     path("inscription/", vues.inscrire, name="inscription"),

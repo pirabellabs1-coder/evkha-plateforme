@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, estRelancable, type JobSummary } from "../api";
+import { Icone } from "../admin/icones";
 import * as f from "../espace/format";
 import {
   Carte,
@@ -26,9 +27,9 @@ const DELIVERABLE_LABELS: Record<string, string> = {
 // 19/11/2026).
 const STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
-  running: "En cours ⚡",
-  done: "Terminé ✓",
-  failed: "Échec ✗",
+  running: "En cours",
+  done: "Terminé",
+  failed: "Échec",
   cancelled: "Annulé",
   intervention_requise: "Intervention requise",
 };
@@ -88,7 +89,8 @@ function BoutonRelancer({ job }: { job: JobSummary }) {
         onClick={() => mutation.mutate()}
         title={titre}
       >
-        ↻ Relancer
+        <Icone nom="relancer" taille={16} />
+        Relancer
       </button>
       {erreur && (
         <p className="console-message console-message-echec" role="alert">
@@ -134,12 +136,20 @@ function JobRowActions({ job }: { job: JobSummary }) {
           href={job.pdf_download_url!}
           target="_blank"
           rel="noreferrer"
+          aria-label="Télécharger le PDF"
         >
-          ↓ PDF
+          <Icone nom="telecharger" taille={16} />
+          PDF
         </a>
       ) : (
-        <button type="button" className="bouton bouton-contour bouton-sm" disabled>
-          ↓ PDF
+        <button
+          type="button"
+          className="bouton bouton-contour bouton-sm"
+          disabled
+          aria-label="Télécharger le PDF (pas encore disponible)"
+        >
+          <Icone nom="telecharger" taille={16} />
+          PDF
         </button>
       )}
       {envoiEnEchec && (
@@ -155,7 +165,8 @@ function JobRowActions({ job }: { job: JobSummary }) {
           title="L'envoi a échoué : réessayer."
           aria-label="L'envoi a échoué : réessayer l'envoi"
         >
-          {pendingConfirmation ? "…" : "✉ !"}
+          <Icone nom="courriel" taille={16} />
+          {pendingConfirmation ? "Envoi…" : "Réessayer l'envoi"}
         </button>
       )}
     </div>
@@ -183,7 +194,7 @@ export function Jobs() {
       action={
         <div className="console-filtres">
           <label className="champ">
-            <span className="visuellement-cache">Filtrer par statut</span>
+            <span className="visuellement-cache">Filtrer les générations par statut</span>
             <select
               className="champ-saisie"
               value={statusFilter}
@@ -211,7 +222,7 @@ export function Jobs() {
                 <th scope="col">Livrable</th>
                 <th scope="col">Statut</th>
                 <th scope="col">Progression</th>
-                <th scope="col" style={{ textAlign: "right" }}>Coût</th>
+                <th scope="col" className="nombre">Coût</th>
                 <th scope="col">Terminé le</th>
                 <th scope="col">Actions</th>
                 <th scope="col">
@@ -246,7 +257,7 @@ export function Jobs() {
                             className="pastille pastille-alerte"
                             title="Aucun chapitre produit depuis longtemps"
                           >
-                            interrompu
+                            Interrompue
                             {job.minutes_sans_progression !== null
                               ? ` · ${job.minutes_sans_progression} min`
                               : ""}
@@ -330,8 +341,8 @@ export function Jobs() {
 
       {data?.length === 0 && (
         <Vide
-          icone="▤"
-          titre={`Aucun livrable${statusFilter !== "all" ? " pour ce statut" : ""}.`}
+          icone={<Icone nom="generations" />}
+          titre={`Aucune génération${statusFilter !== "all" ? " pour ce statut" : ""}.`}
         />
       )}
     </Carte>

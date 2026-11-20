@@ -289,7 +289,7 @@ def espace(
 
     - **tout ce qui parle d'argent au prestataire de paiement** : souscrire,
       acheter une étude, acheter des crédits, acheter une étude de boutique,
-      reprendre un abonnement, changer de formule. Les deux dernières ne sont
+      acheter une formation, reprendre un abonnement, changer de formule. Les deux dernières ne sont
       pas des achats et déplacent pourtant de l'argent — l'une rallume un
       prélèvement mensuel, l'autre en change le montant ;
     - **l'octroi et le retrait d'accès** : inviter, révoquer. L'assistance
@@ -1934,6 +1934,10 @@ def acheter_une_etude(
     """
     from catalog.models import Offer  # noqa: PLC0415
 
+    trop = _trop_d_ouvertures(organisation)
+    if trop is not None:
+        return trop
+
     slug = str(_corps(request).get("etude") or "").strip()
     offre = Offer.objects.filter(
         slug=slug, is_active=True, prix_unitaire_cents__gt=0
@@ -1941,6 +1945,7 @@ def acheter_une_etude(
     if offre is None:
         return _refus("Cette étude n'est pas disponible.", "etude_inconnue", 404)
 
+    _compter_l_ouverture(organisation)
     try:
         session = paiement_stripe.creer_paiement_de_livrable(
             offre=offre,
@@ -2086,6 +2091,47 @@ def _noter_la_tentative(
         )
     except Exception:  # noqa: BLE001
         _log.exception("Tentative de paiement non enregistree (%s)", reference)
+
+
+#: Paiements ouverts depuis l'espace, par ORGANISATION et par heure, les trois
+#: achats réunis — l'étude à l'unité, l'étude de boutique, la formation.
+#:
+#: Les pages publiques ont un plafond par adresse IP ; ces trois routes n'en
+#: avaient aucun (audit de sécurité du 20/11/2026). Or un compte s'ouvre
+#: gratuitement : il suffisait d'en créer un pour faire ouvrir des sessions de
+#: paiement sans limite, au nom d'EVKHA. La clé est l'organisation et non
+#: l'adresse — même motif que `DEPOTS_PAR_ORGANISATION` : derrière une session,
+#: c'est le compte que l'on connaît, et changer d'adresse ne remet rien à zéro.
+#:
+#: Un seul plafond pour les trois : un plafond par route se contournerait en
+#: changeant de route. Vingt, comme les plafonds publics — très au-dessus de
+#: ce qu'un client ouvre en une heure, même en hésitant.
+OUVERTURES_PAR_ORGANISATION = limitation.Plafond(
+    "ouverture-de-paiement-organisation", maximum=20, fenetre_s=3600
+)
+
+
+def _trop_d_ouvertures(organisation: Organisation) -> JsonResponse | None:
+    """Le refus à rendre si cette organisation a épuisé son plafond, sinon rien."""
+    if not limitation.depasse(OUVERTURES_PAR_ORGANISATION, str(organisation.pk)):
+        return None
+    return _refus(
+        "Vous avez ouvert beaucoup de paiements coup sur coup. Réessayez dans "
+        "une heure, ou écrivez-nous à contact@evkha.fr.",
+        "trop_de_tentatives",
+        429,
+    )
+
+
+def _compter_l_ouverture(organisation: Organisation) -> None:
+    """Compte une ouverture de paiement — à appeler AVANT l'appel au prestataire.
+
+    Avant, et non après : un plafond compté après l'appel ne voit ni les
+    ouvertures que le prestataire refuse, ni les requêtes parties ensemble.
+    Une demande refusée plus tôt — slug inconnu, formation déjà achetée — n'a
+    rien coûté et n'est pas comptée.
+    """
+    limitation.enregistrer(OUVERTURES_PAR_ORGANISATION, str(organisation.pk))
 
 
 #: Nombre de crédits qu'un achat unique peut porter.
@@ -3261,11 +3307,16 @@ def acheter_un_produit(
 
     from .vues_boutique import _en_ligne  # noqa: PLC0415
 
+    trop = _trop_d_ouvertures(organisation)
+    if trop is not None:
+        return trop
+
     slug = str(_corps(request).get("produit") or "").strip()
     produit = _en_ligne().filter(slug=slug).first()
     if produit is None:
         return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
 
+    _compter_l_ouverture(organisation)
     try:
         session = stripe_api.creer_paiement_de_produit(
             produit=produit,
@@ -3289,6 +3340,191 @@ def acheter_un_produit(
     remise.noter_la_tentative(
         session=session,
         produit=produit,
+        email=membre.customer.email,
+        organisation=organisation,
+    )
+    return JsonResponse({"adresse": session.adresse}, status=200)
+
+
+# ── Formations ───────────────────────────────────────────────────────────────
+
+#: Durée de vie du lien signé vers le document d'une leçon, en secondes.
+#:
+#: Une heure, et non le repli d'une semaine de `signatures` : le lien est
+#: recalculé à CHAQUE lecture de `mes_formations`, il n'a donc à tenir que le
+#: temps d'une séance. Un lien d'une semaine, copié dans un message, donnerait
+#: le support de cours à qui n'a rien payé pendant sept jours.
+VIE_DU_LIEN_DE_LECON_S = 3600
+
+
+def _lecon_achetee(position: int, lecon: Any) -> dict[str, Any]:
+    """Une leçon telle que l'acheteur la lit — contenu payant compris.
+
+    Écrite clé par clé, comme la fiche publique : sérialiser le modèle
+    publierait d'office le prochain champ ajouté.
+    """
+    from evkha import signatures  # noqa: PLC0415 — évite un cycle à l'import
+
+    fichier = lecon.fichier
+    return {
+        "id": str(lecon.id),
+        "rang": position,
+        "titre": lecon.titre,
+        "nature": lecon.nature,
+        "duree_minutes": lecon.duree_minutes,
+        "adresse_video": lecon.adresse_video,
+        "texte": lecon.texte,
+        # Signé, ABSOLU, jamais stocké : `/media/` est servi par un autre
+        # domaine que l'espace, et un chemin relatif y rendrait la page de
+        # l'application à la place du document.
+        "fichier": (
+            signatures.lien_absolu(fichier.name, duree_s=VIE_DU_LIEN_DE_LECON_S)
+            if fichier
+            else ""
+        ),
+        "fichier_nom": fichier.name.rsplit("/", 1)[-1] if fichier else "",
+    }
+
+
+@require_http_methods(["GET"])
+@espace()
+def mes_formations(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Les formations ACHETÉES par cette organisation, avec leurs leçons.
+
+    **C'est le seul endroit qui rend le contenu payant** — l'adresse d'une
+    vidéo, le texte d'une leçon, son document. Ce qui en donne le droit est
+    un `AchatFormation` NON RÉVOQUÉ de l'organisation du compte, et rien d'autre : la
+    requête part de l'achat, jamais de la formation. Il n'existe donc aucun
+    paramètre par lequel demander la formation d'un autre.
+
+    Une formation mise HORS LIGNE après l'achat reste lisible : la requête ne
+    regarde pas `en_ligne`. Ce qui est payé reste à qui l'a payé.
+
+    Modules et leçons RETIRÉS n'y figurent pas, et `rang` est la place dans
+    le programme affiché, de 1 à n — comme sur la page publique.
+
+    Trois requêtes quel que soit le nombre de formations.
+    """
+    from django.db.models import Prefetch  # noqa: PLC0415
+
+    from catalog import formations as regles  # noqa: PLC0415
+    from catalog.models import AchatFormation  # noqa: PLC0415
+
+    achats = (
+        # `revoque_le` nul : un accès RETIRÉ depuis l'administration ne rend
+        # plus rien, sans que la ligne de l'achat soit effacée.
+        AchatFormation.objects.filter(
+            organisation=organisation, revoque_le__isnull=True
+        )
+        .select_related("formation")
+        .prefetch_related(
+            Prefetch("formation__modules", queryset=regles.programme_de_l_acheteur())
+        )
+        .order_by("-created_at")
+    )
+    return JsonResponse({
+        "formations": [
+            {
+                "slug": achat.formation.slug,
+                "titre": achat.formation.titre,
+                "sous_titre": achat.formation.sous_titre,
+                "accroche": achat.formation.accroche,
+                "image": regles.adresse_de_l_image(achat.formation),
+                "duree_heures": achat.formation.duree_heures,
+                "heures_de_coaching": achat.formation.heures_de_coaching,
+                "achetee_le": achat.created_at.isoformat(),
+                "modules": [
+                    {
+                        "rang": place,
+                        "titre": module.titre,
+                        "description": module.description,
+                        "lecons": [
+                            _lecon_achetee(numero, lecon)
+                            for numero, lecon in enumerate(
+                                module.lecons.all(), start=1
+                            )
+                        ],
+                    }
+                    for place, module in enumerate(
+                        achat.formation.modules.all(), start=1
+                    )
+                ],
+            }
+            for achat in achats
+        ]
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@espace("commander", ecriture="commander", interdit_en_assistance=True)
+def acheter_une_formation(
+    request: HttpRequest, membre: MembreOrganisation, organisation: Organisation
+) -> HttpResponse:
+    """Ouvre le paiement d'une formation, depuis l'espace.
+
+    Mêmes droits et même interdiction en assistance que `acheter_un_produit` :
+    c'est de l'argent demandé au prestataire au nom du client.
+
+    L'organisation voyage jusqu'au prestataire et revient par les
+    métadonnées : le rattachement se fait sur elle, pas sur l'adresse.
+
+    Une formation DÉJÀ achetée est refusée ici, avant le paiement. C'est le
+    seul chemin où on le sait à temps — sur la page publique, l'acheteur n'est
+    personne tant qu'il n'a pas payé, et un second paiement y est rattrapé
+    après coup (`paiement.formations.livrer_la_formation` ouvre un incident
+    pour le remboursement).
+    """
+    from paiement import formations as remise  # noqa: PLC0415
+    from paiement import stripe_api  # noqa: PLC0415
+
+    from catalog import formations as regles  # noqa: PLC0415
+    from catalog.models import AchatFormation  # noqa: PLC0415
+
+    trop = _trop_d_ouvertures(organisation)
+    if trop is not None:
+        return trop
+
+    brut = _corps(request).get("formation")
+    slug = brut.strip() if isinstance(brut, str) else ""
+    try:
+        formation = regles.a_vendre(slug)
+    except regles.Refus as refus:
+        return _refus(refus.message, refus.code, refus.statut)
+
+    # Parmi les achats qui DONNENT ACCÈS : un achat révoqué — remboursé,
+    # contesté — ne bloque pas le rachat, qui rouvrira l'accès sur une
+    # nouvelle ligne.
+    if AchatFormation.objects.filter(
+        organisation=organisation, formation=formation, revoque_le__isnull=True
+    ).exists():
+        # « Mes formations » : le nom de l'entrée du menu, tel qu'on le lit.
+        return _refus(
+            "Vous avez déjà cette formation : elle est dans votre espace, dans "
+            "« Mes formations ».",
+            "formation_deja_achetee",
+            409,
+        )
+
+    _compter_l_ouverture(organisation)
+    try:
+        session = stripe_api.creer_paiement_de_formation(
+            formation=formation,
+            email=membre.customer.email,
+            organisation=organisation,
+        )
+    except stripe_api.PaiementIndisponible as exc:
+        _log.error(
+            "Achat de la formation %s impossible pour l'organisation %s : %s",
+            slug, organisation.id, exc,
+        )
+        return _refus(str(exc), "paiement_indisponible", 503)
+
+    remise.noter_la_tentative(
+        session=session,
+        formation=formation,
         email=membre.customer.email,
         organisation=organisation,
     )

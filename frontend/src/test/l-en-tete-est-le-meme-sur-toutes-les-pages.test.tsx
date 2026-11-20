@@ -125,6 +125,8 @@ function catalogueMuet() {
     http.get(`${PUBLIC}/livrables/`, muet),
     http.get(`${PUBLIC}/formules/`, muet),
     http.get(`${PUBLIC}/boutique/`, muet),
+    // Les pages des formations et des packs lisent ce catalogue-ci.
+    http.get(`${PUBLIC}/formations/`, muet),
   );
 }
 

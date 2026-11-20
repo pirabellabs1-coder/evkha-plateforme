@@ -25,6 +25,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { espaceApi } from "../api";
 import * as f from "../format";
 import { Bandeau, Carte } from "./Interface";
+import { adresseDePaiementSure } from "../../adresseDePaiement";
+
+/** La phrase d'une panne de paiement — et d'une adresse de paiement qui ne
+ *  mène pas chez Stripe : dans les deux cas, on ne part pas. */
+const PAIEMENT_NON_OUVERT =
+  "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.";
 
 export function AutresEtudes() {
   const { data, isPending } = useQuery({
@@ -45,15 +51,18 @@ export function AutresEtudes() {
       // Remplacement et non nouvel onglet : le paiement EST la suite du
       // parcours. Un onglet de plus laisse derrière soi une page morte à
       // laquelle la personne revient, et où elle recliquera.
-      window.location.href = reponse.adresse;
+      const sure = adresseDePaiementSure(reponse.adresse);
+      if (sure === null) {
+        // Pas chez Stripe : on ne part pas, et le bouton se libère.
+        setOuverture("");
+        setErreur(PAIEMENT_NON_OUVERT);
+        return;
+      }
+      window.location.href = sure;
     },
     onError: (cause: unknown) => {
       setOuverture("");
-      setErreur(
-        cause instanceof Error
-          ? cause.message
-          : "Le paiement n'a pas pu être ouvert. Réessayez dans un instant.",
-      );
+      setErreur(cause instanceof Error ? cause.message : PAIEMENT_NON_OUVERT);
     },
   });
 

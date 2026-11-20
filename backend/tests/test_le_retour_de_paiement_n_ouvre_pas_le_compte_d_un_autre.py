@@ -192,14 +192,14 @@ def test_passe_une_heure_le_retour_n_ouvre_plus_rien() -> None:
 
 
 def test_la_boutique_suit_la_meme_regle(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Les deux pages de retour partagent la fonction : aucune n'ouvre de session
-    par un autre chemin."""
+    """Les pages de retour partagent la fonction : aucune n'ouvre de session
+    par un autre chemin. Celle des formations (20/11/2026) y est tenue aussi."""
     from pathlib import Path
 
     import organisations
 
     dossier = Path(organisations.__file__).parent
-    for vue in ("vues_publiques.py", "vues_boutique.py"):
+    for vue in ("vues_publiques.py", "vues_boutique.py", "vues_formations.py"):
         source = (dossier / vue).read_text(encoding="utf-8")
         retour = source.split("def retour", 1)[1].split("\ndef ", 1)[0]
         assert "ouvrir_la_session_d_un_achat" in retour, vue

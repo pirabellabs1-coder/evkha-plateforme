@@ -25,6 +25,10 @@ const ENTREES = [
   { vers: "/espace/livrables", libelle: "Livrables", icone: "▤" },
   { vers: "/espace/ma-marque", libelle: "Ma marque", icone: "◉" },
   { vers: "/espace/achats", libelle: "Mes achats", icone: "▣" },
+  // Contre « Mes achats » : ce sont les deux rayons de ce qu'on a ACHETÉ une
+  // fois — un fichier là, un programme ici. Ouverte à tous les comptes : une
+  // formation s'achète sans abonnement.
+  { vers: "/espace/formations", libelle: "Mes formations", icone: "▷" },
   { vers: "/espace/credits", libelle: "Crédits", icone: "◐" },
   // Réservée aux abonnés : elle propose de souscrire, de changer de formule et
   // d'acheter des crédits au tarif d'une formule. Un acheteur à l'unité n'en a
@@ -65,6 +69,10 @@ const ENTETES: Record<string, { titre: string; sous: string }> = {
   "/espace/achats": {
     titre: "Mes achats",
     sous: "Vos études achetées en téléchargement immédiat.",
+  },
+  "/espace/formations": {
+    titre: "Mes formations",
+    sous: "Vos formations, avec tout leur programme, à suivre à votre rythme.",
   },
   "/espace/credits": {
     titre: "Crédits et abonnement",
@@ -108,7 +116,12 @@ export function Coquille() {
             titre: "Fiche client",
             sous: "Ses marques ou projets, les études à lancer, et tout ce qui a déjà été produit.",
           }
-        : ENTETES["/espace"]);
+        : chemin.startsWith("/espace/formations/")
+          ? {
+              titre: "Ma formation",
+              sous: "Le programme, leçon par leçon, à votre rythme.",
+            }
+          : ENTETES["/espace"]);
   const solde = moi?.credits.solde ?? 0;
   const alerte = moi?.credits.alerte ?? false;
   // Abonné par défaut TANT QUE `moi` n'est pas chargé : c'est le cas de la

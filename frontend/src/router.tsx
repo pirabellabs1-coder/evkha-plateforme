@@ -47,6 +47,7 @@ const OrganisationsAdmin = ecranDiffere(admin, "OrganisationsAdmin");
 const LivrablesAdmin = ecranDiffere(admin, "LivrablesAdmin");
 const QualiteAdmin = ecranDiffere(admin, "QualiteAdmin");
 const BoutiqueAdmin = ecranDiffere(admin, "BoutiqueAdmin");
+const FormationsAdmin = ecranDiffere(admin, "FormationsAdmin");
 const Annonces = ecranDiffere(admin, "Annonces");
 const ProspectionAdmin = ecranDiffere(admin, "ProspectionAdmin");
 const TransactionsAdmin = ecranDiffere(admin, "TransactionsAdmin");
@@ -73,6 +74,7 @@ const Formations = ecranDiffere(formations, "Formations");
 const FormationSocietes = ecranDiffere(formations, "FormationSocietes");
 const FormationMicro = ecranDiffere(formations, "FormationMicro");
 const FormationPop = ecranDiffere(formations, "FormationPop");
+const RetourFormation = ecranDiffere(() => import("./public/RetourFormation"), "RetourFormation");
 
 const ressources = () => import("./public/Ressources");
 const BoiteAOutils = ecranDiffere(ressources, "BoiteAOutils");
@@ -293,6 +295,14 @@ const adminBoutique = createRoute({
   component: BoutiqueAdmin,
 });
 
+// Les formations : la fiche, ses modules, leurs lecons. Le composant s'appelle
+// `FormationsAdmin` — `Formations` est la page PUBLIQUE du catalogue, plus bas.
+const adminFormations = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "formations",
+  component: FormationsAdmin,
+});
+
 // Les annonces : le seul chemin pour prevenir tous les clients d'un coup, par
 // courriel ET dans leur espace. Il ne repasse pas par un developpeur.
 const adminAnnonces = createRoute({
@@ -392,6 +402,19 @@ const formationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: CHEMINS.formations,
   component: Formations,
+});
+// Le retour du paiement d'une formation AVANT les pages de formation : c'est
+// une adresse fixe sous `/formations/`, et elle doit le rester devant toute
+// route plus generale qu'on y ajouterait (`/formations/$slug`), qui la lirait
+// sinon comme une formation dont le slug serait « retour ».
+//
+// Adresse FIGEE : elle est ecrite dans la `success_url` de chaque session de
+// paiement de formation (`paiement/stripe_api.py`). La renommer laisserait sur
+// le carreau tous les paiements deja ouverts.
+const retourFormationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/formations/retour",
+  component: RetourFormation,
 });
 const formationSocietesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -559,6 +582,7 @@ export const routeTree = rootRoute.addChildren([
   packEssentielRoute,
   packPremiumRoute,
   formationsRoute,
+  retourFormationRoute,
   formationSocietesRoute,
   formationMicroRoute,
   formationPopRoute,
@@ -576,6 +600,7 @@ export const routeTree = rootRoute.addChildren([
     adminIndex,
     adminOrganisations,
     adminBoutique,
+    adminFormations,
     adminAnnonces,
     adminProspection,
     adminTransactions,

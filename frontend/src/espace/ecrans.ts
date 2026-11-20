@@ -25,6 +25,7 @@ export { FicheClient } from "./pages/FicheClient";
 export { Livrables } from "./pages/Livrables";
 export { MaMarque } from "./pages/MaMarque";
 export { MesAchats } from "./pages/MesAchats";
+export { FormationSuivie, MesFormations } from "./pages/MesFormations";
 export { MonCompte } from "./pages/MonCompte";
 export { Signalements } from "./pages/Signalements";
 export { Souscription } from "./pages/Souscription";

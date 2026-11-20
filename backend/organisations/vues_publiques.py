@@ -27,6 +27,7 @@ from . import (
     identifiants,
     inscription,
     limitation,
+    retours,
 )
 from .models import Formule
 
@@ -183,18 +184,23 @@ def acheter(request: HttpRequest) -> HttpResponse:
             "Ce livrable n'est pas disponible à l'achat.", "livrable_inconnu", 404
         )
 
+    # Le plafond ne valait rien : `depasse` était interrogé, `enregistrer`
+    # jamais appelé — le compteur restait à zéro, et un script pouvait ouvrir
+    # des sessions de paiement sans limite (audit du 19/11/2026).
+    #
+    # Et il est compté AVANT l'appel à Stripe (audit du 20/11/2026) : compté
+    # après, il ne voyait ni les ouvertures que Stripe refuse, ni les requêtes
+    # parties ensemble, qui lisaient toutes zéro.
+    limitation.enregistrer(PAIEMENTS_PAR_HEURE, adresse_ip)
+
     try:
         session = stripe_api.creer_paiement_de_livrable(
             offre=offre, email=str(charge.get("email") or "").strip()
         )
     except stripe_api.PaiementIndisponible as refus:
-        _log.error("Achat de %s impossible : %s", slug, refus)
+        _log.error("Achat de %s impossible : %s", offre.slug, refus)
         return _refus(str(refus), "paiement_indisponible", 503)
 
-    # Le plafond ne valait rien : `depasse` était interrogé, `enregistrer`
-    # jamais appelé — le compteur restait à zéro, et un script pouvait ouvrir
-    # des sessions de paiement sans limite (audit du 19/11/2026).
-    limitation.enregistrer(PAIEMENTS_PAR_HEURE, adresse_ip)
     return JsonResponse({"adresse": session.adresse})
 
 
@@ -216,16 +222,12 @@ def retour_de_paiement(request: HttpRequest) -> HttpResponse:
     """
     from paiement import achats, stripe_api  # noqa: PLC0415
 
+    # Plafond, corps, FORME de l'identifiant : la garde commune aux trois
+    # pages de retour, avant tout appel à Stripe (`retours`).
     try:
-        charge = json.loads(request.body or b"{}")
-    except json.JSONDecodeError:
-        return _refus("Requête illisible.", "corps_invalide")
-    if not isinstance(charge, dict):
-        return _refus("Requête illisible.", "corps_invalide")
-
-    identifiant = str(charge.get("session") or "").strip()
-    if not identifiant:
-        return _refus("Paiement introuvable.", "session_absente")
+        identifiant = retours.session_presentee(request)
+    except retours.Refus as refus:
+        return _refus(refus.message, refus.code, refus.statut)
 
     try:
         session = stripe_api.relire_la_session(identifiant)
@@ -238,7 +240,10 @@ def retour_de_paiement(request: HttpRequest) -> HttpResponse:
     try:
         achat = achats.livrer_l_achat(session)
     except achats.AchatInexploitable as refus:
-        _log.error("Retour de paiement inexploitable (%s) : %s", identifiant, refus)
+        _log.error(
+            "Retour de paiement inexploitable (%s) : %s",
+            achats.reference_abregee(identifiant), refus,
+        )
         return _refus(
             "Votre paiement a bien été reçu, mais votre espace n'a pas pu être "
             "ouvert. Écrivez-nous à contact@evkha.fr, nous le faisons "

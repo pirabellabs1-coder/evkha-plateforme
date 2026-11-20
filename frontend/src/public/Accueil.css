@@ -2026,6 +2026,8 @@ a.acc-prete:hover {
     display: contents;
   }
 
+  /* Les cartes de la file ont toutes la hauteur de la plus haute : c'est
+     pourquoi les avis longs sont donnés en extrait (`contenuAccueil.AVIS`). */
   .acc-mot {
     flex: 0 0 82%;
     scroll-snap-align: center;

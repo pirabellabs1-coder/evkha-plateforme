@@ -109,6 +109,14 @@ urlpatterns = [
         name="espace-avis",
     ),
     path("achats/acheter/", vues.acheter_un_produit, name="achats-acheter"),
+    # Les formations ACHETÉES, avec le contenu de leurs leçons : le seul
+    # endroit qui le rend. Et l'ouverture du paiement depuis l'espace.
+    path("formations/", vues.mes_formations, name="formations"),
+    path(
+        "formations/acheter/",
+        vues.acheter_une_formation,
+        name="formations-acheter",
+    ),
     path("etudes/acheter/", vues.acheter_une_etude, name="etudes-acheter"),
     # Ouvre le paiement de la formule choisie. POST : elle a un effet chez
     # Stripe, et une adresse de paiement ne doit pas se retrouver dans un

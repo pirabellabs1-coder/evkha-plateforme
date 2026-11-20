@@ -226,6 +226,39 @@ def souhaiter_la_bienvenue(*, destinataire: str, livrable: str, lien: str) -> bo
     )
 
 
+def annoncer_une_formation(*, destinataire: str, formation: str, lien: str) -> bool:
+    """Confirme l'achat d'une formation et dit où la suivre.
+
+    `souhaiter_la_bienvenue` est rédigé pour une étude À PRODUIRE : « à lancer
+    quand vous le souhaitez », « vous y suivrez la production ». Envoyé pour
+    une formation, il aurait fait chercher à l'acheteur un bouton « lancer »
+    qui n'existe pas — rien n'est à produire, le programme est là.
+
+    Le lien mène au choix du mot de passe : la plupart des acheteurs n'en ont
+    pas encore, leur compte venant de naître du paiement. La dernière phrase
+    est pour les autres — un client déjà inscrit qui achète depuis son espace
+    reçoit ce même message, et n'a pas à croire qu'il doit changer le sien.
+    """
+    return _envoyer(
+        destinataire=destinataire,
+        sujet=f"Votre formation « {formation} » est disponible",
+        corps_html=_gabarit(
+            titre="Votre paiement est bien reçu",
+            phrases=[
+                f"Votre formation « {formation} » est disponible dès "
+                "maintenant dans votre espace client EVKHA, à la rubrique "
+                "Formations.",
+                "Choisissez votre mot de passe pour y accéder et y revenir "
+                "quand vous le souhaitez.",
+                "Si vous avez déjà un mot de passe, vous pouvez ignorer ce "
+                "lien et vous connecter comme d'habitude.",
+            ],
+            lien=lien,
+            bouton="Choisir mon mot de passe",
+        ),
+    )
+
+
 def demander_un_avis(*, destinataire: str, etude: str, lien: str) -> bool:
     """Demande son avis à qui a acheté une étude, deux jours plus tôt.
 

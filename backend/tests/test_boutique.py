@@ -53,6 +53,9 @@ def session_stripe(produit: ProduitBoutique, **surcharges: Any) -> dict[str, Any
     """Une session de paiement telle que le prestataire la rend."""
     session: dict[str, Any] = {
         "id": f"cs_test_{uuid.uuid4().hex[:16]}",
+        # Le mode fait partie de ce que la remise verifie (audit du
+        # 20/11/2026) : une session de boutique est un paiement unique.
+        "mode": "payment",
         "payment_status": "paid",
         "amount_total": produit.prix_cents,
         "currency": "eur",

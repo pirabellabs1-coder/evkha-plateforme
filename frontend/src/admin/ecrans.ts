@@ -15,6 +15,7 @@ export { CoquilleAdmin } from "./Coquille";
 export { Annonces } from "./pages/Annonces";
 export { BoutiqueAdmin } from "./pages/BoutiqueAdmin";
 export { DemandesAdmin } from "./pages/Demandes";
+export { FormationsAdmin } from "./pages/Formations";
 export { LivrablesAdmin } from "./pages/Livrables";
 export { OrganisationsAdmin } from "./pages/Organisations";
 export { ProspectionAdmin } from "./pages/Prospection";

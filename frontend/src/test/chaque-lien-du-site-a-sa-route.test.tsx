@@ -441,6 +441,41 @@ describe("chaque lien interne du site correspond à une route du routeur", () =>
     );
   });
 
+  it("le retour du paiement d'une formation a SA route, déclarée devant les pages de formation, et ne s'indexe pas", async () => {
+    // L'adresse est écrite dans la `success_url` de chaque paiement de
+    // formation (`paiement/stripe_api.py`) : elle doit rendre une page, et
+    // UNE seule route doit la prendre.
+    expect(pagesA("/formations/retour").map((route) => route.fullPath)).toEqual(["/formations/retour"]);
+    // Déclarée AVANT toute route `/formations/…` : une route à paramètre
+    // ajoutée là ne doit pas pouvoir la lire comme un slug.
+    const code = source("router.tsx");
+    const retour = code.indexOf('path: "/formations/retour"');
+    expect(retour).toBeGreaterThan(-1);
+    const autres = [...code.matchAll(/path: (?:CHEMINS\.formation[A-Z]\w*|"\/formations\/[^"]+")/g)]
+      .map((m) => m.index)
+      .filter((position) => position !== retour);
+    // Règle 1 : les trois pages de formation sont bien vues.
+    expect(autres.length).toBeGreaterThanOrEqual(3);
+    for (const position of autres) expect(position).toBeGreaterThan(retour);
+    // Les deux écrans de l'espace où l'acheteur lit sa formation.
+    expect(pagesA("/espace/formations").map((route) => route.fullPath)).toEqual(["/espace/formations"]);
+    expect(pagesA("/espace/formations/creer-son-entreprise").map((route) => route.fullPath)).toEqual([
+      "/espace/formations/$slug",
+    ]);
+
+    // Sans session dans l'adresse, la page se rend quand même — elle dit
+    // « Paiement introuvable » —, dans le cadre du site, et hors des moteurs.
+    await ouvrir("/formations/retour");
+    expect(titres()).toHaveLength(1);
+    expect(titres()[0]).not.toHaveTextContent(TITRE_INTROUVABLE);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Paiement introuvable.");
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+    expect(balisesRobots()).toEqual(["noindex"]);
+    cleanup();
+    expect(balisesRobots()).toEqual([]);
+  });
+
   it("contre-épreuve : un chemin inventé n'a pas de route, une ancienne adresse n'est pas une page", () => {
     expect(pagesA("/nulle-part")).toEqual([]);
     expect(pagesA("/packs/inconnu")).toEqual([]);

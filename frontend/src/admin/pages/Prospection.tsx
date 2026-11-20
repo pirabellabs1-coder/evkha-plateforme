@@ -24,6 +24,7 @@ import {
   type StatutProspect,
 } from "../apiProspection";
 import { Bandeau, Carte, Chiffre, Pastille, Squelette, Vide } from "../../espace/composants/Interface";
+import { Icone } from "../icones";
 import * as f from "../../espace/format";
 import "./Prospection.css";
 
@@ -55,16 +56,16 @@ export function ProspectionAdmin() {
 
   return (
     <>
-      <nav className="prospection-onglets" aria-label="Sections de la prospection">
+      <nav className="console-onglets" aria-label="Sections de la prospection">
         {onglets.map((o) => (
           <button
             key={o.cle}
             type="button"
-            className={onglet === o.cle ? "prospection-onglet actif" : "prospection-onglet"}
+            className={onglet === o.cle ? "console-onglet actif" : "console-onglet"}
             onClick={() => setOnglet(o.cle)}
           >
             {o.libelle}
-            {o.pastille ? <span className="prospection-compteur">{o.pastille}</span> : null}
+            {o.pastille ? <span className="console-compteur">{o.pastille}</span> : null}
           </button>
         ))}
       </nav>
@@ -206,17 +207,17 @@ function VueAutomatisation() {
             }
             onClick={() => enregistrer.mutate(!serveur.active)}
           >
-            {serveur.active ? "Activée ✓" : "Désactivée"}
+            {serveur.active ? "Activée" : "Désactivée"}
           </button>
         }
       >
         <div className="prospection-reglage">
           <p className="carte-note">
             {serveur.active
-              ? "L'automatisation tourne. Cliquez sur « Activée ✓ » pour l'arrêter : c'est enregistré aussitôt."
+              ? "L'automatisation tourne. Cliquez sur « Activée » pour l'arrêter : c'est enregistré aussitôt."
               : "L'automatisation est à l'arrêt. Cliquez sur « Désactivée » pour la lancer : c'est enregistré aussitôt, avec les réglages ci-dessous."}
           </p>
-          <label className="prospection-etiquette">Campagne à prospecter</label>
+          <label className="champ-libelle">Campagne à prospecter</label>
           <select
             className="champ-saisie"
             aria-label="Campagne à prospecter"
@@ -229,7 +230,7 @@ function VueAutomatisation() {
             ))}
           </select>
 
-          <label className="prospection-etiquette">Prospects par jour (max {maximum})</label>
+          <label className="champ-libelle">Prospects par jour (max {maximum})</label>
           <input
             type="number"
             min={1}
@@ -246,7 +247,7 @@ function VueAutomatisation() {
           />
           <p className="carte-note">≈ {coutJour}{"\u00a0"}€ d'IA par jour (préparation ; l'envoi reste quasi gratuit).</p>
 
-          <label className="prospection-etiquette">Jours</label>
+          <label className="champ-libelle">Jours</label>
           <div className="prospection-jours">
             {JOURS.map((lib, i) => (
               <button
@@ -363,17 +364,17 @@ function VueProspects() {
 
   return (
     <>
-      <nav className="prospection-etapes" aria-label="Étapes du pipeline">
+      <nav className="console-puces" aria-label="Étapes du pipeline">
         {ETAPES.map((e) => (
           <button
             key={e.code || "tous"}
             type="button"
-            className={statut === e.code ? "prospection-etape actif" : "prospection-etape"}
+            className={statut === e.code ? "console-puce actif" : "console-puce"}
             onClick={() => setStatut(e.code)}
           >
             {e.libelle}
             {e.code && parStatut[e.code] ? (
-              <span className="prospection-compteur">{parStatut[e.code]}</span>
+              <span className="console-compteur">{parStatut[e.code]}</span>
             ) : null}
           </button>
         ))}
@@ -408,7 +409,7 @@ function VueProspects() {
         {prospects.isPending ? (
           <Squelette lignes={4} />
         ) : liste.length === 0 ? (
-          <Vide icone="◇" titre="Aucun prospect" texte="Ajustez les filtres, ou trouvez-en via une campagne." />
+          <Vide icone={<Icone nom="prospection" />} titre="Aucun prospect" texte="Ajustez les filtres, ou trouvez-en via une campagne." />
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">
@@ -624,7 +625,7 @@ function FormulaireFiche({
   return (
     <div className="prospection-correction">
       {erreur && <Bandeau ton="echec">{erreur}</Bandeau>}
-      <label className="prospection-etiquette" htmlFor={`fiche-email-${prospect.id}`}>
+      <label className="champ-libelle" htmlFor={`fiche-email-${prospect.id}`}>
         Adresse e-mail
       </label>
       <input
@@ -659,7 +660,7 @@ function FormulaireFiche({
           onChange={(e) => setChamps((c) => ({ ...c, site_web: e.target.value }))}
         />
       </div>
-      <label className="prospection-etiquette" htmlFor={`fiche-notes-${prospect.id}`}>
+      <label className="champ-libelle" htmlFor={`fiche-notes-${prospect.id}`}>
         Notes
       </label>
       <textarea
@@ -879,7 +880,7 @@ function VueAssistant() {
         <div className="prospection-fil">
           {fil.length === 0 && (
             <Vide
-              icone="◎"
+              icone={<Icone nom="prospection" />}
               titre="Dites-lui qui vous cherchez"
               texte="Par exemple : « Des cabinets RH à Lyon qui recrutent en ce moment »."
             />
@@ -1064,7 +1065,7 @@ function VueCampagnes() {
         {isPending ? (
           <Squelette lignes={3} />
         ) : !campagnes || campagnes.length === 0 ? (
-          <Vide icone="◇" titre="Aucune campagne" texte="Créez-en une ci-dessus pour commencer." />
+          <Vide icone={<Icone nom="annonces" />} titre="Aucune campagne" texte="Créez-en une ci-dessus pour commencer." />
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">
@@ -1273,7 +1274,7 @@ function PanneauCampagne({ campagneId }: { campagneId: string }) {
       {bilan && <Bandeau ton={bilan.ton} titre="Résultat de la recherche">{bilan.texte}</Bandeau>}
       {data.prospects_liste.length === 0 ? (
         <Vide
-          icone="◇"
+          icone={<Icone nom="vide" />}
           titre="Aucun prospect"
           texte="« Trouver des prospects » lance l'agent de recherche ; vous pouvez aussi en ajouter à la main, ci-dessous."
         />
@@ -1461,10 +1462,10 @@ function VueValidation() {
         . L'envoi part <strong>réellement</strong> au destinataire.
       </Bandeau>
 
-      <nav className="prospection-onglets" aria-label="Étape de la séquence">
+      <nav className="console-onglets" aria-label="Étape de la séquence">
         <button
           type="button"
-          className={etape === null ? "prospection-onglet actif" : "prospection-onglet"}
+          className={etape === null ? "console-onglet actif" : "console-onglet"}
           aria-pressed={etape === null}
           onClick={() => setEtape(null)}
         >
@@ -1476,13 +1477,13 @@ function VueValidation() {
             <button
               key={e}
               type="button"
-              className={etape === e ? "prospection-onglet actif" : "prospection-onglet"}
+              className={etape === e ? "console-onglet actif" : "console-onglet"}
               aria-pressed={etape === e}
               onClick={() => setEtape(e)}
             >
               {libelleEtape(e)}
               {nombre ? (
-                <span className="prospection-compteur">
+                <span className="console-compteur">
                   {nombre}
                   <span className="visuellement-cache"> à valider</span>
                 </span>
@@ -1588,7 +1589,7 @@ function VueValidation() {
           <Bandeau ton="echec">La file n'a pas pu être chargée. Rechargez la page.</Bandeau>
         ) : aValider.length === 0 ? (
           <Vide
-            icone="✓"
+            icone={<Icone nom="coche" />}
             titre="Rien à valider à cette étape"
             texte="Une relance apparaît ici une fois le message précédent envoyé."
           />
@@ -1628,7 +1629,7 @@ function VueValidation() {
         ) : valides.isError ? (
           <Bandeau ton="echec">Les messages validés n'ont pas pu être chargés.</Bandeau>
         ) : aEnvoyer.length === 0 ? (
-          <Vide icone="◇" titre="Rien en attente d'envoi" />
+          <Vide icone={<Icone nom="coche" />} titre="Rien en attente d'envoi" />
         ) : (
           <div className="tableau-cadre tableau-defile">
             <table className="tableau">
@@ -1749,14 +1750,14 @@ function CarteBrouillon({
     <div className="prospection-brouillon">
       {edition ? (
         <>
-          <label className="prospection-etiquette">Objet</label>
+          <label className="champ-libelle">Objet</label>
           <input
             className="champ-saisie"
             aria-label="Objet du message"
             value={objet}
             onChange={(e) => setObjet(e.target.value)}
           />
-          <label className="prospection-etiquette">
+          <label className="champ-libelle">
             Corps (mise en forme HTML — l'aperçu montre le rendu)
           </label>
           <textarea
@@ -1849,7 +1850,7 @@ function VueMetriques() {
   return (
     <>
       <Carte titre="Performance" note="Recalculé à partir des événements reçus.">
-        <div className="prospection-chiffres">
+        <div className="grille-chiffres">
           <Chiffre libelle="E-mails envoyés" valeur={f.nombre(data.envoyes)} />
           <Chiffre
             libelle="Taux d'ouverture"

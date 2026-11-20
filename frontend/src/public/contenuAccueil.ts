@@ -698,11 +698,15 @@ export const AVIS = {
   // Les dix derniers avis du profil ComeUp d'Evangeline
   // (comeup.com/fr/@evkha-business), relevés le 19/11/2026 à la demande du
   // client, pour remplacer ceux de 2024. Recopiés mot pour mot, fautes
-  // comprises ; seuls les retours à la ligne sont devenus des espaces. Le
+  // comprises ; seuls les retours à la ligne sont devenus des espaces.
+  // Les deux plus longs sont donnés EN EXTRAIT (demande du client, 19/11/2026 :
+  // sur téléphone, la file prend la hauteur de la carte la plus haute, et un
+  // avis de 700 signes étirait toutes les autres). Un extrait garde les mots
+  // du client et marque la coupe par « […] » : on ne réécrit pas un avis. Le
   // nombre d'avis positifs est celui que le profil affichait ce jour-là : il
   // n'est PAS relu en direct, et vieillira avec cette phrase.
   corps:
-    "Les dix derniers avis laissés à Evangeline sur ComeUp, où son profil compte 221 avis positifs. Recopiés tels qu'ils ont été écrits.",
+    "Les dix derniers avis laissés à Evangeline sur ComeUp, où son profil compte 221 avis positifs. Recopiés tels qu'ils ont été écrits, les plus longs en extrait.",
   bouton: { libelle: "Commander une étude", lien: LIENS.etudes },
   groupe: "Avis de clients",
   liste: [
@@ -746,7 +750,7 @@ export const AVIS = {
       colonne: 2,
       dore: true,
       texte:
-        "« Une prise en charge ultra-personnalisée et une véritable expertise à l’œil de lynx ! Évangeline possède cette capacité rare à comprendre rapidement une entreprise dans son ensemble, à identifier les chiffres et les enjeux clés, même en étant extérieure à la structure. Son accompagnement nous a permis de booster et d’accélérer considérablement la création de dossiers stratégiques, notamment dans le cadre de nos démarches de levée de fonds. Bien plus qu’une simple prestation : un véritable accompagnement all inclusive, de la réflexion à la structuration et à la présentation finale. Évangeline nous a clairement permis de franchir un cap dans la qualité et la crédibilité de nos dossiers. »",
+        "« Une prise en charge ultra-personnalisée et une véritable expertise à l’œil de lynx ! […] Évangeline nous a clairement permis de franchir un cap dans la qualité et la crédibilité de nos dossiers. »",
       auteur: "David_Simone",
       contexte: "Avis ComeUp · 6 oct. 2026",
     },
@@ -775,7 +779,7 @@ export const AVIS = {
     {
       colonne: 2,
       texte:
-        "« Je suis très satisfait des services d'Evangéline ! Comme d'habitude, son cabinet allie professionnalisme, réactivité et précision quant à ses analyses. Je serais ravi de travailler de nouveau avec elle pour de futurs projets ! »",
+        "« Je suis très satisfait des services d'Evangéline ! Comme d'habitude, son cabinet allie professionnalisme, réactivité et précision quant à ses analyses. […] »",
       auteur: "DamienBert",
       contexte: "Avis ComeUp · 9 sept. 2026",
     },

@@ -20,12 +20,19 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-/** Doit rester aligné sur la requête média de `espace.css` (max-width: 900px). */
+/** Doit rester aligné sur la requête média de `espace.css` (max-width: 900px)
+ *  et sur celle de `admin/console.css`, qui pose le même seuil pour le tiroir
+ *  de l'administration. */
 const ECRAN_LARGE = "(min-width: 901px)";
 
 const CLE_REPLIEE = "evkha_barre_repliee";
 
+/** Sans `matchMedia` (jsdom, très vieux navigateur), on rend la forme du
+ *  grand écran : la barre à sa place, rien de superposé. Lancer une exception
+ *  ici ferait tomber la coquille entière — donc toute la navigation — pour
+ *  une question de mise en page. */
 function estLarge(): boolean {
+  if (typeof window.matchMedia !== "function") return true;
   return window.matchMedia(ECRAN_LARGE).matches;
 }
 
@@ -55,6 +62,7 @@ export function useBarreLaterale(): BarreLaterale {
   // On s'abonne au changement de taille au lieu de lire la largeur à chaque
   // rendu : sans cela, `aria-expanded` restait faux après une rotation d'écran.
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
     const requete = window.matchMedia(ECRAN_LARGE);
     const surChangement = (evenement: MediaQueryListEvent) => {
       setLarge(evenement.matches);

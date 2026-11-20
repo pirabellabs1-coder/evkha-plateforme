@@ -906,6 +906,9 @@ class ObjetTentative(models.TextChoices):
     #: fichier ecrit il y a des mois. Les confondre dans le suivi commercial
     #: melerait deux paniers qui ne se relancent pas de la meme facon.
     PRODUIT = "produit", "Achat d'une étude en boutique"
+    #: Achat d'une formation en ligne. Ni production, ni fichier remis : il
+    #: ouvre la lecture d'un programme dans l'espace de l'acheteur.
+    FORMATION = "formation", "Achat d'une formation"
 
 
 class TentativePaiement(UUIDModel):
@@ -943,6 +946,16 @@ class TentativePaiement(UUIDModel):
     #: retrait d'un produit ne doit pas effacer l'historique commercial.
     produit = models.ForeignKey(
         "catalog.ProduitBoutique",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tentatives",
+    )
+    #: La formation visee, pour un achat de formation. `SET_NULL` comme pour
+    #: `produit` — par symetrie : une formation ne se supprime de toute facon
+    #: pas (ses autres cles sont en `PROTECT`).
+    formation = models.ForeignKey(
+        "catalog.Formation",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

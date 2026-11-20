@@ -39,7 +39,15 @@
  * d'EVKHA qui ne doit engager aucune dépense au nom d'un client (403). Se
  * rabattre sur la route publique dans ces cas ferait par la fenêtre ce que le
  * serveur vient d'interdire par la porte.
+ *
+ * ## L'adresse rendue est celle de Stripe
+ *
+ * Les trois `payer…` ne rendent qu'une adresse passée par
+ * `adresseDePaiementSure` (`src/adresseDePaiement.ts`). Une autre adresse
+ * lève `AdresseDePaiementRefusee` : la page ne navigue pas, et dit sa phrase
+ * de panne — cette erreur ne porte aucune phrase du serveur.
  */
+import { adresseDePaiementSure } from "../adresseDePaiement";
 import { ErreurApi, espaceApi, jeton } from "../espace/api";
 import {
   ouvrirLePaiement as ouvrirLePaiementDeBoutique,
@@ -47,8 +55,36 @@ import {
 } from "./catalogue";
 import {
   ouvrirLePaiement as ouvrirLePaiementDUneEtude,
+  ouvrirLePaiementDUneFormation,
   RefusInscription,
 } from "./donnees";
+
+/** Où l'acheteur retrouve ses formations, dans son espace. Les pages de vente
+ *  et la page de retour y renvoient ; le chemin n'est écrit qu'ici pour
+ *  elles. */
+export const MES_FORMATIONS = "/espace/formations" as const;
+
+// Réexportés : les pages de vente lisent tout ce qui touche au paiement ici.
+export { adresseDePaiementSure, HOTE_DE_PAIEMENT } from "../adresseDePaiement";
+
+/** Le serveur a rendu une adresse de paiement qui ne mène pas chez Stripe.
+ *
+ *  Ni `ErreurApi`, ni `RefusInscription`, ni `RefusBoutique`, et sans `code` :
+ *  `messageDuRefusDePaiement` rend donc le repli de la page — la même phrase
+ *  que pour une panne de paiement. */
+export class AdresseDePaiementRefusee extends Error {
+  constructor() {
+    super("Adresse de paiement refusée.");
+    this.name = "AdresseDePaiementRefusee";
+  }
+}
+
+/** L'adresse, si elle est celle de Stripe ; sinon un refus. */
+function exigerLAdresseDeStripe(adresse: unknown): string {
+  const sure = adresseDePaiementSure(adresse);
+  if (sure === null) throw new AdresseDePaiementRefusee();
+  return sure;
+}
 
 async function parLEspaceSinonEnVisiteur(
   depuisLEspace: () => Promise<{ adresse: string }>,
@@ -75,19 +111,44 @@ export function achatRattacheALEspace(): boolean {
  *
  *  `email` ne sert qu'au visiteur, pour pré-remplir la page de Stripe ; avec
  *  une session, le serveur prend l'adresse du compte. */
-export function payerUneEtude(slug: string, email = ""): Promise<string> {
-  return parLEspaceSinonEnVisiteur(
-    () => espaceApi.acheterUneEtude(slug),
-    () => ouvrirLePaiementDUneEtude(slug, email),
+export async function payerUneEtude(slug: string, email = ""): Promise<string> {
+  return exigerLAdresseDeStripe(
+    await parLEspaceSinonEnVisiteur(
+      () => espaceApi.acheterUneEtude(slug),
+      () => ouvrirLePaiementDUneEtude(slug, email),
+    ),
   );
 }
 
 /** Adresse de paiement d'une ÉTUDE DE BOUTIQUE (`slug` du produit). */
-export function payerUnProduit(slug: string, email = ""): Promise<string> {
-  return parLEspaceSinonEnVisiteur(
-    () => espaceApi.acheterUnProduit(slug),
-    () => ouvrirLePaiementDeBoutique(slug, email),
+export async function payerUnProduit(slug: string, email = ""): Promise<string> {
+  return exigerLAdresseDeStripe(
+    await parLEspaceSinonEnVisiteur(
+      () => espaceApi.acheterUnProduit(slug),
+      () => ouvrirLePaiementDeBoutique(slug, email),
+    ),
   );
+}
+
+/** Adresse de paiement d'une FORMATION (`slug` de la formation).
+ *
+ *  Même règle que les deux autres : par l'espace si une session y est ouverte
+ *  — l'achat suit alors le compte, et le serveur refuse avant le paiement une
+ *  formation déjà achetée (409 `formation_deja_achetee`) —, sinon en
+ *  visiteur. Un 401 retombe en visiteur ; tout autre refus est rendu tel
+ *  quel.
+ *
+ *  Une réponse sans adresse est un refus, d'où qu'elle vienne : naviguer vers
+ *  une chaîne vide rechargerait la page sans rien dire (règle 1). */
+export async function payerUneFormation(slug: string, email = ""): Promise<string> {
+  const adresse = await parLEspaceSinonEnVisiteur(
+    () => espaceApi.acheterUneFormation(slug),
+    () => ouvrirLePaiementDUneFormation(slug, email),
+  );
+  if (typeof adresse !== "string" || adresse === "") {
+    throw new RefusInscription("", "illisible");
+  }
+  return exigerLAdresseDeStripe(adresse);
 }
 
 /** Le message d'un refus de paiement, d'où qu'il vienne.

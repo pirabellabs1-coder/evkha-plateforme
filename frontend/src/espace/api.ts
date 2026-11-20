@@ -16,14 +16,32 @@ export { jeton };
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
 
+/** L'hôte PUBLIC de l'API, quand cette construction le connaît — sinon `null`.
+ *
+ *  Lu à la source dont ce client tire toutes ses adresses (`BASE`), sans
+ *  recopier de domaine. Deux cas :
+ *
+ *  - `VITE_API_URL` est renseignée : l'API a un hôte nommé, on le rend ;
+ *  - elle est vide : les appels partent en RELATIF, vers l'origine de la page,
+ *    et un relais les porte jusqu'à l'API (Vite en développement,
+ *    `frontend/nginx.conf` en production). L'hôte de la page n'est alors PAS
+ *    celui de l'API : en production la page est servie par un domaine, et les
+ *    fichiers (`/media/`, que ce relais ne porte pas) par celui de l'API
+ *    (`EVKHA_BASE_URL`, voir `backend/evkha/signatures.py::lien_absolu`). Ce
+ *    client ne connaît donc pas l'hôte de l'API, et le dit : `null`. */
+export function hoteConnuDeLApi(): string | null {
+  if (BASE === "") return null;
+  return new URL(BASE, window.location.origin).hostname;
+}
+
 /** La porte de l'espace : c'est là qu'on renvoie une session refusée. */
 const CONNEXION = "/espace/connexion";
 
 /** Ce qu'un retour de paiement a le droit de faire de la session.
  *
- *  Une seule décision pour les deux écrans de retour (étude à produire, étude
- *  de boutique) : chacun la sienne, et l'un des deux finit par ouvrir ce que
- *  l'autre refuse (règle 5).
+ *  Une seule décision pour les trois écrans de retour (étude à produire, étude
+ *  de boutique, formation) : chacun la sienne, et l'un d'eux finit par ouvrir
+ *  ce que l'autre refuse (règle 5).
  *
  *  - `gardee` : une session est DÉJÀ ouverte dans ce navigateur. Elle n'est
  *    jamais remplacée, même par un jeton reçu : un lien de retour transmis à
@@ -342,6 +360,47 @@ export interface AchatDeBoutique {
   editable: string;
   /** L'avis déjà déposé sur cet achat, ou `null` s'il n'y en a pas. */
   avis: { note: number; texte: string; publie: boolean } | null;
+}
+
+/** Une leçon d'une formation ACHETÉE, contenu compris
+ *  (`vues_espace._lecon_achetee`). */
+export interface LeconAchetee {
+  id: string;
+  /** La place dans le module, de 1 à n. */
+  rang: number;
+  titre: string;
+  /** `video`, `texte`, `document` ou `quiz`. */
+  nature: string;
+  duree_minutes: number;
+  adresse_video: string;
+  texte: string;
+  /** Lien SIGNÉ, absolu, valable une heure. Jamais gardé : l'écran le relit
+   *  au serveur au moment d'ouvrir le document. Vide sans document. */
+  fichier: string;
+  fichier_nom: string;
+}
+
+export interface ModuleAchete {
+  /** La place dans le programme, de 1 à n. */
+  rang: number;
+  titre: string;
+  description: string;
+  lecons: LeconAchetee[];
+}
+
+/** Une formation achetée par l'organisation, avec tout son programme. */
+export interface FormationAchetee {
+  slug: string;
+  titre: string;
+  sous_titre: string;
+  accroche: string;
+  /** Adresse de l'image, ou chaîne vide. */
+  image: string;
+  duree_heures: number;
+  heures_de_coaching: number;
+  /** Date ISO de l'achat. */
+  achetee_le: string;
+  modules: ModuleAchete[];
 }
 
 /** Une etude de boutique proposee a l'achat depuis l'espace. */
@@ -770,6 +829,27 @@ export const espaceApi = {
     appel<{ adresse: string }>("/achats/acheter/", {
       method: "POST",
       body: JSON.stringify({ produit }),
+    }),
+  /** Les formations ACHETÉES, avec le contenu de leurs leçons.
+   *
+   *  Une réponse 200 sans la liste attendue (`{}`) est levée comme une
+   *  erreur : la lire comme une liste vide afficherait « aucune formation » à
+   *  quelqu'un qui en a payé une (règle 1). */
+  mesFormations: async () => {
+    const charge = await appel<{ formations?: unknown } | null>("/formations/");
+    if (!Array.isArray(charge?.formations)) {
+      throw new ErreurApi("Réponse illisible : liste des formations absente.", 200, "illisible");
+    }
+    return { formations: charge.formations as FormationAchetee[] };
+  },
+  /** Ouvre le paiement d'une formation depuis l'espace : l'achat suit alors
+   *  le COMPTE, pas l'adresse saisie chez le prestataire.
+   *
+   *  On n'envoie qu'un slug : le tarif est celui de la formation. */
+  acheterUneFormation: (formation: string) =>
+    appel<{ adresse: string }>("/formations/acheter/", {
+      method: "POST",
+      body: JSON.stringify({ formation }),
     }),
   reprendreAbonnement: () =>
     appel<{ renouvellement_actif: boolean }>("/abonnement/reprendre/", {

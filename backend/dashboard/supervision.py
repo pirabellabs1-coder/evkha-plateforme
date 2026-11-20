@@ -440,7 +440,7 @@ def transactions(request: HttpRequest) -> JsonResponse:
 
     filtre = str(request.GET.get("etat", "")).strip()
     lignes = TentativePaiement.objects.select_related(
-        "organisation", "organisation__contact", "formule", "produit"
+        "organisation", "organisation__contact", "formule", "produit", "formation"
     )[:400]
 
     resultat: list[dict[str, Any]] = []
@@ -467,6 +467,9 @@ def transactions(request: HttpRequest) -> JsonResponse:
             # L'etude visee, pour un achat de boutique : « quelqu'un a
             # abandonne » vaut moins que « quelqu'un a abandonne LAQUELLE ».
             "produit": tentative.produit.titre if tentative.produit else "",
+            # Même raison pour une formation — et son panier est celui qui
+            # vaut le plus d'être relancé.
+            "formation": tentative.formation.titre if tentative.formation else "",
             "objet": tentative.objet,
             "objet_libelle": tentative.get_objet_display(),
             "formule": tentative.formule.libelle if tentative.formule else "",

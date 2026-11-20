@@ -38,6 +38,11 @@ import {
   Squelette,
 } from "../composants/Interface";
 import * as f from "../format";
+import { adresseDePaiementSure } from "../../adresseDePaiement";
+
+/** La phrase d'une panne de paiement — et d'une adresse de paiement qui ne
+ *  mène pas chez Stripe : dans les deux cas, on ne part pas. */
+const PAIEMENT_INDISPONIBLE = "Le paiement est momentanément indisponible. Réessayez.";
 
 function retourDeStripe(): "ok" | "abandon" | "" {
   const valeur = new URLSearchParams(window.location.search).get("paiement");
@@ -127,15 +132,18 @@ export function Souscription() {
       const { adresse } = await espaceApi.ouvrirLePaiement(code);
       // Redirection pleine page, et non un cadre : la page de paiement doit
       // afficher SON domaine dans la barre d'adresse. C'est ce qui permet de
-      // vérifier à qui l'on donne sa carte.
-      window.location.href = adresse;
+      // vérifier à qui l'on donne sa carte. Et ce domaine est celui de
+      // Stripe, ou l'on ne part pas : le refus se dit comme une panne.
+      const sure = adresseDePaiementSure(adresse);
+      if (sure === null) {
+        setEnvoi(false);
+        setErreur(PAIEMENT_INDISPONIBLE);
+        return;
+      }
+      window.location.href = sure;
     } catch (cause) {
       setEnvoi(false);
-      setErreur(
-        cause instanceof ErreurApi
-          ? cause.message
-          : "Le paiement est momentanément indisponible. Réessayez.",
-      );
+      setErreur(cause instanceof ErreurApi ? cause.message : PAIEMENT_INDISPONIBLE);
     }
   }
 

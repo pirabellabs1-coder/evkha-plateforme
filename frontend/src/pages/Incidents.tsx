@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, type Incident } from "../api";
+import { ActionsDePage } from "../admin/ActionsDePage";
 import {
   Bandeau,
   Carte,
@@ -133,12 +134,16 @@ function IncidentTable({ incidents, canResolve }: { incidents: Incident[]; canRe
       <table className="tableau">
         <thead>
           <tr>
-            <th scope="col">Titre</th>
-            <th scope="col">Sévérité</th>
-            <th scope="col">Créé le</th>
-            <th scope="col">Job</th>
+            <th scope="col">Incident</th>
+            <th scope="col">Gravité</th>
+            <th scope="col">Survenu le</th>
+            <th scope="col">Génération</th>
             <th scope="col">Détails</th>
-            {canResolve && <th scope="col">Action</th>}
+            {canResolve && (
+              <th scope="col">
+                <span className="visuellement-cache">Résoudre</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -290,10 +295,16 @@ export function Incidents() {
       {/* « Aucun incident » ne se dit que sur une réponse REÇUE : sans `data`,
           on ne sait rien, et le dire serait mentir. */}
       {data && !isError && open.length === 0 && inProgress.length === 0 && (
-        <Bandeau ton="succes">Aucun incident ouvert ✓</Bandeau>
+        <Bandeau ton="succes">Aucun incident ouvert.</Bandeau>
       )}
 
-      {data && !isError && open.length + inProgress.length > 0 && <SolderLesIncidents />}
+      {/* Le geste d'ensemble vit dans l'en-tête de la page, avec le titre :
+          il porte sur toutes les cartes, pas sur l'une d'elles. */}
+      {data && !isError && open.length + inProgress.length > 0 && (
+        <ActionsDePage>
+          <SolderLesIncidents />
+        </ActionsDePage>
+      )}
 
       {/* Les incidents ouverts sont ce qui demande une intervention : leur
           carte prend le verre teinté d'échec, comme leur titre était rouge.

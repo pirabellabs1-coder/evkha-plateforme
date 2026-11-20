@@ -1,37 +1,1617 @@
-/* Console d'administration — ce qui manquait à `theme/espace.css` pour les
- * écrans de supervision de la production : générations, incidents,
- * commandes, clients.
+/* L'administration — sa coquille, et le langage de ses écrans.
  *
- * Ces six écrans étaient en Radix Themes, avec leurs gris, leurs verts et
- * leurs rouges à eux : la seule partie de la plateforme qui ne parlait pas la
- * charte. Ils réutilisent désormais `.carte`, `.tableau`, `.pastille`,
- * `.bouton`, `.bandeau`, `.jauge`, `.compte-identite` tels quels ; cette
- * feuille ne porte que ce qu'aucun écran de l'espace n'avait encore eu besoin
- * de dire (une chaîne de production horizontale, une fenêtre native, une
- * ligne en échec…).
+ * Deux parties, dans cet ordre :
  *
- * Aucune couleur, aucune durée, aucun rayon écrits en dur : uniquement des
- * jetons de `theme/tokens.css`. Préfixe `console-` partout : rien ici ne
- * redéfinit une classe de l'espace.
+ * 1. LA COQUILLE (`Coquille.tsx`) : la barre en groupes, son rail, son tiroir,
+ *    la bande haute et son fil d'Ariane, l'en-tête de page, le contenu.
+ * 2. LE LANGAGE D'ÉCRAN, écrit UNE fois pour tous les écrans : cartes, chiffres
+ *    clés, tableaux de données, étiquettes d'état, barres d'outils, boutons,
+ *    champs, fenêtres et panneaux, états vide / chargement / panne,
+ *    pagination — puis les pièces propres à la supervision (chaîne de
+ *    production, lignes en échec, messages sous un geste…).
  *
- * Ordre de la cascade : importée par les pages, donc via `./router`, que
- * `main.tsx` charge AVANT `espace.css`. Une règle qui doit l'emporter sur
- * une classe de l'espace est donc écrite à deux classes, jamais à une.
+ * ## Le ton
+ *
+ * Celui du site public refait (`public/Site.css`, `public/Portail.css`) :
+ * papier crème, or, encre, cartes blanches à double bord, boutons pilule,
+ * étiquettes à pastille corail. En plus dense et plus sobre — c'est un outil,
+ * pas une vitrine : aucune animation d'ambiance, aucun verre, et la serif
+ * d'accent (Fraunces italique) réservée au TITRE DE PAGE et aux GRANDS
+ * CHIFFRES. Tout le reste se lit en Montserrat.
+ *
+ * ## Comment ce langage s'applique
+ *
+ * Les écrans de l'administration emploient les briques de l'espace client
+ * (`espace/composants/Interface.tsx` : `Carte`, `Chiffre`, `Pastille`,
+ * `Bandeau`, `Vide`, `Squelette`, `Champ`) et ses classes (`.carte`,
+ * `.tableau`, `.bouton`, `.champ-saisie`…). Cette feuille les RÉHABILLE sous
+ * `.console`, la racine que pose la coquille : un écran n'a rien à demander,
+ * il suffit qu'il soit rendu dans l'administration. Rien de ce qui est écrit
+ * ici ne touche l'espace client — chaque règle est préfixée par `.console` ou
+ * porte une classe `console-*`.
+ *
+ * ## Les trois règles de la charte, tenues par des tests
+ *
+ * - aucune couleur écrite ici : tout lit `theme/tokens.css`, les translucides
+ *   sont composés par `color-mix()` sur un jeton
+ *   (`la-charte-a-une-seule-source`) ;
+ * - aucune durée écrite dans un mouvement : chaque `transition`, chaque
+ *   `animation` lit un jeton `--duree-*`, remis à zéro sous mouvement réduit
+ *   (`les-mouvements-lisent-leurs-durees`) ;
+ * - aucun champ de saisie sous 16 px
+ *   (`une-image-garde-son-ratio-et-un-champ-ne-zoome-pas`).
+ *
+ * ## Spécificité
+ *
+ * Cette feuille arrive avec le morceau de l'administration, donc APRÈS
+ * `espace.css` dans l'application construite — mais avant elle dans les tests
+ * et selon l'ordre des imports. Aucune règle ne compte donc sur l'ordre : ce
+ * qui réhabille une classe de l'espace pèse toujours une classe de plus
+ * (`.console .carte`).
+ *
+ * ## Contrastes (calculés sur les jetons, WCAG 2.2 AA)
+ *
+ *   encre #1A1A1A sur papier #FAF7F0 ............ 16,3:1
+ *   texte doux #4A4A4A sur papier ............... 8,3:1
+ *   texte tenu #6E6E6E sur papier ............... 4,8:1   (sur blanc 5,1:1)
+ *   texte tenu sur or brume #FEFAEF ............. 4,9:1
+ *   noir #0B0B0B sur or #F8C51C ................. 12,2:1  (bouton, entrée courante)
+ *   lin #D9D5CB sur encre #1A1A1A ............... 11,8:1  (liens de la barre)
+ *   gris pâle #A8A4A2 sur encre ................. 7,0:1   (titres de groupe)
+ *   blanc sur encre ............................. 17,4:1  (segment choisi)
+ *   succès #18784A / alerte #9A6408 / échec #B3261E / info #1C5D99 sur blanc
+ *     ........................................... 5,5 / 5,0 / 6,5 / 6,8:1
+ *   les mêmes sur leur voile (pastilles) ........ 4,9 / 4,5 / 5,7 / 6,0:1
+ *   blanc sur échec #B3261E ..................... 6,5:1   (pastille de panne)
+ *   or #F8C51C sur encre ........................ 10,8:1  (« Administration »)
+ *   bord d'un champ #808080 sur blanc ........... 3,9:1   (3:1 exigé, WCAG 1.4.11)
+ *
+ * Deux couples à ne PAS former : le texte tenu sur `--fond-enfonce` (4,49:1,
+ * sous le seuil — y écrire en texte doux, 7,8:1), et l'or seul comme bord ou
+ * comme texte sur clair (1,8:1 — l'or habille, il ne signale jamais seul).
  */
 
-/* ── Filtres posés dans l'en-tête d'une carte ───────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+ * 1. LA COQUILLE
+ * ══════════════════════════════════════════════════════════════════════════ */
 
+.console {
+  /* Ce que la coquille et le langage partagent. Des compositions de jetons,
+   * pas des jetons : elles n'ont de sens que dans l'administration. */
+  --console-marge: clamp(var(--e-4), 3vw, var(--e-8));
+  --console-trait: var(--evkha-bordure);
+  /* Le double bord : le liseré de la carte, puis un second, très dilué, à
+   * quatre pixels. L'écrin des cartes du site, en plus discret. */
+  --console-ecrin: 0 0 0 4px color-mix(in srgb, var(--evkha-encre) 2.5%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--evkha-encre) 6%, transparent);
+  --console-ecrin-or: 0 0 0 4px color-mix(in srgb, var(--evkha-or) 14%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--evkha-or-profond) 55%, transparent);
+
+  display: grid;
+  grid-template-columns: var(--largeur-barre) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--evkha-papier);
+  color: var(--texte);
+  font-family: var(--police-corps);
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+  /* La colonne s'anime : un repli instantané fait sauter tout le contenu, et
+   * l'on perd l'endroit où l'on lisait. */
+  transition: grid-template-columns var(--duree-tiroir) var(--ease-doux);
+}
+
+.console.console-en-rail {
+  grid-template-columns: var(--largeur-rail) minmax(0, 1fr);
+}
+
+/* Le focus, partout dans l'administration : un contour d'encre, décollé de
+ * deux pixels. Un CONTOUR et non une ombre : les survols de boutons réécrivent
+ * `box-shadow`, et l'anneau disparaissait sous la souris de qui venait
+ * d'arriver au clavier. */
+.console :focus-visible {
+  outline: 2px solid var(--evkha-encre);
+  outline-offset: 2px;
+}
+
+/* Une icône ne rétrécit jamais sous son voisin, et ne capte aucun clic. */
+.console-icone {
+  flex: none;
+  display: block;
+  pointer-events: none;
+}
+
+/* ── Lien d'évitement ─────────────────────────────────────────────────────── */
+
+.console-saut {
+  position: fixed;
+  top: var(--e-3);
+  left: var(--e-3);
+  z-index: 60;
+  padding: var(--e-3) var(--e-5);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-encre);
+  color: var(--evkha-blanc);
+  font-weight: var(--graisse-titre);
+  text-decoration: none;
+  /* Hors écran tant qu'il n'a pas le focus — par `transform`, pour rester
+   * dans l'ordre de tabulation. */
+  transform: translateY(-200%);
+}
+
+.console-saut:focus {
+  transform: none;
+  outline: 2px solid var(--evkha-or);
+  outline-offset: 2px;
+}
+
+/* ── La barre ─────────────────────────────────────────────────────────────── */
+
+.console-barre {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  height: 100vh;
+  height: 100dvh;
+  padding: var(--e-5) var(--e-3) var(--e-3);
+  background: var(--evkha-encre);
+  color: var(--evkha-lin);
+  /* Rien ne sort de la barre ; c'est la LISTE qui défile (plus bas), pour que
+   * la marque et le pied restent atteignables sur un écran court. */
+  overflow: hidden;
+}
+
+/* Sur l'encre, le contour de focus passe à l'or : l'encre sur l'encre ne se
+ * verrait pas. */
+.console-barre :focus-visible {
+  outline-color: var(--evkha-or);
+}
+
+.console-marque {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  min-height: 44px;
+  padding: 0 var(--e-2);
+}
+
+/* Le sceau de l'administration : NOIR SUR OR. L'espace client porte l'inverse
+ * (or sur noir) ; c'est le signe qui dit dans lequel des deux on se trouve.
+ * Un disque, et l'initiale dans la serif d'accent — le dessin du site. */
+.console-sceau {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-family: var(--police-accent);
+  font-style: italic;
+  /* 500 : la seule graisse de Fraunces italique que `index.html` charge. Une
+   * autre serait un gras de synthèse, épaissi par le navigateur. */
+  font-weight: var(--graisse-moyenne);
+  font-size: var(--t-lg);
+  line-height: 1;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--evkha-or) 22%, transparent);
+}
+
+.console-marque-texte {
+  min-width: 0;
+  margin-right: auto;
+}
+
+.console-marque-nom {
+  font-weight: var(--graisse-affiche);
+  font-size: var(--t-md);
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  color: var(--evkha-blanc);
+}
+
+.console-marque-sous {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--evkha-or);
+}
+
+.console-groupes {
+  flex: 1;
+  /* Sans `min-height: 0`, un enfant flex ne descend pas sous son contenu : la
+   * liste pousserait le pied hors de la barre au lieu de défiler. */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  margin: 0 calc(-1 * var(--e-1));
+  padding: var(--e-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  /* Sans couleur dite, Windows dessine une glissière BLANCHE sur l'encre de la
+   * barre (vu à l'écran le 20/11/2026). Un curseur clair, une glissière
+   * invisible. */
+  scrollbar-color: color-mix(in srgb, var(--evkha-lin) 34%, transparent) transparent;
+}
+
+.console-groupe-titre {
+  margin: 0 0 var(--e-1);
+  padding: 0 var(--e-3);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--evkha-gris-pale);
+}
+
+.console-entrees {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-entree {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  /* 44 px : la cible au doigt, dans le tiroir comme sur une tablette. */
+  min-height: 44px;
+  padding: 0 var(--e-3);
+  border-radius: var(--rayon-sm);
+  color: var(--evkha-lin);
+  font-size: var(--t-base);
+  font-weight: var(--graisse-moyenne);
+  text-decoration: none;
+  transition: background var(--duree-micro) var(--ease-doux),
+    color var(--duree-micro) var(--ease-doux);
+}
+
+.console-entree:hover {
+  background: color-mix(in srgb, var(--evkha-blanc) 9%, transparent);
+  color: var(--evkha-blanc);
+}
+
+/* L'entrée courante : une plaque d'or, le texte à l'encre, en gras. Trois
+ * signes — la teinte, la graisse, et `aria-current` pour qui ne voit ni l'une
+ * ni l'autre. */
+.console-entree.actif,
+.console-entree.actif:hover {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-weight: var(--graisse-titre);
+}
+
+.console-entree-libelle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* « Se déconnecter » est un bouton — il agit, il ne mène nulle part — qui a
+ * la forme d'une entrée. */
+.console-entree-bouton {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* La pastille d'une entrée : ce qui attend une réponse. */
+.console-pastille {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Sur l'entrée courante, l'or sur l'or ne se lirait pas. */
+.console-entree.actif .console-pastille {
+  background: var(--evkha-encre);
+  color: var(--evkha-blanc);
+}
+
+/* Le compte n'a pas pu être lu : ni un nombre, ni rien. Le rouge d'échec et un
+ * point d'interrogation — et le texte, pour les lecteurs d'écran, le dit en
+ * toutes lettres (`Coquille.tsx`). */
+.console-pastille.console-pastille-panne,
+.console-entree.actif .console-pastille.console-pastille-panne {
+  background: var(--evkha-echec);
+  color: var(--evkha-blanc);
+}
+
+.console-pied {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--e-3);
+  border-top: 1px solid color-mix(in srgb, var(--evkha-blanc) 12%, transparent);
+}
+
+/* ── Le rail : la barre repliée, sur grand écran ──────────────────────────── */
+
+/* Les libellés se retirent de la vue, pas de la page : ils restent le NOM des
+ * liens pour les lecteurs d'écran, et l'infobulle les rend aux yeux. */
+.console-en-rail .console-entree-libelle,
+.console-en-rail .console-marque-texte {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.console-en-rail .console-marque {
+  justify-content: center;
+  padding: 0;
+}
+
+.console-en-rail .console-entree {
+  justify-content: center;
+  padding: 0;
+}
+
+/* Le titre de groupe devient un filet : la séparation reste, le mot non (il
+ * nomme toujours la liste, par `aria-labelledby`). */
+.console-en-rail .console-groupe-titre {
+  height: 1px;
+  margin: 0 var(--e-3) var(--e-2);
+  padding: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--evkha-blanc) 14%, transparent);
+  font-size: 0;
+}
+
+.console-en-rail .console-groupe:first-child .console-groupe-titre {
+  background: transparent;
+}
+
+.console-en-rail .console-pastille {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  box-shadow: 0 0 0 2px var(--evkha-encre);
+}
+
+/* L'infobulle du rail. `fixed` : posée hors de la barre, elle n'est pas
+ * coupée par le défilement de la liste. Sa hauteur vient du lien survolé ou
+ * focalisé (`Coquille.tsx`). */
+.console-infobulle {
+  position: fixed;
+  left: calc(var(--largeur-rail) + var(--e-1));
+  z-index: 50;
+  transform: translateY(-50%);
+  padding: var(--e-2) var(--e-3);
+  border-radius: var(--rayon-xs);
+  background: var(--evkha-encre);
+  color: var(--evkha-blanc);
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--ombre-lg);
+}
+
+/* ── Boutons-icônes de la coquille ────────────────────────────────────────── */
+
+.console-bouton-icone {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-blanc);
+  color: var(--texte-fort);
+  cursor: pointer;
+  transition: background var(--duree-micro) var(--ease-doux),
+    border-color var(--duree-micro) var(--ease-doux);
+}
+
+.console-bouton-icone:hover {
+  border-color: var(--evkha-encre);
+  background: var(--evkha-or-brume);
+}
+
+/* La croix du tiroir : sur l'encre. Elle n'existe que sur petit écran. */
+.console-fermer-tiroir {
+  display: none;
+  border-color: color-mix(in srgb, var(--evkha-blanc) 22%, transparent);
+  background: transparent;
+  color: var(--evkha-blanc);
+}
+
+.console-fermer-tiroir:hover {
+  border-color: var(--evkha-blanc);
+  background: color-mix(in srgb, var(--evkha-blanc) 10%, transparent);
+}
+
+/* Le voile derrière le tiroir. `hidden` le retire ; la règle le redit, parce
+ * qu'un `display` posé sur un bouton l'emporterait sur l'attribut. */
+.console-voile {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--evkha-noir) 48%, transparent);
+  cursor: pointer;
+}
+
+.console-voile[hidden] {
+  display: none;
+}
+
+/* ── Le corps : bande haute, en-tête de page, contenu ─────────────────────── */
+
+.console-corps {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* La bande haute reste à l'écran : elle porte le bouton du menu — sur
+ * téléphone, le SEUL accès à la navigation — et le fil d'Ariane. Collante,
+ * donc le flou d'arrière-plan y est permis (`tokens.css`, « Verre »). */
+.console-haut {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  min-height: 60px;
+  padding: var(--e-2) var(--console-marge);
+  border-bottom: 1px solid var(--console-trait);
+  background: color-mix(in srgb, var(--evkha-papier) 90%, transparent);
+  -webkit-backdrop-filter: blur(var(--verre-flou));
+  backdrop-filter: blur(var(--verre-flou));
+}
+
+.console-fil {
+  min-width: 0;
+}
+
+.console-fil ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--e-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+.console-fil li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.console-fil a {
+  color: var(--texte-doux);
+  font-weight: var(--graisse-forte);
+  text-decoration: underline;
+  text-decoration-color: var(--evkha-or-profond);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  border-radius: var(--rayon-xs);
+}
+
+.console-fil a:hover {
+  color: var(--texte-fort);
+}
+
+.console-fil [aria-current="page"] {
+  color: var(--texte-fort);
+  font-weight: var(--graisse-titre);
+}
+
+/* L'en-tête de page : le titre, la phrase d'aide, et à droite les actions que
+ * l'écran y dépose (`ActionsDePage`). */
+.console-entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--e-4) var(--e-6);
+  width: 100%;
+  max-width: 84rem;
+  padding: var(--e-8) var(--console-marge) var(--e-2);
+}
+
+.console-entete-texte {
+  flex: 1 1 22rem;
+  min-width: 0;
+}
+
+/* Le SEUL titre en serif d'accent de l'écran — et son seul `h1`. */
+.console-titre-page {
+  margin: 0;
+  font-family: var(--police-accent);
+  font-style: italic;
+  font-weight: var(--graisse-moyenne);
+  font-size: clamp(1.75rem, 1.35rem + 1.6vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--texte-fort);
+}
+
+.console-aide {
+  max-width: 68ch;
+  margin: var(--e-2) 0 0;
+  color: var(--texte-doux);
+}
+
+.console-entete-actions,
+.console-actions-sur-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.console-entete-actions:empty {
+  display: none;
+}
+
+/* Hors de la coquille (un écran rendu seul), les actions s'affichent sur
+ * place, calées à droite. */
+.console-actions-sur-place {
+  justify-content: flex-end;
+}
+
+.console-contenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-6);
+  width: 100%;
+  max-width: 84rem;
+  padding: var(--e-5) var(--console-marge) var(--e-16);
+}
+
+/* La cible du lien d'évitement prend le focus sans se dessiner un contour
+ * autour de toute la page. */
+.console-contenu:focus {
+  outline: none;
+}
+
+/* ── Téléphone et tablette : la barre devient un tiroir ───────────────────── */
+
+/* Même seuil que `useBarreLaterale` (901 px) : c'est la seule duplication, et
+ * elle est signalée des deux côtés. */
+@media (max-width: 900px) {
+  .console,
+  .console.console-en-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .console-barre {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(86vw, 20rem);
+    /* Hors écran ET invisible : `visibility` retire le tiroir fermé de la
+     * tabulation, même là où `inert` n'est pas pris en charge. Elle bascule à
+     * la fin du glissement à la fermeture, au début à l'ouverture. */
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--duree-tiroir) var(--ease-sortie),
+      visibility var(--duree-tiroir);
+    box-shadow: var(--ombre-lg);
+  }
+
+  .console-tiroir-ouvert .console-barre {
+    transform: none;
+    visibility: visible;
+  }
+
+  .console-fermer-tiroir {
+    display: inline-grid;
+  }
+
+  .console-entete {
+    padding-top: var(--e-5);
+  }
+}
+
+@media (max-width: 600px) {
+  .console-aide {
+    font-size: var(--t-sm);
+  }
+
+  /* Les actions passent sous le titre, sur toute la largeur : un bouton
+   * principal coincé à droite d'un titre sur deux lignes se rate au pouce. */
+  .console-entete-actions {
+    width: 100%;
+  }
+}
+
+/* Les durées valent déjà 0 ms sous ce réglage (`tokens.css`) ; ceci est le
+ * filet, au cas où un jeton serait un jour redéfini sans son bloc. */
+@media (prefers-reduced-motion: reduce) {
+  .console,
+  .console-barre,
+  .console-entree,
+  .console-bouton-icone {
+    transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * 2. LE LANGAGE D'ÉCRAN
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Cartes ───────────────────────────────────────────────────────────────── */
+
+/* Une carte : blanche sur le papier, un liseré, et le second bord de l'écrin.
+ * Le cœur de verre de l'espace client (`.carte::before`) n'a pas cours ici :
+ * une surface pleine se lit mieux sous un tableau de vingt lignes. */
+.console .carte {
+  padding: var(--e-6);
+  border: 1px solid var(--console-trait);
+  border-radius: var(--rayon-lg);
+  background: var(--evkha-blanc);
+  box-shadow: var(--console-ecrin);
+}
+
+.console .carte::before {
+  content: none;
+}
+
+/* Ce qui demande une intervention : le liseré et l'écrin prennent le rouge,
+ * la surface reste blanche pour que le texte garde son contraste. */
+.console .carte-echec {
+  border-color: color-mix(in srgb, var(--evkha-echec) 45%, transparent);
+  background: var(--evkha-blanc);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--evkha-echec) 6%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--evkha-echec) 18%, transparent);
+}
+
+.console .carte-entete {
+  align-items: center;
+  margin-bottom: var(--e-5);
+}
+
+.console .carte-titre {
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  letter-spacing: -0.005em;
+}
+
+.console .carte-note {
+  margin: 2px 0 0;
+  color: var(--texte-tenu);
+}
+
+/* Une étiquette de section, à la pastille corail du site. Pour nommer un
+ * groupe de cartes (« À traiter aujourd'hui »), pas pour titrer une carte. */
+.console-etiquette {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin: 0;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--texte-fort);
+}
+
+.console-etiquette::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--evkha-corail);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--evkha-corail) 18%, transparent);
+}
+
+/* Deux cartes côte à côte quand la place le permet, l'une sous l'autre sinon. */
+.console-duo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: var(--e-6);
+  align-items: start;
+}
+
+/* Une section : son étiquette, puis ce qu'elle regroupe. */
+.console-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+}
+
+/* ── Chiffres clés ────────────────────────────────────────────────────────── */
+
+.console .grille-chiffres {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+  gap: var(--e-5);
+}
+
+.console .chiffre {
+  padding: var(--e-5);
+  border: 1px solid var(--console-trait);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+  box-shadow: var(--console-ecrin);
+}
+
+/* Le chiffre mis en avant : l'or pâle, et l'écrin à l'or. Un seul par
+ * rangée — deux chiffres « en avant » ne disent plus lequel regarder. */
+.console .chiffre.accent {
+  border-color: var(--evkha-or-profond);
+  background: var(--evkha-or-brume);
+  box-shadow: var(--console-ecrin-or);
+}
+
+.console .chiffre-libelle {
+  letter-spacing: 0.1em;
+  color: var(--texte-tenu);
+}
+
+/* Les grands chiffres portent la serif d'accent — avec le titre de page, le
+ * seul endroit de l'administration où elle paraît. */
+.console .chiffre-valeur {
+  font-family: var(--police-accent);
+  font-style: italic;
+  font-weight: var(--graisse-moyenne);
+  font-size: var(--t-2xl);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.console .chiffre-detail {
+  color: var(--texte-doux);
+}
+
+/* ── Boutons ──────────────────────────────────────────────────────────────── */
+
+/* Quatre variantes, et une seule par rôle :
+ *
+ *   .bouton-principal   or      l'action principale de l'écran ou de la carte
+ *   .bouton-contour     blanc   une action secondaire
+ *   .bouton-discret     nu      annuler, fermer, une action tertiaire
+ *   .bouton-echec       rouge   ce qui interrompt ou détruit
+ *
+ * La hauteur est une CIBLE : 44 px, 36 px pour `.bouton-sm` à la souris — et
+ * 44 px de nouveau dès que le pointeur est un doigt (plus bas). */
+.console .bouton {
+  min-height: 44px;
+  padding: var(--e-2) var(--e-5);
+  font-size: var(--t-base);
+  box-shadow: none;
+}
+
+.console .bouton-sm {
+  min-height: 36px;
+  padding: var(--e-1) var(--e-4);
+  font-size: var(--t-sm);
+}
+
+@media (pointer: coarse) {
+  .console .bouton-sm {
+    min-height: 44px;
+  }
+}
+
+.console .bouton-principal {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.console .bouton-principal:hover:not(:disabled) {
+  background: var(--evkha-or-profond);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--evkha-miel) 16%, transparent);
+}
+
+/* Un `.bouton` écrit sans variante était transparent : « Rédiger une
+ * annonce », « Prendre en charge », « Envoyer maintenant » — des actions
+ * principales — se lisaient comme du texte. Sans variante, un bouton EST
+ * principal. La liste des variantes est celle du commentaire ci-dessus. */
+.console .bouton:not(.bouton-principal, .bouton-contour, .bouton-discret, .bouton-echec, .bouton-noir) {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+.console .bouton:not(.bouton-principal, .bouton-contour, .bouton-discret, .bouton-echec, .bouton-noir):hover:not(:disabled) {
+  background: var(--evkha-or-profond);
+}
+
+.console .bouton-contour {
+  border-color: var(--evkha-bordure-forte);
+  background: var(--evkha-blanc);
+  color: var(--texte-fort);
+}
+
+.console .bouton-contour:hover:not(:disabled) {
+  border-color: var(--evkha-encre);
+  background: var(--evkha-or-brume);
+  box-shadow: none;
+}
+
+.console .bouton-discret {
+  background: transparent;
+  color: var(--texte-doux);
+}
+
+.console .bouton-discret:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--evkha-encre) 7%, transparent);
+  color: var(--texte-fort);
+}
+
+.console .bouton-echec {
+  border-color: var(--evkha-echec);
+  background: var(--evkha-blanc);
+  color: var(--evkha-echec);
+}
+
+.console .bouton-echec:hover:not(:disabled) {
+  background: var(--evkha-echec-voile);
+}
+
+/* Le focus des boutons est le contour de `.console :focus-visible` : la règle
+ * de l'espace le retirait au profit d'une ombre (`outline: none`). */
+.console .bouton:focus-visible,
+.console .bouton:hover:focus-visible {
+  outline: 2px solid var(--evkha-encre);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* Une icône dans un bouton : devant le libellé, à sa couleur. */
+.console .bouton > .console-icone {
+  margin-left: calc(-1 * var(--e-1));
+}
+
+/* ── Segments : un choix parmi quelques-uns ───────────────────────────────── */
+
+/* La période du tableau de bord, le filtre des transactions, le livrable
+ * affiché : des boutons à bascule (`aria-pressed`) dans une même réglette.
+ * `.admin-periodes` est le nom historique, `.console-segments` le nom du
+ * langage ; les deux rendent pareil.
+ *
+ *   <div className="console-segments" role="group" aria-label="Période">
+ *     <button type="button" className="bouton bouton-sm" aria-pressed="true">…
+ */
+.console .admin-periodes,
+.console-segments {
+  align-self: flex-start;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--e-1);
+  margin: 0;
+  padding: var(--e-1);
+  border: 1px solid var(--console-trait);
+  border-radius: var(--rayon-lg);
+  background: var(--evkha-blanc);
+}
+
+/* Dans une carte, la réglette précède ce qu'elle gouverne. */
+.console .carte > .admin-periodes,
+.console .carte > .console-segments {
+  margin-bottom: var(--e-5);
+}
+
+.console .admin-periodes > .bouton,
+.console-segments > .bouton {
+  border-color: transparent;
+  background: transparent;
+  color: var(--texte-doux);
+}
+
+.console .admin-periodes > .bouton:hover:not(:disabled),
+.console-segments > .bouton:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--evkha-encre) 7%, transparent);
+  color: var(--texte-fort);
+}
+
+/* Le segment choisi : l'encre pleine. L'état est aussi dans `aria-pressed`,
+ * et dans la graisse — pas dans la teinte seule. */
+.console .admin-periodes > .bouton[aria-pressed="true"],
+.console .admin-periodes > .bouton[aria-pressed="true"]:hover:not(:disabled),
+.console-segments > .bouton[aria-pressed="true"],
+.console-segments > .bouton[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--evkha-encre);
+  color: var(--evkha-blanc);
+  font-weight: var(--graisse-titre);
+}
+
+/* ── Onglets et puces de filtre ───────────────────────────────────────────── */
+
+/* Des onglets soulignés, sur UNE ligne qui défile plutôt que de se replier.
+ *
+ *   <nav className="console-onglets" aria-label="Sections">
+ *     <button type="button" className="console-onglet actif" aria-pressed="true">
+ *       Prospects <span className="console-compteur">12</span>
+ */
+.console-onglets {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0 var(--e-6);
+  margin: 0 0 var(--e-4);
+  border-bottom: 1px solid var(--console-trait);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.console-onglets::-webkit-scrollbar {
+  display: none;
+}
+
+.console-onglet {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: 44px;
+  margin-bottom: -1px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--texte-doux);
+  font-family: inherit;
+  font-size: var(--t-base);
+  font-weight: var(--graisse-moyenne);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--duree-bascule) var(--ease-doux),
+    border-color var(--duree-bascule) var(--ease-doux);
+}
+
+.console-onglet:hover {
+  color: var(--texte-fort);
+}
+
+.console-onglet.actif,
+.console-onglet[aria-pressed="true"],
+.console-onglet[aria-selected="true"] {
+  border-bottom-color: var(--evkha-or-profond);
+  color: var(--texte-fort);
+  font-weight: var(--graisse-titre);
+}
+
+/* Les puces : des filtres qui se cumulent ou se remplacent, plus légers que
+ * des onglets. Une ligne qui défile, elle aussi. */
+.console-puces {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--e-2);
+  margin: 0 0 var(--e-4);
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.console-puces::-webkit-scrollbar {
+  display: none;
+}
+
+.console-puce {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  min-height: 36px;
+  padding: 0 var(--e-4);
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-pilule);
+  background: var(--evkha-blanc);
+  color: var(--texte-doux);
+  font-family: inherit;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-moyenne);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--duree-bascule) var(--ease-doux),
+    border-color var(--duree-bascule) var(--ease-doux),
+    color var(--duree-bascule) var(--ease-doux);
+}
+
+.console-puce:hover {
+  border-color: var(--evkha-encre);
+  color: var(--texte-fort);
+}
+
+.console-puce.actif,
+.console-puce[aria-pressed="true"] {
+  border-color: var(--evkha-or-profond);
+  background: var(--evkha-or-voile);
+  color: var(--texte-fort);
+  font-weight: var(--graisse-titre);
+}
+
+@media (pointer: coarse) {
+  .console-puce {
+    min-height: 44px;
+  }
+}
+
+/* Le petit compte d'un onglet ou d'une puce. */
+.console-compteur {
+  min-width: 1.375rem;
+  padding: 0 6px;
+  border-radius: var(--rayon-pilule);
+  background: color-mix(in srgb, var(--evkha-encre) 9%, transparent);
+  color: var(--texte-fort);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-titre);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.375rem;
+  text-align: center;
+}
+
+.console-onglet.actif .console-compteur,
+.console-onglet[aria-pressed="true"] .console-compteur,
+.console-puce.actif .console-compteur,
+.console-puce[aria-pressed="true"] .console-compteur {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+/* ── Barres d'outils : recherche, filtres, actions ────────────────────────── */
+
+/* Au-dessus d'un tableau ou dans l'en-tête d'une carte : la recherche et les
+ * filtres à gauche, l'action à droite (`.console-outils-fin`). */
+.console-outils,
 .console-filtres {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--e-3);
 }
 
-.console-filtres .champ {
-  min-width: 12.5rem;
+.console-outils-fin {
+  margin-left: auto;
 }
 
-/* ── Piles et rangées d'actions ─────────────────────────────────────────── */
+.console-filtres .champ,
+.console-outils .champ {
+  min-width: min(100%, 12.5rem);
+}
+
+/* Le champ de recherche : la loupe dans le champ, à gauche.
+ *
+ *   <label className="champ console-recherche">
+ *     <span className="visuellement-cache">Rechercher…</span>
+ *     <Icone nom="recherche" />
+ *     <input className="champ-saisie" type="search" />
+ */
+.console-recherche {
+  position: relative;
+}
+
+.console-recherche > .console-icone {
+  position: absolute;
+  top: 50%;
+  left: var(--e-3);
+  transform: translateY(-50%);
+  color: var(--texte-tenu);
+}
+
+.console-recherche > .champ-saisie {
+  padding-left: calc(var(--e-3) + 20px + var(--e-2));
+}
+
+/* ── Champs et formulaires ────────────────────────────────────────────────── */
+
+/* Un champ : son libellé VISIBLE au-dessus (`.champ-libelle`), la saisie
+ * (`.champ-saisie`), puis l'aide (`.champ-aide`) ou l'erreur
+ * (`.champ-erreur`), reliée à la saisie par `aria-describedby`. La brique
+ * `Champ` (`espace/composants/Interface.tsx`) fait tout cela pour un `input`.
+ *
+ * 16 px au moins : en dessous, Safari iOS zoome la page au focus. */
+.console .champ-saisie {
+  min-height: 44px;
+  padding: var(--e-2) var(--e-3);
+  /* Le bord d'un champ est ce qui le fait reconnaître : il doit tenir 3:1
+   * sur sa surface. Le liseré de la charte (#D4CFCC) n'y tient que 1,5:1 ;
+   * le gris #808080 tient 3,9:1. */
+  border: 1px solid var(--evkha-gris-doux);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-blanc);
+  font-size: max(1rem, var(--t-base));
+  box-shadow: none;
+}
+
+.console .champ-saisie:hover:not(:disabled):not(:focus) {
+  border-color: var(--evkha-encre);
+}
+
+/* Le focus d'un champ : le bord passe à l'encre et s'épaissit, l'or
+ * l'entoure. L'encre signale (16:1), l'or habille. */
+.console .champ-saisie:focus,
+.console .champ-saisie:focus-visible {
+  outline: none;
+  border-color: var(--evkha-encre);
+  box-shadow: 0 0 0 1px var(--evkha-encre), 0 0 0 4px var(--halo-or-fort);
+}
+
+.console .champ-saisie[aria-invalid="true"] {
+  border-color: var(--evkha-echec);
+}
+
+.console .champ-saisie:disabled {
+  background: var(--fond-enfonce);
+  border-color: var(--evkha-bordure-forte);
+  color: var(--texte-doux);
+  cursor: not-allowed;
+}
+
+.console .champ-saisie::placeholder {
+  color: var(--texte-tenu);
+  opacity: 1;
+}
+
+/* Une zone de texte se tire en hauteur, jamais en largeur : elle ferait
+ * déborder sa carte. */
+.console .champ-zone {
+  min-height: 6.5rem;
+  line-height: var(--interligne);
+  resize: vertical;
+}
+
+.console .champ-libelle {
+  /* `block` : un libellé écrit hors d'un `.champ` (au-dessus d'un groupe de
+   * boutons) se pose lui aussi sur sa propre ligne. */
+  display: block;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
+  color: var(--texte-fort);
+}
+
+.console .champ-aide {
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+}
+
+/* Le message d'erreur d'un champ. Le rouge et le mot : l'erreur se lit sans
+ * percevoir la teinte, parce qu'elle DIT ce qui ne va pas. */
+.champ-erreur {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  color: var(--evkha-echec);
+}
+
+/* Un formulaire : ses champs l'un sous l'autre, puis son pied.
+ *
+ *   <form className="console-formulaire">
+ *     <div className="console-champs">  ← deux colonnes quand la place le permet
+ *       <label className="champ">…</label>
+ *       <label className="champ">…</label>
+ *     </div>
+ *     <footer className="console-formulaire-pied">
+ *       <button className="bouton bouton-discret">Annuler</button>
+ *       <button className="bouton bouton-principal">Enregistrer</button>
+ */
+.console-formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-5);
+}
+
+.console-champs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--e-4);
+}
+
+/* Un formulaire dans une carte (`<form className="carte console-formulaire">`) :
+ * l'espacement vient du formulaire, pas de l'en-tête de la carte. */
+.console-formulaire > .carte-entete {
+  margin-bottom: 0;
+}
+
+.console-formulaire-pied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--e-2) var(--e-3);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--console-trait);
+}
+
+/* Une note à gauche du pied (« partira à 42 personnes ») : elle pousse les
+ * boutons à droite. */
+.console-formulaire-pied > .carte-note {
+  margin-right: auto;
+}
+
+/* Une décision dans une cellule : accorder, ou dire pourquoi l'on refuse.
+ * Les boutons et le champ l'un sous l'autre, à la même largeur. */
+.console-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+  min-width: min(100%, 13.5rem);
+}
+
+/* Les actions en ligne d'une organisation : un petit formulaire dans une
+ * cellule. */
+.console .actions-organisation {
+  border-color: var(--console-trait);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-papier);
+}
+
+/* ── Étiquettes d'état ────────────────────────────────────────────────────── */
+
+/* `.pastille` + un ton : `-succes` (en ligne, payé, terminé), `-alerte` (en
+ * attente, à traiter), `-echec` (hors ligne par panne, échec, abandonné),
+ * `-info` (en cours), `-neutre` (brouillon, annulé, hors ligne voulu). La
+ * brique `Pastille` choisit le ton d'après le statut du serveur. Chaque
+ * pastille porte un POINT en plus de sa couleur, et son mot. */
+.console .pastille {
+  padding: 3px var(--e-3);
+  box-shadow: none;
+  font-size: var(--t-xs);
+  line-height: 1.5;
+}
+
+/* Pastille PLEINE : l'incident critique. Critique et haute partagent le
+ * rouge ; la critique se distingue d'un coup d'œil sans qu'il faille lire.
+ * Blanc sur `--evkha-echec` : 6,5:1 (calculé). */
+.pastille.console-pastille-pleine,
+.console .pastille.console-pastille-pleine {
+  background: var(--evkha-echec);
+  color: var(--evkha-blanc);
+}
+
+/* ── Tableaux de données ──────────────────────────────────────────────────── */
+
+/* La structure, la même partout :
+ *
+ *   <div className="tableau-cadre tableau-defile">
+ *     <table className="tableau">
+ *       <thead><tr>
+ *         <th scope="col">Organisation</th>
+ *         <th scope="col" className="nombre">Solde</th>
+ *       </tr></thead>
+ *       <tbody><tr>
+ *         <td><strong>…</strong><div className="carte-note">…</div></td>
+ *         <td className="nombre">12</td>
+ *
+ * - `scope="col"` sur chaque en-tête ;
+ * - `.nombre` sur l'en-tête ET la cellule d'une colonne de nombres : calée à
+ *   droite, chiffres à largeur fixe ;
+ * - une colonne d'actions a un en-tête lu mais non affiché
+ *   (`<span className="visuellement-cache">Actions</span>`).
+ *
+ * Le cadre défile dans les deux sens, borné en hauteur : l'en-tête reste
+ * collé en haut du cadre pendant qu'on parcourt les lignes. */
+.console .tableau-cadre {
+  border: 1px solid var(--console-trait);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+  box-shadow: none;
+}
+
+.console .tableau-defile {
+  max-height: min(72vh, 46rem);
+  overflow: auto;
+  overscroll-behavior: auto;
+}
+
+.console .tableau {
+  font-size: var(--t-sm);
+}
+
+.console .tableau thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--e-3) var(--e-4);
+  border-bottom: 0;
+  background: var(--evkha-papier);
+  /* Le filet sous l'en-tête est une ombre : une bordure ne suit pas une
+   * cellule collante dans un tableau à bordures fusionnées. */
+  box-shadow: inset 0 -1px 0 var(--console-trait);
+  color: var(--texte-doux);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+}
+
+/* Des lignes aérées : on lit une ligne, pas un pavé. */
+.console .tableau tbody td,
+.console .tableau tbody th {
+  padding: var(--e-4);
+  border-bottom: 1px solid var(--console-trait);
+  vertical-align: top;
+  text-align: left;
+}
+
+.console .tableau tbody tr:last-child > td,
+.console .tableau tbody tr:last-child > th {
+  border-bottom: 0;
+}
+
+.console .tableau tbody tr:hover {
+  background: var(--evkha-or-brume);
+}
+
+.console .tableau .nombre,
+.console .tableau thead th.nombre {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.console .tableau td strong {
+  color: var(--texte-fort);
+  font-weight: var(--graisse-titre);
+}
+
+.console .tableau code {
+  font-family: var(--police-mono);
+  font-size: 0.95em;
+  overflow-wrap: anywhere;
+}
+
+/* Ligne d'une génération, d'un chapitre ou d'une commande en échec : le rouge
+ * de la charte, très dilué, et un filet à gauche — pas la teinte seule. Le
+ * texte tenu (#6E6E6E) y garde 4,6:1 (calculé sur blanc + 7 % × 70 %). */
+.tableau tbody tr.console-ligne-echec,
+.console .tableau tbody tr.console-ligne-echec {
+  background: color-mix(in srgb, var(--verre-echec) 70%, transparent);
+  box-shadow: inset 3px 0 0 var(--evkha-echec);
+}
+
+/* L'avancement d'une génération dans sa cellule : la jauge, à largeur fixe,
+ * et le décompte des chapitres à côté. */
+.console-avancement {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.console-avancement .jauge {
+  flex: 0 0 5rem;
+  width: 5rem;
+}
+
+.console .jauge {
+  height: 10px;
+  box-shadow: none;
+}
+
+/* ── Sous 760 px : un tableau devient des cartes empilées ─────────────────── */
+
+/* Une carte par ligne ; dans la carte, chaque valeur sous le NOM de sa
+ * colonne. Ce nom vient de `data-libelle`, que `etiqueterTableaux.ts` pose
+ * sur chaque cellule d'après l'en-tête (ou que l'écran écrit lui-même).
+ *
+ * La première cellule — ce qui nomme la ligne — et les cellules sans libellé
+ * (les actions) prennent toute la largeur ; les autres vont deux par deux.
+ * L'en-tête sort de la vue, pas de la page : il reste lu. */
+@media (max-width: 760px) {
+  .console .tableau-cadre {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .console .tableau-defile {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .console .tableau,
+  .console .tableau tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .console .tableau thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .console .tableau tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e-3) var(--e-4);
+    margin-bottom: var(--e-3);
+    padding: var(--e-4);
+    border: 1px solid var(--console-trait);
+    border-radius: var(--rayon-md);
+    background: var(--evkha-blanc);
+  }
+
+  .console .tableau tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .console .tableau tbody td,
+  .console .tableau tbody th {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .console .tableau tbody td:first-child,
+  .console .tableau tbody td:not([data-libelle]),
+  .console .tableau tbody td[data-libelle=""],
+  .console .tableau tbody td[colspan] {
+    grid-column: 1 / -1;
+  }
+
+  .console .tableau tbody td[data-libelle]:not([data-libelle=""])::before {
+    content: attr(data-libelle);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--texte-tenu);
+    font-size: var(--t-xs);
+    font-weight: var(--graisse-forte);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variant-numeric: normal;
+  }
+
+  /* Une ligne en échec garde son filet, sur le bord de sa carte. */
+  .console .tableau tbody tr.console-ligne-echec {
+    border-color: color-mix(in srgb, var(--evkha-echec) 45%, transparent);
+  }
+
+  .console .tableau .nombre {
+    text-align: left;
+  }
+}
+
+/* ── États : vide, chargement, panne ──────────────────────────────────────── */
+
+/* VIDE — la brique `Vide` : une liste REÇUE, et qui ne contient rien.
+ *
+ *   {data && !isError && lignes.length === 0 && (
+ *     <Vide icone={<Icone nom="vide" />} titre="Aucune…" texte="…" />
+ *   )}
+ *
+ * PANNE — la brique `ErreurDeChargement` : rien n'a été reçu, ou la mise à
+ * jour a échoué. Elle se DIT, en rouge et en toutes lettres ; elle ne se lit
+ * JAMAIS comme un zéro ni comme une liste vide. C'est pourquoi le vide
+ * ci-dessus exige `data && !isError`.
+ *
+ *   {isError && (
+ *     <ErreurDeChargement quoi="les formations" erreur={error} perimees={isRefetchError} />
+ *   )}
+ *
+ * CHARGEMENT — la brique `Squelette` (`aria-busy`, « Chargement… » lu). */
+.console .vide {
+  padding: var(--e-10) var(--e-5);
+}
+
+.console .vide-icone {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--e-4);
+  border-radius: 50%;
+  background: var(--evkha-or-voile);
+  color: var(--texte-fort);
+  font-size: var(--t-lg);
+  line-height: 1;
+  opacity: 1;
+}
+
+.console .vide-titre {
+  font-size: var(--t-md);
+}
+
+.console .vide-texte {
+  color: var(--texte-doux);
+}
+
+/* Un bandeau : une carte teintée, un filet épais à gauche. `Bandeau` porte
+ * `role="status"` ; une erreur d'action immédiate prend `role="alert"`. */
+.console .bandeau {
+  padding: var(--e-4) var(--e-5);
+  border-radius: var(--rayon-md);
+  border-left-width: 4px;
+  border-left-color: currentColor;
+  box-shadow: none;
+  font-size: var(--t-sm);
+}
+
+.console .bandeau-succes {
+  border-color: color-mix(in srgb, var(--evkha-succes) 25%, transparent);
+  border-left-color: currentColor;
+}
+
+.console .bandeau code {
+  font-family: var(--police-mono);
+  font-size: 0.95em;
+  overflow-wrap: anywhere;
+}
+
+.console .bandeau a {
+  color: inherit;
+  font-weight: var(--graisse-titre);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Une information qui n'est ni une alerte, ni un échec, ni une réussite
+ * (« aucun abonnement actif » chez un client qui achète à l'unité). Même
+ * coque que `.bandeau`, dans les neutres : 7,8:1 (calculé). */
+.bandeau.console-bandeau-neutre,
+.console .bandeau.console-bandeau-neutre {
+  background: var(--fond-enfonce);
+  border-color: var(--evkha-bordure);
+  border-left-color: var(--evkha-bordure-forte);
+  color: var(--texte-doux);
+}
+
+/* Un cadre de confirmation, DANS la page : un geste important et
+ * irréversible (envoyer une annonce à tous). Encadré d'or et non de rouge —
+ * ce n'est pas une erreur, et il doit rester une couleur pour les vraies
+ * alertes. `role="alertdialog"` et un nom. */
+.console-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  padding: var(--e-5);
+  border: 2px solid var(--evkha-or-profond);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-or-brume);
+  color: var(--texte-fort);
+}
+
+.console-confirmation p {
+  margin: 0;
+}
+
+/* ── Piles, rangées de gestes, textes ─────────────────────────────────────── */
 
 /* Une pastille et sa précision, un bouton et son message d'erreur : des
  * éléments qui se lisent l'un sous l'autre, calés à gauche. */
@@ -79,18 +1659,16 @@
   gap: var(--e-5);
 }
 
-/* ── Textes ─────────────────────────────────────────────────────────────── */
-
 /* Chiffres qui ne sont pas une colonne de montants — dates, « 3/23 »,
- * numéros de chapitre : la largeur fixe de `.tableau .nombre`, sans son gras
- * ni son alignement à droite. */
+ * numéros de chapitre : la largeur fixe de `.nombre`, sans son alignement à
+ * droite. */
 .console-tabulaire {
   font-variant-numeric: tabular-nums;
 }
 
 /* Petits messages sous un geste ou une valeur. Couleurs de statut de la
  * charte, choisies pour tenir 4,5:1 sur blanc ; sur la teinte d'une ligne en
- * échec (plus bas), le rouge tient encore 5,89:1 (calculé). */
+ * échec, le rouge tient encore 5,9:1 (calculé). */
 .console-message {
   margin: 0;
   max-width: 36ch;
@@ -112,8 +1690,8 @@
 }
 
 /* Une valeur hors de son plafond (le coût d'une génération au-delà de son
- * budget). Le texte le dit aussi (« ⚠ Dépassé ») : la couleur seule ne
- * suffit pas. */
+ * budget). Le texte le dit aussi (« Dépassé ») : la couleur seule ne suffit
+ * pas. */
 .console-depasse {
   color: var(--evkha-echec);
   font-weight: var(--graisse-forte);
@@ -137,59 +1715,239 @@
   text-decoration-color: currentColor;
 }
 
-.console-lien:focus-visible {
-  outline: none;
-  box-shadow: var(--anneau-focus);
+/* Seul dans sa cellule (« Détail », « Voir »), le lien prend un peu de
+ * hauteur : 24 px de cible au moins (WCAG 2.5.8), sans grossir le texte. */
+.console .tableau .console-lien {
+  display: inline-block;
+  padding: var(--e-1) 0;
 }
 
-/* ── Tableaux ───────────────────────────────────────────────────────────── */
-
-/* Ligne d'une génération, d'un chapitre ou d'une commande en échec : le verre
- * teinté rouge de la charte, dilué encore de 30 %. Calculé sur le fond le
- * plus sombre que peut prendre le cadre (#FDFCF9, `tokens.css`) : le texte
- * tenu (#6E6E6E) garde 4,59:1 — à pleine teinte il tombait à 4,44:1, sous le
- * seuil. Le survol de `.tableau` l'emporte encore (même poids, feuille
- * chargée après) : la ligne reste repérable sous la souris. */
-.tableau tbody tr.console-ligne-echec {
-  background: color-mix(in srgb, var(--verre-echec) 70%, transparent);
+/* Une fiche en définitions (`<dl className="compte-identite">`) : le libellé
+ * au-dessus, la valeur dessous, en colonnes qui se replient. */
+.console .compte-identite dt {
+  letter-spacing: 0.08em;
 }
 
-/* L'avancement d'une génération dans sa cellule : la jauge de l'espace
- * client, à largeur fixe, et le décompte des chapitres à côté. */
-.console-avancement {
+/* ── Listes d'éléments ────────────────────────────────────────────────────── */
+
+/* Quand une ligne porte un texte libre (une annonce, un signalement), un
+ * tableau le tronquerait : une liste de petites cartes, le corps à gauche,
+ * les gestes à droite.
+ *
+ *   <ul className="console-liste">
+ *     <li className="console-element">
+ *       <div className="console-element-corps">
+ *         <p className="console-element-titre">Titre <span className="pastille …">…</span></p>
+ *         <p className="carte-note">…</p>
+ *       </div>
+ *       <div className="console-gestes">…boutons…</div>
+ */
+.console-liste,
+.console .signalements {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-element {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-4);
+  padding: var(--e-4) var(--e-5);
+  border: 1px solid var(--console-trait);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+}
+
+/* Ce qui est fait s'efface un peu devant ce qui attend un geste. Le texte
+ * passe au gris doux — pas d'`opacity`, qui ferait tomber le contraste des
+ * petits libellés sous le seuil. */
+.console-element.console-element-fait {
+  background: var(--evkha-papier);
+}
+
+.console-element-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.console-element-titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2) var(--e-3);
+  margin: 0;
+  color: var(--texte-fort);
+  font-weight: var(--graisse-titre);
+}
+
+.console-element > .console-gestes {
+  flex: none;
+}
+
+.console .signalement {
+  padding: var(--e-4) var(--e-5);
+  border-color: var(--console-trait);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+}
+
+@media (max-width: 760px) {
+  .console-element {
+    flex-direction: column;
+  }
+}
+
+/* ── Ce qui demande une intervention (tableau de bord) ────────────────────── */
+
+/* Une ligne par file d'attente : son icône, ce qu'elle est, où elle en est —
+ * et la ligne entière mène à l'écran qui la traite. */
+.console-a-traiter {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-a-traiter > li + li {
+  border-top: 1px solid var(--console-trait);
+}
+
+.console-a-traiter-ligne {
   display: flex;
   align-items: center;
-  gap: var(--e-2);
+  gap: var(--e-4);
+  min-height: 64px;
+  padding: var(--e-3) var(--e-2);
+  border-radius: var(--rayon-sm);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--duree-micro) var(--ease-doux);
 }
 
-.console-avancement .jauge {
-  flex: 0 0 5rem;
-  width: 5rem;
+.console-a-traiter-ligne:hover {
+  background: var(--evkha-or-brume);
 }
 
-/* ── Pastilles ──────────────────────────────────────────────────────────── */
-
-/* Pastille PLEINE : l'incident critique. Critique et haute partagent le
- * rouge ; la critique se distingue d'un coup d'œil sans qu'il faille lire.
- * Blanc sur `--evkha-echec` : 6,54:1 (calculé). Deux classes, pour l'emporter sur
- * `.pastille-echec` quel que soit l'ordre des feuilles. */
-.pastille.console-pastille-pleine {
-  background: var(--evkha-echec);
-  color: var(--evkha-blanc);
-}
-
-/* ── Bandeau neutre ─────────────────────────────────────────────────────── */
-
-/* Une information qui n'est ni une alerte, ni un échec, ni une réussite
- * (« aucun abonnement actif » chez un client qui achète à l'unité). Même
- * coque que `.bandeau`, dans les neutres de la charte : 7,80:1 (calculé). */
-.bandeau.console-bandeau-neutre {
+.console-a-traiter-medaille {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   background: var(--fond-enfonce);
-  border-color: var(--evkha-bordure);
   color: var(--texte-doux);
 }
 
-/* ── Chaîne de production ───────────────────────────────────────────────── */
+.console-a-traiter-texte {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-a-traiter-nom {
+  color: var(--texte-fort);
+  font-weight: var(--graisse-titre);
+}
+
+.console-a-traiter-detail {
+  color: var(--texte-tenu);
+  font-size: var(--t-sm);
+}
+
+.console-a-traiter-nombre {
+  flex: none;
+  min-width: 2ch;
+  color: var(--texte-fort);
+  font-family: var(--police-accent);
+  font-style: italic;
+  font-weight: var(--graisse-moyenne);
+  font-size: var(--t-xl);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
+.console-a-traiter-ligne > .console-icone:last-child {
+  color: var(--texte-tenu);
+}
+
+/* Quelque chose attend : la médaille prend l'or. */
+.console-a-traiter-ligne.attend .console-a-traiter-medaille {
+  background: var(--evkha-or);
+  color: var(--texte-sur-or);
+}
+
+/* Quelque chose de GRAVE attend, ou le compte n'a pas pu être lu : le rouge.
+ * Le texte de la ligne le dit dans les deux cas. */
+.console-a-traiter-ligne.grave .console-a-traiter-medaille,
+.console-a-traiter-ligne.en-panne .console-a-traiter-medaille {
+  background: var(--evkha-echec-voile);
+  color: var(--evkha-echec);
+}
+
+.console-a-traiter-ligne.en-panne .console-a-traiter-detail {
+  color: var(--evkha-echec);
+  font-weight: var(--graisse-forte);
+}
+
+/* Les raccourcis : les gestes les plus fréquents, à un clic du tableau de
+ * bord. */
+.console-raccourcis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--e-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.console-raccourci {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  min-height: 64px;
+  height: 100%;
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--console-trait);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+  color: var(--texte-fort);
+  text-decoration: none;
+  transition: border-color var(--duree-micro) var(--ease-doux),
+    background var(--duree-micro) var(--ease-doux);
+}
+
+.console-raccourci:hover {
+  border-color: var(--evkha-or-profond);
+  background: var(--evkha-or-brume);
+}
+
+.console-raccourci-texte {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.console-raccourci-nom {
+  font-weight: var(--graisse-titre);
+}
+
+.console-raccourci-aide {
+  color: var(--texte-tenu);
+  font-size: var(--t-sm);
+}
+
+/* ── Chaîne de production ─────────────────────────────────────────────────── */
 
 /* Les cinq étapes d'une génération, de la commande à l'envoi, sur une ligne.
  * Chaque étape porte une puce (son glyphe), un nom et une précision ; le
@@ -223,8 +1981,7 @@
   height: 36px;
   flex: 0 0 36px;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  box-shadow: inset 0 1px 0 var(--verre-reflet);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   background: var(--fond-enfonce);
   /* Texte DOUX et non tenu : le tenu sur `--fond-enfonce` calcule à 4,49:1,
    * sous le seuil ; le doux y tient 7,8:1. */
@@ -315,21 +2072,31 @@
   }
 }
 
-/* ── Fenêtre native ─────────────────────────────────────────────────────── */
+/* ── Fenêtres et panneaux ─────────────────────────────────────────────────── */
 
 /* Un `<dialog>` ouvert par `showModal()` : le navigateur rend le reste de la
  * page inerte, ferme sur Échap et rend le focus au bouton qui l'a ouvert. Le
  * rembourrage vit sur le corps et non sur la fenêtre : un clic hors du corps
- * tombe ainsi sur le voile, et ferme. */
+ * tombe ainsi sur le voile, et ferme.
+ *
+ *   <dialog className="console-fenetre" aria-labelledby={idTitre}>
+ *     <div className="console-fenetre-corps">
+ *       <h2 id={idTitre} className="carte-titre">…</h2>
+ *       …
+ *       <div className="console-fenetre-pied">…boutons…</div>
+ *
+ * Ajouter `console-panneau` en fait un PANNEAU LATÉRAL : toute la hauteur,
+ * collé au bord droit — pour le détail d'une ligne ou un formulaire long,
+ * sans quitter la liste. */
 .console-fenetre {
   width: min(37.5rem, calc(100% - 2 * var(--e-5)));
   max-height: calc(100% - 2 * var(--e-8));
   padding: 0;
-  border: 1px solid var(--verre-bordure);
-  border-radius: var(--rayon-verre);
-  background: var(--fond-carte);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-lg);
+  background: var(--evkha-blanc);
   color: var(--texte);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-ambiante-lg);
+  box-shadow: var(--ombre-ambiante-lg);
 }
 
 .console-fenetre[open] {
@@ -352,7 +2119,23 @@
 
 .console-fenetre-pied {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: var(--e-2) var(--e-3);
+}
+
+.console-fenetre.console-panneau {
+  width: min(32rem, 100%);
+  height: 100%;
+  max-height: none;
+  margin: 0 0 0 auto;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  overflow-y: auto;
+}
+
+.console-fenetre.console-panneau[open] {
+  animation: console-panneau-entree var(--duree-tiroir) var(--ease-sortie);
 }
 
 @keyframes console-fenetre-entree {
@@ -362,28 +2145,61 @@
   }
 }
 
-/* La durée vaut déjà 0 ms sous ce réglage (`tokens.css`) ; ceci est le
+@keyframes console-panneau-entree {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+/* Les durées valent déjà 0 ms sous ce réglage (`tokens.css`) ; ceci est le
  * filet, comme dans `espace.css`. */
 @media (prefers-reduced-motion: reduce) {
-  .console-fenetre[open] {
+  .console-fenetre[open],
+  .console-fenetre.console-panneau[open] {
     animation: none;
   }
 }
 
-/* Contenu brut (le détail JSON d'un incident) : chasse fixe, retour à la
- * ligne plutôt que troncature, hauteur bornée et défilement propre. */
-.console-code {
+/* Contenu brut (le détail JSON d'un incident, la charte du modèle) : chasse
+ * fixe, retour à la ligne plutôt que troncature, hauteur bornée et
+ * défilement propre. */
+.console-code,
+.console .charte-modele {
   margin: 0;
   max-height: 25rem;
   overflow: auto;
   padding: var(--e-4);
-  background: var(--fond-enfonce);
-  border: 1px solid var(--evkha-bordure);
+  background: var(--evkha-papier);
+  border: 1px solid var(--console-trait);
   border-radius: var(--rayon-sm);
   font-family: var(--police-mono);
   font-size: var(--t-xs);
   line-height: 1.65;
   color: var(--texte);
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
+}
+
+.console .charte-modele {
+  max-height: 32.5rem;
+  margin-top: var(--e-4);
+}
+
+/* ── Pagination ───────────────────────────────────────────────────────────── */
+
+/* Sous un tableau : où l'on est à gauche, les deux gestes à droite.
+ *
+ *   <nav className="console-pagination" aria-label="Pages">
+ *     <p className="carte-note" role="status">Page 2 sur 7 · 137 lignes</p>
+ *     <div className="console-gestes">
+ *       <button className="bouton bouton-contour bouton-sm" disabled>Précédente</button>
+ *       <button className="bouton bouton-contour bouton-sm">Suivante</button>
+ */
+.console-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding-top: var(--e-4);
 }

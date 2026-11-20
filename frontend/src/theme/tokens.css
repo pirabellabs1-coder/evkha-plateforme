@@ -140,6 +140,12 @@
   --police-corps: "Montserrat", "Segoe UI", system-ui, sans-serif;
   --police-chiffre: "Montserrat", "Segoe UI", system-ui, sans-serif;
   --police-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  /* La serif d'accent du site public (Fraunces, chargée par `index.html`),
+   * toujours en italique. Dans l'administration elle est réservée au titre de
+   * page et aux grands chiffres (`admin/console.css`) : partout ailleurs, un
+   * outil de travail se lit en Montserrat. `public/Site.css` garde son alias
+   * local `--acc-serif`, de même valeur. */
+  --police-accent: "Fraunces", "Georgia", serif;
 
   /* Échelle typographique en ratio 1,2 — assez de contraste entre niveaux
    * sans que les titres écrasent le corps. */
@@ -270,7 +276,8 @@
   --duree-flash: 1.1s; /* pilule d'or derrière un nombre qui change */
   --duree-increment: 520ms; /* un nombre remonté qui arrive */
   --duree-annonce: 220ms; /* fenêtre d'annonce qui s'ouvre */
-  --duree-bascule: 150ms; /* pilule de filtre qui change d'état (boutique admin) */
+  --duree-bascule: 150ms; /* onglet ou puce de filtre qui change d'état (administration) */
+  --duree-tiroir: 260ms; /* barre de l'administration : tiroir qui glisse, rail qui se replie */
   /* Pages publiques refondues — l'accueil (`public/Accueil.css`), la page des
    * études (`public/NosEtudes.css`) et leur socle commun (`public/Site.css`) :
    * durées de la maquette de l'accueil. */
@@ -313,6 +320,9 @@
 
   /* ── Gabarit ──────────────────────────────────────────────────────────── */
   --largeur-barre: 264px;
+  /* La barre de l'administration repliée : un rail d'icônes. 44 px de cible
+   * et 16 px de marge de part et d'autre. */
+  --largeur-rail: 76px;
   --largeur-contenu: 1180px;
 }
 
@@ -336,6 +346,7 @@
     --duree-increment: 0ms;
     --duree-annonce: 0ms;
     --duree-bascule: 0ms;
+    --duree-tiroir: 0ms;
     --duree-acc-survol: 0ms;
     --duree-acc-glisse: 0ms;
     --duree-acc-entree: 0ms;

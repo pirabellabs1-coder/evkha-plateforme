@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi, type OrganisationSupervision } from "../api";
+import { Icone } from "../icones";
 import * as f from "../../espace/format";
 import {
   Bandeau,
@@ -91,9 +92,10 @@ function ActionsOrganisation({
       <button
         type="button"
         className="bouton bouton-contour bouton-sm"
+        aria-label={`Gérer ${organisation.raison_sociale}`}
         onClick={() => setOuvert(true)}
       >
-        Agir
+        Gérer
       </button>
     );
   }
@@ -110,14 +112,14 @@ function ActionsOrganisation({
         onChange={(evenement) => setMotif(evenement.target.value)}
         aide="Enregistré au journal de l'organisation."
       />
-      <div style={{ display: "flex", gap: "var(--e-2)", alignItems: "center" }}>
+      <div className="console-gestes">
         <input
           className="champ-saisie"
           type="number"
           min={1}
           max={100}
           aria-label="Nombre de crédits à ajouter"
-          style={{ width: 84 }}
+          style={{ width: "5.5rem" }}
           value={quantite}
           onChange={(evenement) => setQuantite(evenement.target.value)}
         />
@@ -149,7 +151,7 @@ function ActionsOrganisation({
       {organisation.formule ? (
         <button
           type="button"
-          className="bouton bouton-contour bouton-sm"
+          className="bouton bouton-echec bouton-sm"
           disabled={resiliation.isPending || !motifSaisi}
           title={
             motifSaisi
@@ -272,9 +274,10 @@ export function OrganisationsAdmin() {
         }
         note="Créditer un compte ou le suspendre se fait directement ici."
         action={
-          <div style={{ display: "flex", gap: "var(--e-3)", flexWrap: "wrap" }}>
-            <label className="champ" style={{ minWidth: 200 }}>
+          <div className="console-outils">
+            <label className="champ console-recherche">
               <span className="visuellement-cache">Rechercher une organisation</span>
+              <Icone nom="recherche" />
               <input
                 className="champ-saisie"
                 type="search"
@@ -283,17 +286,17 @@ export function OrganisationsAdmin() {
                 onChange={(evenement) => setRecherche(evenement.target.value)}
               />
             </label>
-            <label className="champ" style={{ minWidth: 170 }}>
-              <span className="visuellement-cache">Trier</span>
+            <label className="champ">
+              <span className="visuellement-cache">Trier les organisations par</span>
               <select
                 className="champ-saisie"
                 value={tri}
                 onChange={(evenement) => setTri(evenement.target.value as Tri)}
               >
-                <option value="consommation">Consommation</option>
-                <option value="documents">Documents produits</option>
-                <option value="solde">Solde</option>
-                <option value="nom">Nom</option>
+                <option value="consommation">Trier par consommation</option>
+                <option value="documents">Trier par documents produits</option>
+                <option value="solde">Trier par solde</option>
+                <option value="nom">Trier par nom</option>
               </select>
             </label>
           </div>
@@ -306,7 +309,7 @@ export function OrganisationsAdmin() {
           data &&
           !isError && (
             <Vide
-              icone="◍"
+              icone={<Icone nom="organisations" />}
               titre={recherche ? "Aucun résultat" : "Aucune organisation"}
               texte={
                 recherche
@@ -323,16 +326,16 @@ export function OrganisationsAdmin() {
                   <th scope="col">Organisation</th>
                   <th scope="col">Formule</th>
                   <th scope="col">État</th>
-                  <th scope="col" style={{ textAlign: "right" }}>
+                  <th scope="col" className="nombre">
                     Solde
                   </th>
-                  <th scope="col" style={{ textAlign: "right" }}>
-                    Consommés
+                  <th scope="col" className="nombre">
+                    Crédits consommés
                   </th>
-                  <th scope="col" style={{ textAlign: "right" }}>
+                  <th scope="col" className="nombre">
                     Documents
                   </th>
-                  <th scope="col" style={{ textAlign: "right" }}>
+                  <th scope="col" className="nombre">
                     Équipe
                   </th>
                   <th scope="col">

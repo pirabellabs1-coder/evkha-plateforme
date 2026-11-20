@@ -156,7 +156,7 @@ function Pipeline({ job }: { job: JobDetailType }) {
       icon: controleIcon,
     },
     {
-      key: "email", label: "Email envoyé",
+      key: "email", label: "Courriel envoyé",
       sub: deliverySent ? (job.customer_email ?? null) : null,
       status: emailStatus as "done" | "failed" | "pending",
       icon: emailIcon,
@@ -318,7 +318,9 @@ function JobActions({ job, jobId, pdfOnly = false }: { job: JobDetailType; jobId
   return (
     <div className="console-pile console-pile-fin">
       {pdfOnly && (
-        <p className="console-message console-message-alerte">⚠ Budget dépassé — PDF admin uniquement (pas d'email client)</p>
+        <p className="console-message console-message-alerte">
+          Budget dépassé : le PDF reste réservé à l'administration, aucun courriel ne part chez le client.
+        </p>
       )}
       {livraisonComplete && !hasPdf && controleFinalEnCours(job) && (
         <p className="console-message" role="status">
@@ -386,7 +388,7 @@ function CancelButton({ jobId }: { jobId: string }) {
 
   const handleClick = () => {
     if (!window.confirm(
-      "Annuler ce job ? Le chapitre en cours finira, puis la génération s'arrêtera. "
+      "Annuler cette génération ? Le chapitre en cours finira, puis elle s'arrêtera. "
       + "Si l'étude a été payée en crédits, le crédit sera rendu au client : pour la relancer "
       + "ensuite, il faudra d'abord la rétablir.",
     )) return;
@@ -403,7 +405,7 @@ function CancelButton({ jobId }: { jobId: string }) {
         disabled={mutation.isPending}
         onClick={handleClick}
       >
-        Annuler le job
+        Annuler la génération
       </button>
       {error && <p className="console-message console-message-echec" role="alert">{error}</p>}
     </div>
@@ -619,7 +621,7 @@ export function JobDetail() {
           <div>
             <dt>Coût</dt>
             <dd className={overBudget ? "console-tabulaire console-depasse" : "console-tabulaire"}>
-              {f.coutApi(data.total_cost_eur)}{overBudget ? " ⚠ Dépassé" : ""}
+              {f.coutApi(data.total_cost_eur)}{overBudget ? " — budget dépassé" : ""}
             </dd>
           </div>
           <div>
@@ -627,7 +629,7 @@ export function JobDetail() {
             <dd className="console-tabulaire">{f.montant(Math.round(parseFloat(data.budget_eur) * 100))}</dd>
           </div>
           <div>
-            <dt>Tokens</dt>
+            <dt>Volume traité (jetons)</dt>
             <dd className="console-tabulaire">{totalTokens.toLocaleString()}</dd>
           </div>
           {data.started_at && (
@@ -667,12 +669,12 @@ export function JobDetail() {
           <table className="tableau">
             <thead>
               <tr>
-                <th scope="col">#</th>
-                <th scope="col">Titre</th>
+                <th scope="col">N°</th>
+                <th scope="col">Chapitre</th>
                 <th scope="col">Statut</th>
-                <th scope="col" style={{ textAlign: "right" }}>Tokens in</th>
-                <th scope="col" style={{ textAlign: "right" }}>Tokens out</th>
-                <th scope="col" style={{ textAlign: "right" }}>Coût</th>
+                <th scope="col" className="nombre">Jetons lus</th>
+                <th scope="col" className="nombre">Jetons écrits</th>
+                <th scope="col" className="nombre">Coût</th>
               </tr>
             </thead>
             <tbody>

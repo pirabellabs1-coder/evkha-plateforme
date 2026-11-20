@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { setToken } from "../auth";
+import { Icone } from "../admin/icones";
+import { CHEMINS } from "../public/contenuSite";
 import "./Login.css";
 
 /** Où atterrit un administrateur qui vient de présenter son jeton.
@@ -14,14 +16,28 @@ import "./Login.css";
  */
 export const APRES_CONNEXION = "/admin";
 
-/** La porte du tableau de bord : une carte de verre sur le maillage or et
- * crème.
+/** La porte de l'administration, au langage du site.
  *
- * Elle était composée en Radix Themes (`Card`, `TextField`, `Button`) sur un
- * gris de Radix : la seule porte de la plateforme qui ne parlait pas la
- * charte. Radix n'est plus dans l'application (26/09/2026) ; cette page lit
- * `tokens.css`, et son champ et son bouton sont ceux de l'espace
- * (`.champ-saisie`, `.bouton .bouton-principal`) — voir `Login.css`.
+ * Elle parlait encore le verre de l'ancien espace — maillage de halos, carte
+ * translucide, hexagone tapé au clavier en guise de sceau — alors que le site
+ * et ses écrans de connexion (`public/Portail.tsx`) sont passés au papier
+ * crème, à l'or et à l'encre. Elle les rejoint : fond papier, carte blanche à
+ * double bord, étiquette à pastille, mot d'accent en Fraunces italique,
+ * bouton pilule.
+ *
+ * Ce qu'elle garde, parce que c'est ce qui la distingue : le SCEAU de
+ * l'administration, noir sur or — le même que dans la barre de la coquille
+ * (`admin/Coquille.tsx`). On sait, avant d'avoir lu un mot, que cette porte
+ * n'est pas celle de l'espace client.
+ *
+ * Sa logique n'a pas bougé : une clé collée, enregistrée, puis un vrai
+ * rechargement vers `APRES_CONNEXION`. Le champ et le bouton restent
+ * `.champ-saisie` et `.bouton .bouton-principal` de `theme/espace.css`,
+ * ajustés par `Login.css`.
+ *
+ * Le vocabulaire, lui, a changé : « token » et « dashboard » sont devenus
+ * « clé d'accès » et « administration ». Le nom de la variable du serveur
+ * reste écrit tel quel — c'est lui qu'on cherche quand on a perdu la clé.
  */
 export function Login() {
   const [value, setValue] = useState("");
@@ -31,7 +47,7 @@ export function Login() {
     e.preventDefault();
     const trimmed = value.trim();
     if (!trimmed) {
-      setError("Le token ne peut pas être vide.");
+      setError("La clé d'accès ne peut pas être vide.");
       return;
     }
     setToken(trimmed);
@@ -45,20 +61,22 @@ export function Login() {
       <div className="connexion-admin-carte">
         <header className="connexion-admin-entete">
           <span className="connexion-admin-sceau" aria-hidden="true">
-            ⬡
+            E
           </span>
-          <div>
-            <h1 className="connexion-admin-titre">EVKHA</h1>
-            <p className="connexion-admin-sous-titre">
-              Dashboard · accès administrateur
-            </p>
-          </div>
+          <p className="connexion-admin-etiquette">EVKHA · Administration</p>
         </header>
+
+        <h1 className="connexion-admin-titre">
+          Votre espace de <em className="connexion-admin-accent">pilotage</em>
+        </h1>
+        <p className="connexion-admin-sous-titre">
+          Ventes, clients, production et catalogue. Réservé à l'équipe EVKHA.
+        </p>
 
         <form onSubmit={handleSubmit}>
           <div className="connexion-admin-champ">
             <label htmlFor="token" className="connexion-admin-libelle">
-              Token d'accès
+              Clé d'accès
             </label>
             {/* Le message d'erreur est RELIÉ au champ (`aria-describedby`)
                 et le champ se dit invalide : entendu au moment où il
@@ -67,7 +85,7 @@ export function Login() {
               id="token"
               className="champ-saisie"
               type="password"
-              placeholder="Coller le token ici…"
+              placeholder="Collez votre clé ici"
               value={value}
               onChange={(e) => {
                 setValue(e.target.value);
@@ -75,11 +93,17 @@ export function Login() {
               }}
               autoFocus
               aria-invalid={error ? true : undefined}
-              aria-describedby={error ? "token-erreur" : undefined}
+              aria-describedby={error ? "token-erreur" : "token-aide"}
             />
-            {error && (
+            {error ? (
               <p id="token-erreur" className="connexion-admin-erreur" role="alert">
                 {error}
+              </p>
+            ) : (
+              <p id="token-aide" className="connexion-admin-aide">
+                C'est la valeur de{" "}
+                <code className="connexion-admin-code">EVKHA_DASHBOARD_TOKEN</code>, dans
+                les variables du serveur.
               </p>
             )}
           </div>
@@ -89,17 +113,20 @@ export function Login() {
             className="bouton bouton-principal connexion-admin-bouton"
             disabled={!value.trim()}
           >
-            Accéder au dashboard
-            <span className="bouton__icone" aria-hidden="true">
-              ↗
+            Entrer dans l'administration
+            <span className="connexion-admin-fleche" aria-hidden="true">
+              <Icone nom="fleche" taille={18} />
             </span>
           </button>
         </form>
 
-        <p className="connexion-admin-aide">
-          Le token se trouve dans{" "}
-          <code className="connexion-admin-code">EVKHA_DASHBOARD_TOKEN</code>{" "}
-          (Coolify env vars).
+        <p className="connexion-admin-pied">
+          {/* Les chemins du site ont une seule source (`contenuSite.ts`). Des
+              liens ordinaires : le site et l'espace client sont d'autres
+              morceaux de l'application. */}
+          <a href={CHEMINS.accueil}>Retour au site</a>
+          <span aria-hidden="true"> · </span>
+          <a href={CHEMINS.espaceClient}>Espace client</a>
         </p>
       </div>
     </main>

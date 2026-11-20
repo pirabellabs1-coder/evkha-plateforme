@@ -128,7 +128,9 @@ export function Vide({
   texte,
   action,
 }: {
-  icone?: string;
+  /** Un caractère (espace client) ou une icône dessinée (administration,
+   *  `admin/icones.tsx`). Décoratif dans les deux cas : le titre dit l'état. */
+  icone?: ReactNode;
   titre: string;
   texte?: string;
   action?: ReactNode;

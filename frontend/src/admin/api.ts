@@ -24,12 +24,28 @@ const BASE = import.meta.env.VITE_API_URL ?? "";
  *  `error`, une seule les deux (règle 5). Une réponse illisible (la page HTML
  *  d'un 502) rend le repli. */
 async function messageDuRefus(reponse: Response, repli: string): Promise<string> {
+  return (await lireLeRefus(reponse)).message || repli;
+}
+
+/** Tout ce qu'un refus porte : sa phrase, et — pour les vues qui les donnent
+ *  (`dashboard/formations.py`) — son `code` et le `champ` en cause. C'est LA
+ *  lecture du corps d'un refus ; `messageDuRefus` n'en garde que la phrase.
+ *  Chaque valeur absente ou illisible est une chaîne vide. */
+async function lireLeRefus(
+  reponse: Response,
+): Promise<{ message: string; code: string; champ: string }> {
   const charge = (await reponse.json().catch(() => ({}))) as {
     erreur?: unknown;
     error?: unknown;
+    code?: unknown;
+    champ?: unknown;
+  } | null;
+  const texte = (valeur: unknown) => (typeof valeur === "string" ? valeur : "");
+  return {
+    message: texte(charge?.erreur ?? charge?.error),
+    code: texte(charge?.code),
+    champ: texte(charge?.champ),
   };
-  const dit = charge?.erreur ?? charge?.error;
-  return typeof dit === "string" && dit.length > 0 ? dit : repli;
 }
 
 async function get<T>(chemin: string, params?: Record<string, string>): Promise<T> {
@@ -131,10 +147,14 @@ export interface TransactionSupervision {
   /** « livrable » = une étude à produire, « produit » = une étude déjà rédigée
    *  achetée en boutique. Les deux manquaient : le type n'énumérait que les
    *  deux objets du temps où l'espace ne vendait que de l'abonnement. */
-  objet: "abonnement" | "credits" | "livrable" | "produit";
+  objet: "abonnement" | "credits" | "livrable" | "produit" | "formation";
   objet_libelle: string;
   /** L'étude visée, pour un achat de boutique. Vide sinon. */
   produit: string;
+  /** Le titre de la formation visée, pour un achat de formation. Vide sinon
+   *  — `produit` est alors vide lui aussi. Facultatif : un serveur d'avant le
+   *  20/11/2026 ne rend pas la clé. */
+  formation?: string;
   formule: string;
   quantite: number;
   montant_cents: number;
@@ -293,6 +313,192 @@ async function envoyer<T>(chemin: string, donnees: FormData): Promise<T> {
   return (await reponse.json()) as T;
 }
 
+// ── Formations ──────────────────────────────────────────────────────────────
+
+/** Les natures d'une leçon, telles que le serveur les nomme
+ *  (`catalog.models.NatureDeLecon`). */
+export type NatureDeLecon = "video" | "texte" | "document" | "quiz";
+
+/** Une leçon, vue de l'administration (`dashboard/formations._vue_lecon`). */
+export interface LeconAdmin {
+  id: string;
+  rang: number;
+  titre: string;
+  nature: NatureDeLecon;
+  /** Vide, ou une adresse `https://`. Aucune vidéo n'est stockée au serveur. */
+  adresse_video: string;
+  duree_minutes: number;
+  texte: string;
+  /** Lien SIGNÉ vers le document, qui expire : on le relit au serveur au
+   *  moment de l'ouvrir, on ne le garde pas. Vide sans document. */
+  fichier: string;
+  fichier_nom: string;
+  en_apercu_libre: boolean;
+  retire: boolean;
+  retire_le: string;
+}
+
+export interface ModuleAdmin {
+  id: string;
+  rang: number;
+  titre: string;
+  description: string;
+  retire: boolean;
+  retire_le: string;
+  /** Les présentes dans leur ordre, puis les retirées. */
+  lecons: LeconAdmin[];
+}
+
+/** Une formation ENTIÈRE, programme compris (`dashboard/formations._vue`). */
+export interface FormationAdmin {
+  id: string;
+  /** L'adresse publique. Fixée à la création, elle ne change plus. */
+  slug: string;
+  titre: string;
+  sous_titre: string;
+  accroche: string;
+  description: string;
+  prix_cents: number;
+  devise: string;
+  duree_heures: number;
+  heures_de_coaching: number;
+  /** Encore rendu par le serveur. L'écran ne l'affiche ni ne l'envoie plus :
+   *  une formation se vend par le paiement de la plateforme. */
+  lien_d_achat: string;
+  image: string;
+  en_ligne: boolean;
+  rang: number;
+  /** Faux tant qu'il manque quelque chose pour la mettre en ligne. */
+  publiable: boolean;
+  /** Ce qui manque, en clair (« un prix »). */
+  manque: string[];
+  cree_le: string;
+  modifie_le: string;
+  /** Les modules présents (les retirés ne comptent pas). */
+  nombre_de_modules: number;
+  /** Le nombre d'achats de cette formation. FACULTATIF : un serveur qui ne
+   *  le rend pas n'a rien dit, et l'écran n'affiche alors rien — surtout pas
+   *  un zéro qu'il aurait inventé. */
+  nombre_d_achats?: number;
+  /** Les présents dans leur ordre, puis les retirés. */
+  modules: ModuleAdmin[];
+}
+
+/** Un champ que le serveur a écarté SANS faire échouer l'envoi : sa valeur
+ *  précédente est restée, le reste est enregistré. */
+export interface ChampRefuse {
+  champ: string;
+  raison: string;
+}
+
+/** Ce que rend toute écriture réussie sur les formations : la fiche entière,
+ *  relue en base. L'écran n'a que cette forme à connaître. */
+export interface EcritureDeFormation {
+  formation: FormationAdmin;
+  refuses: ChampRefuse[];
+  module_id?: string;
+  lecon_id?: string;
+}
+
+/** Un refus du serveur, avec ce qui permet de le poser CONTRE un champ.
+ *
+ *  `Error` ne porte qu'une phrase ; les vues des formations disent aussi quel
+ *  champ est en cause (`champ`) et pourquoi (`code`). `statut` vaut 0 quand
+ *  le serveur n'a pas répondu du tout (coupure réseau). */
+export class RefusDuServeur extends Error {
+  readonly code: string;
+  readonly champ: string;
+  readonly statut: number;
+
+  constructor(message: string, statut: number, code = "", champ = "") {
+    super(message);
+    this.name = "RefusDuServeur";
+    this.code = code;
+    this.champ = champ;
+    this.statut = statut;
+  }
+}
+
+/** Ce qu'une écriture envoie : des champs simples (JSON), ou un formulaire
+ *  multipart — obligatoire dès qu'un fichier part (`image`, `fichier`). */
+export type CorpsDeFormation = Record<string, unknown> | FormData;
+
+/** L'achat d'une formation par une organisation, vu de l'administration
+ *  (`GET /api/dashboard/formations/<id>/achats/`).
+ *
+ *  Un accès se RETIRE et se rétablit ; l'achat, lui, reste : ni la ligne ni
+ *  son paiement ne disparaissent. */
+export interface AchatDeFormationAdmin {
+  id: string;
+  /** La raison sociale de l'organisation qui a acheté. */
+  organisation: string;
+  organisation_id?: string;
+  email: string;
+  montant_cents: number;
+  devise: string;
+  achete_le: string;
+  /** La date du retrait de l'accès. `null` : l'achat donne accès. */
+  revoque_le: string | null;
+  motif_de_revocation: string;
+  /** ABRÉGÉE par le serveur : de quoi reconnaître la ligne, pas le paiement. */
+  reference_paiement: string;
+}
+
+/** Ce qu'envoie un changement d'accès. `motif` n'accompagne qu'un retrait. */
+export interface ChangementDAcces {
+  revoque: boolean;
+  motif?: string;
+}
+
+/** Une écriture sur les formations. Toutes sont des `POST` : rien ne se
+ *  supprime, un module ou une leçon se retire (`{"retire": true}`).
+ *
+ *  `T` : ce que la route rend. Presque toutes rendent la fiche entière
+ *  (`EcritureDeFormation`) ; le changement d'un accès rend la ligne d'achat. */
+async function ecrireUneFormation<T = EcritureDeFormation>(
+  chemin: string,
+  corps: CorpsDeFormation,
+): Promise<T> {
+  const multipart = corps instanceof FormData;
+  let reponse: Response;
+  try {
+    reponse = await fetch(`${BASE}/api/dashboard/formations/${chemin}`, {
+      method: "POST",
+      // Multipart : pas de `Content-Type`, le navigateur pose la frontière.
+      headers: {
+        ...(multipart ? {} : { "Content-Type": "application/json" }),
+        Accept: "application/json",
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      },
+      body: multipart ? corps : JSON.stringify(corps),
+    });
+  } catch {
+    // `fetch` ne rejette que si rien n'est revenu : le navigateur dirait
+    // « Failed to fetch », en anglais, à une gérante.
+    throw new RefusDuServeur(
+      "Le serveur n'a pas répondu : rien n'a été enregistré. Vérifiez votre " +
+        "connexion, puis réessayez — votre saisie est toujours là.",
+      0,
+    );
+  }
+  if (reponse.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new RefusDuServeur("Non autorisé", 401);
+  }
+  if (!reponse.ok) {
+    const refus = await lireLeRefus(reponse);
+    throw new RefusDuServeur(
+      refus.message ||
+        `Le serveur a refusé l'envoi (erreur ${reponse.status}) : rien n'a été enregistré.`,
+      reponse.status,
+      refus.code,
+      refus.champ,
+    );
+  }
+  return (await reponse.json()) as T;
+}
+
 /** Rapport interne de qualité (`/api/dashboard/qualite/`, 29/09/2026). */
 export interface RapportQualite {
   dossiers: {
@@ -323,6 +529,62 @@ export interface RapportQualite {
 
 export const adminApi = {
   qualite: () => get<RapportQualite>("/qualite/"),
+
+  // ── Formations ──────────────────────────────────────────────────────────
+  formations: () => get<{ formations: FormationAdmin[] }>("/formations/"),
+  /** Crée une formation, HORS LIGNE. Seul le titre est obligatoire. */
+  creerUneFormation: (corps: CorpsDeFormation) => ecrireUneFormation("", corps),
+  /** Modifie la fiche, ou la met en ligne / hors ligne (`en_ligne`). */
+  modifierLaFormation: (formationId: string, corps: CorpsDeFormation) =>
+    ecrireUneFormation(`${formationId}/`, corps),
+  ajouterUnModule: (formationId: string, corps: CorpsDeFormation) =>
+    ecrireUneFormation(`${formationId}/modules/`, corps),
+  /** Modifie un module, le retire (`retire: true`) ou le rétablit. */
+  modifierLeModule: (moduleId: string, corps: CorpsDeFormation) =>
+    ecrireUneFormation(`modules/${moduleId}/`, corps),
+  /** `modules` : EXACTEMENT les modules présents, dans l'ordre voulu. */
+  ordonnerLesModules: (formationId: string, modules: string[]) =>
+    ecrireUneFormation(`${formationId}/ordre/`, { modules }),
+  ajouterUneLecon: (moduleId: string, corps: CorpsDeFormation) =>
+    ecrireUneFormation(`modules/${moduleId}/lecons/`, corps),
+  /** Modifie une leçon, la retire (`retire: true`) ou la rétablit. */
+  modifierLaLecon: (leconId: string, corps: CorpsDeFormation) =>
+    ecrireUneFormation(`lecons/${leconId}/`, corps),
+  /** `lecons` : EXACTEMENT les leçons présentes du module, dans l'ordre voulu. */
+  ordonnerLesLecons: (moduleId: string, lecons: string[]) =>
+    ecrireUneFormation(`modules/${moduleId}/ordre/`, { lecons }),
+  /** Les achats d'une formation. Une réponse sans la liste attendue est une
+   *  panne, pas « aucun inscrit » : l'écran ne lit jamais un vide sur une
+   *  réponse qu'il n'a pas su lire (règle 1). */
+  inscritsDeLaFormation: async (formationId: string) => {
+    const chemin = `/formations/${formationId}/achats/`;
+    const reponse = await get<{ achats?: unknown } | null>(chemin);
+    if (!Array.isArray(reponse?.achats)) {
+      throw new Error(`API ${chemin} : réponse sans la liste des achats`);
+    }
+    return { achats: reponse.achats as AchatDeFormationAdmin[] };
+  },
+  /** Retire l'accès à une formation (`revoque: true`, avec son motif) ou le
+   *  rétablit (`revoque: false`). Le serveur rend `{"achat": <la ligne à
+   *  jour>}` (`dashboard/formations.achat`) ; un 409 (`formation_rachetee`)
+   *  dit que le rétablissement est impossible, avec sa phrase.
+   *
+   *  Rend la ligne, ou `null` si la réponse n'en porte pas de lisible :
+   *  l'écran relit alors la liste plutôt que de déduire un état. */
+  changerLAccesALaFormation: async (
+    achatId: string,
+    corps: ChangementDAcces,
+  ): Promise<AchatDeFormationAdmin | null> => {
+    const reponse = await ecrireUneFormation<{ achat?: AchatDeFormationAdmin | null } | null>(
+      `achats/${achatId}/`,
+      { ...corps },
+    );
+    const ligne = reponse?.achat;
+    return ligne !== null && typeof ligne === "object" && typeof ligne.id === "string"
+      ? ligne
+      : null;
+  },
+
   produitsBoutique: () =>
     get<{ produits: ProduitBoutique[] }>("/boutique/"),
   ventesBoutique: () =>

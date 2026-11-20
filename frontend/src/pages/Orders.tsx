@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, type OrderSummary } from "../api";
+import { Icone } from "../admin/icones";
 import { ORDER_STATUS_LABELS as STATUS_LABELS } from "../constants/orders";
 import * as f from "../espace/format";
 import {
@@ -14,17 +15,17 @@ import {
 import "../admin/console.css";
 
 const KIND_LABELS: Record<string, string> = {
-  all: "Toutes",
-  b2c: "B2C — achat unitaire",
-  parent: "Abonnements (parent)",
-  ticket: "Tickets de crédit",
+  all: "Tous les types",
+  b2c: "Achats à l'unité",
+  parent: "Abonnements",
+  ticket: "Crédits d'abonnement utilisés",
 };
 
 const DELIVERABLE_LABELS: Record<string, string> = {
-  market_study: "EM",
-  competitor_study: "EC",
-  business_plan: "BP",
-  business_strategy: "STR",
+  market_study: "Étude de marché",
+  competitor_study: "Étude de concurrence",
+  business_plan: "Business plan",
+  business_strategy: "Stratégie",
 };
 
 // Le ton de chaque statut de commande vient de la table unique de `Pastille` :
@@ -70,7 +71,7 @@ export function Orders() {
           </label>
 
           <label className="champ">
-            <span className="visuellement-cache">Statut</span>
+            <span className="visuellement-cache">Statut de la commande</span>
             <select
               className="champ-saisie"
               value={statusFilter}
@@ -91,7 +92,7 @@ export function Orders() {
       )}
 
       {data?.length === 0 && (
-        <Vide icone="◐" titre="Aucune commande pour ces filtres." />
+        <Vide icone={<Icone nom="commandes" />} titre="Aucune commande pour ces filtres." />
       )}
 
       {data && data.length > 0 && (
@@ -111,12 +112,12 @@ export function Orders() {
               {data.map((order) => {
                 const isTicket = !!order.parent_order_id;
                 const badge = isTicket
-                  ? "Ticket"
+                  ? "Crédit utilisé"
                   : order.is_subscription
                     ? "Abonnement"
                     : order.is_extra_credit
-                      ? "Crédit supp."
-                      : "B2C";
+                      ? "Crédit supplémentaire"
+                      : "À l'unité";
                 // Les anciennes couleurs Radix, ton pour ton : amber → alerte,
                 // blue → information, green → succès, gray → neutre.
                 const badgeTon = isTicket

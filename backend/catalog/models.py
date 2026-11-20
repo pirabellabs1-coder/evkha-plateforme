@@ -314,3 +314,280 @@ class AchatProduit(UUIDModel):
 
     def __str__(self) -> str:
         return f"{self.produit} — {self.organisation}"
+
+
+# ── Les formations ───────────────────────────────────────────────────────────
+
+#: Prefixe des images de couverture des formations. Meme role que
+#: `PREFIXE_VITRINE` pour la boutique, et repris de la meme facon par
+#: `evkha.media` : ce qui est range dessous est servi SANS signature et EN
+#: LIGNE. Distinct de `formations/`, ou vivent les documents des lecons — le
+#: contenu PAYANT. Les deux prefixes ne sont pas imbriques, pour la raison deja
+#: ecrite plus haut : rendre public « tout ce qui est sous formations/ »
+#: ouvrirait les supports de cours.
+PREFIXE_VITRINE_FORMATIONS = "formations-vitrine"
+
+
+def _chemin_vitrine_formation(instance: Formation, nom: str) -> str:
+    """Range la couverture d'une formation, qui sert a la vendre."""
+    return f"{PREFIXE_VITRINE_FORMATIONS}/{instance.slug}/{nom}"
+
+
+def _chemin_lecon(instance: LeconDeFormation, nom: str) -> str:
+    """Range le document d'une lecon — du contenu PAYANT, servi signe.
+
+    Par formation, comme la boutique range par produit : le cloisonnement sert
+    a retrouver les fichiers, jamais a en controler l'acces.
+    """
+    return f"formations/{instance.module.formation.slug}/{nom}"
+
+
+class Formation(UUIDModel):
+    """Une formation en ligne : sa fiche de vente et son programme.
+
+    ## Pourquoi elle vit ici
+
+    Les modules des trois formations vivaient dans un outil externe, et leurs
+    prix etaient ecrits en dur dans les pages du site : changer un prix ou
+    ajouter un module demandait un developpeur et une mise en ligne. La fiche
+    et le programme sont tenus par la cliente, depuis l'administration, et les
+    pages publiques les lisent au serveur.
+
+    ## Comment elle se vend
+
+    Par Stripe, sur la plateforme (decision de la cliente du 20/11/2026) : ni
+    lien de paiement exterieur, ni vente par courriel. Le paiement cree un
+    `AchatFormation`, et l'acheteur retrouve le programme dans son espace
+    client. Le prix encaisse est `prix_cents`, lu ici au moment d'ouvrir le
+    paiement — jamais une valeur venue du navigateur.
+
+    ## Rien ne se supprime
+
+    Une formation se met hors ligne (`en_ligne`), un module ou une lecon se
+    retire (`retire_le`). Les cles etrangeres sont en `PROTECT` pour la meme
+    raison : aucune suppression en cascade ne doit emporter un programme
+    saisi a la main, qui n'existe nulle part ailleurs.
+
+    Les regles de saisie — titre, adresses, mise en ligne — vivent dans
+    `catalog/formations.py`, une seule fois. Les contraintes ci-dessous en
+    sont le dernier rempart, pas la source.
+    """
+
+    titre = models.CharField(max_length=200)
+    #: Dans l'adresse publique de la formation. Fixe des la creation : un lien
+    #: deja diffuse ne doit pas casser parce qu'un titre a ete retouche.
+    slug = models.SlugField(unique=True)
+    sous_titre = models.CharField(max_length=200, blank=True)
+    #: La phrase de vente, affichee sous le titre.
+    accroche = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+
+    prix_cents = models.PositiveIntegerField(default=0)
+    devise = models.CharField(max_length=3, default="EUR")
+    #: Heures de cours en ligne. Un argument de vente, tenu par la cliente.
+    duree_heures = models.PositiveSmallIntegerField(default=0)
+    #: Zero si la formation n'inclut aucun coaching.
+    heures_de_coaching = models.PositiveSmallIntegerField(default=0)
+    #: N'EST PLUS SUIVI depuis le 20/11/2026 : une formation se paie par
+    #: Stripe sur la plateforme, plus par une page de paiement exterieure (les
+    #: anciennes n'existent plus). Le champ reste — la reponse publique en rend
+    #: toujours la cle, que les pages lisent — et `seed_formations` le laisse
+    #: vide. La regle de saisie demeure : seule une adresse `https://` y est
+    #: admise (voir `catalog.formations.adresse_https`).
+    lien_d_achat = models.URLField(max_length=500, blank=True)
+    #: La couverture. VITRINE, comme celle d'un produit de boutique.
+    image = models.ImageField(
+        upload_to=_chemin_vitrine_formation, blank=True, max_length=255
+    )
+
+    #: Hors ligne par defaut : la cliente relit, puis publie.
+    en_ligne = models.BooleanField(default=False)
+    rang = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["rang", "created_at"]
+        verbose_name = "formation"
+        verbose_name_plural = "formations"
+        constraints = [
+            # Une formation en ligne a zero euro s'afficherait « 0 € » sur une
+            # page de vente. La regle est appliquee par
+            # `catalog.formations.verifier_formation` ; cette contrainte
+            # couvre tout ce qui ecrirait sans passer par elle.
+            models.CheckConstraint(
+                condition=models.Q(en_ligne=False) | models.Q(prix_cents__gt=0),
+                name="formation_en_ligne_a_un_prix",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.titre
+
+
+class ModuleDeFormation(UUIDModel):
+    """Un module : un chapitre du programme, qui regroupe des lecons."""
+
+    formation = models.ForeignKey(
+        Formation, on_delete=models.PROTECT, related_name="modules"
+    )
+    rang = models.PositiveSmallIntegerField(default=0)
+    titre = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    #: Date du retrait, vide tant que le module est present. Un retrait se
+    #: defait ; une suppression, non.
+    retire_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["rang", "created_at"]
+        verbose_name = "module de formation"
+        verbose_name_plural = "modules de formation"
+
+    def __str__(self) -> str:
+        return self.titre
+
+
+class NatureDeLecon(models.TextChoices):
+    VIDEO = "video", "Vidéo"
+    TEXTE = "texte", "Texte"
+    DOCUMENT = "document", "Document"
+    QUIZ = "quiz", "Quiz"
+
+
+class LeconDeFormation(UUIDModel):
+    """Une lecon d'un module.
+
+    ## Les videos ne sont PAS stockees ici
+
+    Contrainte du client : la place disque du serveur. Une lecon video porte
+    l'ADRESSE d'une video hebergee ailleurs, jamais le fichier.
+
+    ## Ce qui est du contenu payant
+
+    `adresse_video`, `texte` et `fichier`. Aucune vue publique ne les rend —
+    pas meme pour une lecon `en_apercu_libre` — et `test_formations.py`
+    verrouille leur absence. Un seul endroit les rend : l'espace de
+    l'acheteur (`organisations.vues_espace.mes_formations`), a l'organisation
+    qui porte un `AchatFormation`.
+    """
+
+    module = models.ForeignKey(
+        ModuleDeFormation, on_delete=models.PROTECT, related_name="lecons"
+    )
+    rang = models.PositiveSmallIntegerField(default=0)
+    titre = models.CharField(max_length=200)
+    #: `texte` par defaut : c'est la seule nature qui n'exige rien d'autre.
+    nature = models.CharField(
+        max_length=16, choices=NatureDeLecon.choices, default=NatureDeLecon.TEXTE
+    )
+    #: Adresse `https://` d'une video hebergee ailleurs. Vide si la lecon n'en
+    #: a pas.
+    adresse_video = models.URLField(max_length=500, blank=True)
+    duree_minutes = models.PositiveSmallIntegerField(default=0)
+    #: Le contenu redige de la lecon.
+    texte = models.TextField(blank=True)
+    #: Document joint, facultatif. Range sous `formations/`, donc servi signe.
+    fichier = models.FileField(upload_to=_chemin_lecon, blank=True, max_length=255)
+    #: La lecon PEUT etre montree avant achat. Une intention notee, pas un
+    #: acces : aucune vue ne l'expose.
+    en_apercu_libre = models.BooleanField(default=False)
+    retire_le = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["rang", "created_at"]
+        verbose_name = "leçon de formation"
+        verbose_name_plural = "leçons de formation"
+        constraints = [
+            # Dernier rempart de `catalog.formations.adresse_https` : une
+            # adresse `javascript:` ecrite ici finirait un jour dans un lien.
+            models.CheckConstraint(
+                condition=models.Q(adresse_video="")
+                | models.Q(adresse_video__startswith="https://"),
+                name="lecon_adresse_video_en_https",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(nature="video") | ~models.Q(adresse_video=""),
+                name="lecon_video_a_une_adresse",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.titre
+
+
+class AchatFormation(UUIDModel):
+    """Une formation payee par une organisation.
+
+    Porte l'acces, comme `AchatProduit` porte celui d'une etude de boutique :
+    tant que cette ligne existe ET n'est pas revoquee, l'organisation lit le
+    programme et ses lecons dans son espace. Elle survit a la mise hors ligne
+    de la formation — ce qui a ete paye reste a qui l'a paye.
+
+    **Un acces se retire, il ne s'efface pas** (audit du 20/11/2026). Apres
+    un remboursement ou une contestation, la gerante retire l'acces depuis
+    l'administration : `revoque_le` est pose, la ligne reste — avec sa
+    reference, son montant et sa date, qui sont la trace d'un paiement. Qui
+    veut savoir si une organisation a acces filtre sur `revoque_le IS NULL` ;
+    `donne_acces` le dit pour une ligne deja chargee.
+    """
+
+    #: `PROTECT`, et non `CASCADE` : supprimer une organisation effacait sans
+    #: bruit la trace de ce qu'elle avait paye.
+    organisation = models.ForeignKey(
+        "organisations.Organisation",
+        on_delete=models.PROTECT,
+        related_name="achats_de_formation",
+    )
+    #: `PROTECT`, comme tout ce qui touche une formation : rien ne se supprime.
+    formation = models.ForeignKey(
+        Formation, on_delete=models.PROTECT, related_name="achats"
+    )
+    #: Identifiant de la session de paiement. UNIQUE : c'est le verrou qui
+    #: empeche le webhook et la page de retour de compter deux fois le meme
+    #: paiement, chacun ignorant que l'autre est passe.
+    reference_paiement = models.CharField(max_length=200, unique=True)
+    montant_cents = models.PositiveIntegerField(default=0)
+    devise = models.CharField(max_length=3, default="EUR")
+    #: Adresse collectee par le prestataire. Conservee telle quelle : elle
+    #: peut differer de celle du compte.
+    email = models.EmailField(blank=True)
+    #: L'intention de paiement (`pi_…`) que la session a encaissee. C'est par
+    #: ELLE, et non par la session, que le prestataire designe un paiement
+    #: quand il le rembourse ou qu'il est conteste : sans ce champ, un
+    #: remboursement ne pourrait etre rapproche de son achat qu'en
+    #: interrogeant le prestataire. Vide pour un achat dont la session n'en
+    #: portait pas.
+    intention_de_paiement = models.CharField(
+        max_length=200, blank=True, db_index=True
+    )
+    #: Date a laquelle l'acces a ete RETIRE. Nulle tant que l'achat donne
+    #: acces. Retablir remet a nul : c'est une decision, elle se defait.
+    revoque_le = models.DateTimeField(null=True, blank=True)
+    #: Pourquoi — « Remboursee le 20/11 », « Paiement conteste ». Saisi par
+    #: la gerante, lu par elle seule.
+    motif_de_revocation = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "achat de formation"
+        verbose_name_plural = "achats de formation"
+        constraints = [
+            # Un seul achat QUI DONNE ACCES par couple. Un second paiement
+            # pour une organisation qui a deja acces n'en ouvre pas un
+            # second : il est encaisse, signale, et rembourse (voir
+            # `paiement.formations.livrer_la_formation`).
+            #
+            # CONDITIONNELLE : un achat revoque ne compte pas. Une
+            # organisation remboursee qui rachete la formation retrouve son
+            # acces sur une NOUVELLE ligne, l'ancienne restant revoquee.
+            models.UniqueConstraint(
+                fields=["organisation", "formation"],
+                condition=models.Q(revoque_le__isnull=True),
+                name="achat_formation_actif_unique_par_organisation",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.formation} — {self.organisation}"
+
+    @property
+    def donne_acces(self) -> bool:
+        return self.revoque_le is None

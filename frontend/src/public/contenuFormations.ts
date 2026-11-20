@@ -45,14 +45,14 @@
  *  `IMAGES_FORMATIONS_A_RAPATRIER` : leur texte est ici, elles n'ont plus à
  *  être affichées.
  *
- *  CE QUI MANQUE ENCORE. AUCUNE des seize captures ne porte les INTITULÉS DES
- *  MODULES : les tableaux `programme.modules` restent VIDES, pas inventés. Les
- *  captures des tunnels de paiement qui n'ont pas été lues (entrées sans
- *  `retranscrite`) sont le seul endroit où ils peuvent encore se trouver.
+ *  LES INTITULÉS DES MODULES. AUCUNE des seize captures ne les porte : ils ne
+ *  sont pas dans ce fichier, et n'ont pas à y être. La gérante les saisit dans
+ *  l'administration, et les pages les lisent au serveur.
  *
  *  CE QUE LES CAPTURES CONTREDISENT (rien n'a été tranché ici) :
  *    - la capture d'ouverture « sociétés » écrit « 9 modules », le tunnel de
- *      paiement « Les 10 modules du parcours » (`NOMBRE_DE_MODULES.societes`) ;
+ *      paiement en annonçait dix. Le nombre affiché n'est plus ni l'un ni
+ *      l'autre : c'est celui des modules que le serveur rend ;
  *    - la capture des formes juridiques écrit « tableau CMA », le texte du
  *      tunnel « tableau comparatif » ;
  *    - le titre annonce « 5 formes juridiques », la capture en montre QUATRE
@@ -62,85 +62,61 @@
  *      légales ne donnent qu'un numéro de déclaration d'activité). À FAIRE
  *      CONFIRMER par la cliente avant d'afficher ce mot.
  *
- *  Une seule écriture par fait : les prix dans `TARIFS_FORMATIONS`, les durées
- *  dans `DUREES_*`, le nombre de modules dans `NOMBRE_DE_MODULES`, les adresses
- *  dans `LIENS_FORMATIONS`. Le reste du fichier les lit. `contenuPacks` lit
- *  ici le prix et la durée de la Méthode P.O.P, offerte avec le Pack Premium.
+ *  CE QUE LE SERVEUR TIENT, ET QUI N'EST PLUS ÉCRIT ICI (19/11/2026). Le prix
+ *  de chaque formation, sa durée en ligne, ses heures de coaching, son nombre
+ *  de modules et son PROGRAMME (modules et leçons) sont saisis par la gérante
+ *  dans l'administration et rendus par `GET /api/public/formations/`
+ *  (`donnees.chargerFormations`). Les constantes `TARIFS_FORMATIONS`,
+ *  `DUREES_SOCIETES`, `DUREES_MICRO`, `DUREES_POP` et `NOMBRE_DE_MODULES` ont
+ *  été SUPPRIMÉES : plus rien ne les lit. Les phrases de la cliente qui
+ *  citaient l'un de ces chiffres le portent désormais en MARQUE (`{heures}`,
+ *  `{coaching}`, `{modules}` — voir `chiffres.ts`), que la page remplit avec
+ *  la réponse du serveur. Tant que le chiffre est inconnu, le passage qui le
+ *  cite ne s'affiche pas.
+ *
+ *  Une seule écriture par fait : les adresses dans `LIENS_FORMATIONS`, le
+ *  découpage du coaching en séances dans `SEANCES_DE_COACHING`. `contenuPacks`
+ *  lit ici le slug de la Méthode P.O.P, offerte avec le Pack Premium, pour en
+ *  lire le prix et la durée dans la même réponse du serveur.
  */
 import { CHEMINS } from "./contenuSite";
-import { euros } from "./donnees";
-import { ancienneteSure } from "./site";
+import {
+  euros,
+  type FormationPublique,
+  type LeconPublique,
+  type ModulePublic,
+} from "./donnees";
+import { ancienneteSure, lisible } from "./site";
+
+// ── Les trois formations ────────────────────────────────────────────────────
+
+export type CleDeFormation = "societes" | "micro" | "pop";
 
 // ── Prix ────────────────────────────────────────────────────────────────────
 
-/** Les prix des trois formations, en CENTIMES, toutes taxes comprises.
- *
- *  RELEVÉS SUR evkha.fr LE 25/10/2026 (page `/formation`). C'est la SEULE
- *  source de ces montants dans le dépôt : aucune API de la plateforme ne les
- *  rend aujourd'hui. À REMPLACER par le catalogue du serveur le jour où ces
- *  offres y entrent — ce jour-là, cette constante disparaît et les pages
- *  lisent l'API, comme l'accueil lit ses prix.
+/** La mention que le site de la cliente accole au prix de ses formations
+ *  (« 1490 € TTC », page `/formation`, relevée le 25/10/2026). Le MONTANT,
+ *  lui, n'est écrit nulle part dans le dépôt : il vient du serveur (voir
+ *  `prixDeLaFormation`).
  *
  *  Les formations en présentiel n'ont pas de prix affiché sur le site. */
-export const TARIFS_FORMATIONS = {
-  societes: { centimes: 149000, ttc: true },
-  micro: { centimes: 149000, ttc: true },
-  pop: { centimes: 85000, ttc: true },
-} as const;
+export const MENTION_DE_TAXE = "TTC";
 
-export type CleDeFormation = keyof typeof TARIFS_FORMATIONS;
+// ── Le coaching, en séances ─────────────────────────────────────────────────
 
-/** Le prix tel que le SITE l'affiche : « 1 490 € TTC », « 850 € TTC ». Le
- *  montant passe par `donnees.euros`, la fonction de l'accueil, des études et
- *  de la boutique : mêmes espaces insécables, même séparateur de milliers. Le
- *  relevé écrivait « 1490 € », sans séparateur — sur une même page, deux
- *  écritures d'un prix se lisent comme deux prix. */
-export function prixAffiche(cle: CleDeFormation): string {
-  const tarif = TARIFS_FORMATIONS[cle];
-  return `${euros(tarif.centimes)}${tarif.ttc ? " TTC" : ""}`;
-}
-
-// ── Durées ──────────────────────────────────────────────────────────────────
-
-/** « Créer son entreprise de A à Z » : 18 h en ligne, 2 h de coaching en
- *  visio réparties en 2 séances d'1 heure (pages `/formation` et
- *  `/paiement-formationsociete`). */
-export const DUREES_SOCIETES = {
-  heuresEnLigne: 18,
-  heuresDeCoaching: 2,
-  seancesDeCoaching: 2,
-  heuresParSeance: 1,
-} as const;
-
-/** « Créer sa micro-entreprise de A à Z ». Les 2 h de coaching viennent de
- *  `/paiement-formationmicro`. Les 18 h ne sont écrites en TEXTE sur aucune
- *  des pages de cette formation, mais deux captures de `/achat-formationmicro`
- *  les portent (lues le 19/11/2026) : « 18h de formation » dans l'ouverture,
- *  « 18h de formation digitale » dans « ce qui est inclus ». Elles confirment
- *  aussi les 2 h en 2 séances d'1 h. */
-export const DUREES_MICRO = {
-  heuresEnLigne: 18,
-  heuresDeCoaching: 2,
-  seancesDeCoaching: 2,
-  heuresParSeance: 1,
-} as const;
-
-/** Méthode P.O.P : 7 h, sans coaching individuel. */
-export const DUREES_POP = {
-  heuresEnLigne: 7,
-} as const;
-
-/** Le nombre de modules annoncé par les tunnels de paiement. Les INTITULÉS
- *  des modules ne sont écrits nulle part : ni en texte, ni dans les seize
- *  captures des pages d'achat lues le 19/11/2026.
+/** Ce qui RESTE des anciennes constantes de durée, parce que le serveur ne le
+ *  rend pas : le découpage du coaching individuel, tel que les tunnels de
+ *  paiement « sociétés » et « micro » l'écrivent — « réparties en 2 séances
+ *  d'1 heure ».
  *
- *  CONTRADICTION NON TRANCHÉE : la capture d'ouverture de
- *  `/achat-formationsociete` écrit « 9 modules », pas 10 (voir
- *  `PAGE_SOCIETES.ouvertureEnImage.pastilleContredite`). Celle de la
- *  micro-entreprise écrit « 9 modules », conforme. */
-export const NOMBRE_DE_MODULES = {
-  societes: 10,
-  micro: 9,
+ *  LU PAR `chiffresDeLaFormation`, et par elle seule. Le TOTAL des heures de
+ *  coaching vient du serveur ; ce découpage n'est cité que s'il lui
+ *  correspond (2 séances d'1 heure = 2 heures). Le jour où la gérante saisit
+ *  un autre total, la phrase qui détaille les séances ne s'affiche plus,
+ *  plutôt que de contredire le grand chiffre à côté d'elle. */
+export const SEANCES_DE_COACHING = {
+  nombre: 2,
+  heuresParSeance: 1,
 } as const;
 
 /** Le plan d'action remis à l'issue du coaching « micro » : 30 jours. */
@@ -177,18 +153,18 @@ export const ORGANISME_DE_FORMATION = {
  *  basculement (et à couvrir par une redirection 301).
  *
  *  `sessionsEnPresentiel` vaut `null` : le bouton n'a pas d'adresse, il ouvre
- *  une fenêtre d'inscription par e-mail. */
+ *  une fenêtre d'inscription par e-mail.
+ *
+ *  Les trois adresses d'INSCRIPTION (`paiementSocietes`, `paiementMicro`,
+ *  `paiementPop`) n'y sont plus depuis le 20/11/2026 : elles pointaient vers
+ *  un courriel de demande d'inscription, le temps que la plateforme encaisse
+ *  les formations. Elle les encaisse : le bouton ouvre le paiement
+ *  (`Formations.BoutonDInscription`), et plus rien ne lisait ces adresses. */
 export const LIENS_FORMATIONS = {
   catalogue: "https://www.evkha.fr/formation",
   decouvrirSocietes: "https://www.evkha.fr/achat-formationsociete",
   decouvrirMicro: "https://www.evkha.fr/achat-formationmicro",
   decouvrirPop: "https://www.evkha.fr/achat-formationpop",
-  // Bascule du domaine (19/11/2026) : même raison que pour les packs — la
-  // demande d'inscription part par courriel tant que la plateforme n'encaisse
-  // pas les formations.
-  paiementSocietes: "mailto:contact@evkha.fr?subject=Je%20souhaite%20m%27inscrire%20%C3%A0%20la%20formation%20%C2%AB%20Cr%C3%A9er%20son%20entreprise%20de%20A%20%C3%A0%20Z%20%C2%BB",
-  paiementMicro: "mailto:contact@evkha.fr?subject=Je%20souhaite%20m%27inscrire%20%C3%A0%20la%20formation%20%C2%AB%20Cr%C3%A9er%20sa%20micro-entreprise%20de%20A%20%C3%A0%20Z%20%C2%BB",
-  paiementPop: "mailto:contact@evkha.fr?subject=Je%20souhaite%20m%27inscrire%20%C3%A0%20la%20formation%20M%C3%A9thode%20P.O.P",
   sessionsEnPresentiel: null,
   contact: "https://www.evkha.fr/contacts",
 } as const;
@@ -350,7 +326,7 @@ export const IMAGES_FORMATIONS_A_RAPATRIER: ImageARapatrier[] = [
     page: "/achat-formationsociete",
     adresse: `${CDN}/6a38faba927060.05496497_Capturedécran2026-06-22à11.02.49.png`,
     contexte:
-      "CAPTURE D'ÉCRAN, première image de la page. Montre l'ouverture sur fond noir : étiquette « PARCOURS PREMIUM », titre, accroche, présentation, cinq pastilles de statuts et quatre pastilles (18h, + 2h, « 9 modules », outils financiers). Rangée dans PAGE_SOCIETES.ouvertureEnImage.",
+      "CAPTURE D'ÉCRAN, première image de la page. Montre l'ouverture sur fond noir : étiquette « PARCOURS PREMIUM », titre, accroche, présentation, cinq pastilles de statuts et quatre pastilles (durée de la formation, heures d'accompagnement, nombre de modules, outils financiers). Rangée dans PAGE_SOCIETES.ouvertureEnImage.",
     retranscrite: true,
   },
   {
@@ -383,7 +359,7 @@ export const IMAGES_FORMATIONS_A_RAPATRIER: ImageARapatrier[] = [
     page: "/achat-formationsociete",
     adresse: `${CDN}/6a38fbea668463.76312984_Capturedécran2026-06-22à11.03.20.png`,
     contexte:
-      "CAPTURE D'ÉCRAN, 3e après le bouton. Montre « ACCOMPAGNEMENT INDIVIDUEL PREMIUM — Un coaching humain, sur votre projet réel » : le grand « 2H » et cinq points. Rangée dans PAGE_SOCIETES.modalites.coaching (captureDAchat, points).",
+      "CAPTURE D'ÉCRAN, 3e après le bouton. Montre « ACCOMPAGNEMENT INDIVIDUEL PREMIUM — Un coaching humain, sur votre projet réel » : le grand chiffre des heures de coaching et cinq points. Rangée dans PAGE_SOCIETES.modalites.coaching (captureDAchat, points).",
     retranscrite: true,
   },
   {
@@ -416,7 +392,7 @@ export const IMAGES_FORMATIONS_A_RAPATRIER: ImageARapatrier[] = [
     page: "/paiement-formationsociete",
     adresse: `${CDN}/6a38f7b6287a97.09647742_Capturedécran2026-06-22à10.51.28.png`,
     contexte:
-      "CAPTURE D'ÉCRAN, 2e sous le titre, juste avant « Formez-vous avec / Les 10 modules du parcours ». Même fichier (adresse identique) que la 4e capture de /achat-formationsociete : ce sont les huit OBJECTIFS PÉDAGOGIQUES, pas la liste des modules. Rangée dans PAGE_SOCIETES.objectifs.",
+      "CAPTURE D'ÉCRAN, 2e sous le titre, juste avant le titre du programme (« Formez-vous avec / Les … modules du parcours »). Même fichier (adresse identique) que la 4e capture de /achat-formationsociete : ce sont les huit OBJECTIFS PÉDAGOGIQUES, pas la liste des modules. Rangée dans PAGE_SOCIETES.objectifs.",
     retranscrite: true,
   },
   {
@@ -441,7 +417,7 @@ export const IMAGES_FORMATIONS_A_RAPATRIER: ImageARapatrier[] = [
     page: "/achat-formationmicro",
     adresse: `${CDN}/6a394118b209d2.32246115_Capturedécran2026-06-22à11.25.38.png`,
     contexte:
-      "CAPTURE D'ÉCRAN, première image de la page. Montre l'ouverture sur fond noir : étiquette « PARCOURS COMPLET », titre, accroche, présentation et cinq pastilles (18h, + 2h en visio, 9 modules, Agent IA inclus, Accès à vie). Rangée dans PAGE_MICRO.ouvertureEnImage.",
+      "CAPTURE D'ÉCRAN, première image de la page. Montre l'ouverture sur fond noir : étiquette « PARCOURS COMPLET », titre, accroche, présentation et cinq pastilles (durée de la formation, heures en visio, nombre de modules, Agent IA inclus, Accès à vie). Rangée dans PAGE_MICRO.ouvertureEnImage.",
     retranscrite: true,
   },
   {
@@ -474,7 +450,7 @@ export const IMAGES_FORMATIONS_A_RAPATRIER: ImageARapatrier[] = [
     page: "/achat-formationmicro",
     adresse: `${CDN}/6a3941e5955484.58902847_Capturedécran2026-06-22à11.26.00.png`,
     contexte:
-      "CAPTURE D'ÉCRAN, 3e après le bouton. Montre « LE + DE CETTE FORMATION — Un accompagnement individuel premium inclus » : le grand « 2H » et cinq points. Mot pour mot le texte déjà relevé sur le tunnel de paiement : rien à ajouter, voir PAGE_MICRO.modalites.coaching.",
+      "CAPTURE D'ÉCRAN, 3e après le bouton. Montre « LE + DE CETTE FORMATION — Un accompagnement individuel premium inclus » : le grand chiffre des heures de coaching et cinq points. Mot pour mot le texte déjà relevé sur le tunnel de paiement : rien à ajouter, voir PAGE_MICRO.modalites.coaching.",
     retranscrite: true,
   },
   {
@@ -507,7 +483,7 @@ export const IMAGES_FORMATIONS_A_RAPATRIER: ImageARapatrier[] = [
     page: "/paiement-formationmicro",
     adresse: `${CDN}/6a38c1a1a9f384.47026769_Capturedécran2026-06-22à07.00.33.png`,
     contexte:
-      "CAPTURE D'ÉCRAN, 2e sous le titre, juste avant « Formez-vous avec / Les 9 modules du parcours ». NON LUE. Texte à retranscrire (sur le tunnel « sociétés », la capture à cette place montre les objectifs pédagogiques, pas les modules).",
+      "CAPTURE D'ÉCRAN, 2e sous le titre, juste avant le titre du programme (« Formez-vous avec / Les … modules du parcours »). NON LUE. Texte à retranscrire (sur le tunnel « sociétés », la capture à cette place montre les objectifs pédagogiques, pas les modules).",
   },
   {
     page: "/paiement-formationmicro",
@@ -604,12 +580,14 @@ export type Question = { q: string; r: string };
 
 /** La carte d'une formation sur le catalogue. Les trois pages de formation la
  *  relisent : c'est, pour « sociétés » et « micro », presque tout le texte qui
- *  existe hors image. */
+ *  existe hors image.
+ *
+ *  Pas de prix ici : la carte relevée en portait un, il se lit désormais au
+ *  serveur. */
 export type CarteDeFormation = {
   cle: CleDeFormation;
   titre: string;
   sousTitre?: string;
-  prix: string;
   accroche: string;
   mention?: string;
   modalites: string[];
@@ -821,13 +799,12 @@ const ACCROCHE_MICRO =
 export const CARTE_SOCIETES: CarteDeFormation = {
   cle: "societes",
   titre: "Créer son entreprise de A à Z",
-  prix: prixAffiche("societes"),
   accroche:
     "EI, EURL, SARL, SASU, SAS = la formation qui couvre tous les statuts hors micro.",
   mention: "Formation complète avec outils personnalisables",
   modalites: [
-    `Format : 100 % en ligne ${DUREES_SOCIETES.heuresEnLigne} HEURES À VOTRE RYTHME`,
-    `${DUREES_SOCIETES.heuresDeCoaching} HEURES D'accompagnements individuels pour travailler sur VOTRE projet.`,
+    "Format : 100 % en ligne[[ {heures} HEURES]] À VOTRE RYTHME",
+    "[[{coaching} HEURES D']]accompagnements individuels pour travailler sur VOTRE projet.",
   ],
   corps: [PRESENTATION_SOCIETES],
   titreDesAcquis: "Ce que vous allez maîtriser :",
@@ -849,7 +826,6 @@ export const CARTE_SOCIETES: CarteDeFormation = {
 export const CARTE_MICRO: CarteDeFormation = {
   cle: "micro",
   titre: "Créer sa micro-entreprise de A à Z",
-  prix: prixAffiche("micro"),
   accroche: ACCROCHE_MICRO,
   mention: "Formation complète avec outils",
   modalites: [],
@@ -872,10 +848,9 @@ export const CARTE_POP: CarteDeFormation = {
   cle: "pop",
   titre: "Formation P.O.P",
   sousTitre: "Gestion-Productivité",
-  prix: prixAffiche("pop"),
   accroche: "Planifiez. Organisez. Produisez !",
   modalites: [
-    `Durée : ${DUREES_POP.heuresEnLigne}h 00`,
+    "[[Durée : {heures}h 00]]",
     "Format : 100 % en ligne et flexible",
     "Un assistant IA P.O.P dédié",
   ],
@@ -967,7 +942,7 @@ export const PAGE_CATALOGUE = {
 
 /** La capture « pourquoi cette formation » de `/achat-formationsociete`, mot
  *  pour mot. « 1500 € » est le coût d'un expert-comptable cité en exemple, pas
- *  un prix d'offre : il n'a pas sa place dans `TARIFS_FORMATIONS`. */
+ *  le prix d'une offre : c'est le seul montant écrit dans ce fichier. */
 const ARGUMENTAIRE_SOCIETES: Argumentaire = {
   surtitre: "POURQUOI CETTE FORMATION",
   titre: "Créer une vraie société, ça ne s'improvise pas",
@@ -1013,10 +988,10 @@ export const PAGE_SOCIETES = {
    *  diffère de celle du catalogue (« = la formation qui couvre tous les
    *  statuts hors micro »).
    *
-   *  CONTRADICTION NON TRANCHÉE : la capture porte une quatrième pastille,
-   *  « 9 modules ». Le tunnel de paiement écrit « Les 10 modules du parcours »
-   *  (`NOMBRE_DE_MODULES.societes`). Elle est tenue HORS de `pastilles` pour
-   *  qu'aucune page n'affiche un nombre que la cliente n'a pas confirmé. */
+   *  CONTRADICTION DU RELEVÉ : la capture porte une quatrième pastille,
+   *  « 9 modules », quand le tunnel de paiement en annonçait dix. Elle est
+   *  tenue HORS de `pastilles` : le nombre de modules qu'une page affiche est
+   *  celui que le serveur rend, jamais celui d'une capture. */
   ouvertureEnImage: {
     etiquette: "PARCOURS PREMIUM",
     titre: CARTE_SOCIETES.titre,
@@ -1025,8 +1000,8 @@ export const PAGE_SOCIETES = {
     /** Les cinq pastilles dorées, entre la présentation et les durées. */
     statuts: ["EI", "EURL", "SARL", "SASU", "SAS"],
     pastilles: [
-      `${DUREES_SOCIETES.heuresEnLigne}h de formation`,
-      `+ ${DUREES_SOCIETES.heuresDeCoaching}h accompagnement`,
+      "[[{heures}h de formation]]",
+      "[[+ {coaching}h accompagnement]]",
       "Outils financiers avancés",
     ],
     /** Placée, dans la capture, entre « + 2h accompagnement » et « Outils
@@ -1034,7 +1009,6 @@ export const PAGE_SOCIETES = {
     pastilleContredite: {
       texteDeLaCapture: "9 modules",
       nombreLu: 9,
-      nombreDeLaConstante: NOMBRE_DE_MODULES.societes,
     },
   },
 
@@ -1078,19 +1052,19 @@ export const PAGE_SOCIETES = {
     } satisfies BlocDeCartes,
   },
 
-  /** Le tunnel annonce le nombre de modules et ce que chacun combine. Leurs
-   *  INTITULÉS ne figurent dans AUCUNE des six captures de la page d'achat
-   *  (lues le 19/11/2026) : la capture placée avant ce titre sur le tunnel
-   *  montre les objectifs pédagogiques (`objectifs`), pas les modules.
-   *  `modules` reste VIDE — ne pas les déduire des acquis ni des objectifs. */
+  /** Le tunnel annonce le nombre de modules (une marque, remplie par le
+   *  serveur) et ce que chacun combine. Leurs INTITULÉS ne figurent dans
+   *  AUCUNE des six captures de la page d'achat : ils ne sont pas ici. La
+   *  gérante les saisit dans l'administration, et la page les lit au serveur
+   *  (`FormationPublique.modules`) — ne pas les déduire des acquis ni des
+   *  objectifs. */
   programme: {
     surtitre: "Formez-vous avec",
-    titre: `Les ${NOMBRE_DE_MODULES.societes} modules du parcours`,
+    titre: "Les [[{modules} ]]modules du parcours",
     corps: [
       "Un parcours progressif, du diagnostic de votre projet à votre stratégie commerciale.",
       "Chaque module combine vidéos, quiz, études de cas, outils, IA et fichiers téléchargeables.",
     ],
-    modules: [] as string[],
   },
 
   /** Les cinq formes juridiques : bloc propre à cette formation. `surtitre`,
@@ -1163,12 +1137,12 @@ export const PAGE_SOCIETES = {
     titre: "Tout ce qu'il faut pour créer et piloter votre société",
     cartes: [
       {
-        titre: `${DUREES_SOCIETES.heuresEnLigne}h de formation digitale`,
+        titre: "[[{heures}h de ]]formation digitale",
         corps:
           "Vidéos courtes, slides pédagogiques, exercices et activités guidées, accessibles 24h/24.",
       },
       {
-        titre: `${DUREES_SOCIETES.heuresDeCoaching}h d'accompagnement premium`,
+        titre: "[[{coaching}h d']]accompagnement premium",
         corps:
           "Coaching individuel en visio : analyse projet, lecture business plan, conseils statutaires, plan d'action.",
       },
@@ -1200,22 +1174,27 @@ export const PAGE_SOCIETES = {
     /** `surtitre`, `titre`, `corps` : le texte du tunnel de paiement.
      *  `captureDAchat` et `points` : la 5e capture de la page d'achat, qui
      *  titre autrement le même bloc et, elle, détaille les séances. La
-     *  capture ne redit pas « 2 séances d'1 heure ». */
+     *  capture ne redit pas le découpage en séances.
+     *
+     *  La troisième phrase de `corps` est ENTIÈREMENT facultative : elle ne
+     *  s'affiche que si le total d'heures rendu par le serveur correspond au
+     *  découpage relevé (`SEANCES_DE_COACHING`). */
     coaching: {
       surtitre: "LE + DE CETTE FORMATION",
       titre: "Un accompagnement individuel premium inclus",
       corps: [
         "Ce qui distingue cette formation des autres :",
         "un vrai temps de coaching humain, en visio, pour ancrer la méthode sur votre projet réel.",
-        `${DUREES_SOCIETES.heuresDeCoaching}H D'accompagnement individuel en visio, réparties en ${DUREES_SOCIETES.seancesDeCoaching} séances d'${DUREES_SOCIETES.heuresParSeance} heure.`,
+        "[[{coaching}H D'accompagnement individuel en visio, réparties en {seances} séances d'{heuresParSeance} heure.]]",
       ],
       captureDAchat: {
         surtitre: "ACCOMPAGNEMENT INDIVIDUEL PREMIUM",
         titre: "Un coaching humain, sur votre projet réel",
         introduction:
           "Au-delà du contenu, ce qui fait la différence : un temps de coaching personnalisé pour ancrer la méthode sur votre projet, votre statut, vos chiffres.",
-        /** Le grand « 2H » doré et la phrase qu'il commence. */
-        corps: `${DUREES_SOCIETES.heuresDeCoaching}H D'accompagnement individuel premium en visio. Pour transformer votre projet en plan d'action solide, avec quelqu'un qui sait où il met les pieds.`,
+        /** Le grand chiffre doré et la phrase qu'il commence. */
+        corps:
+          "[[{coaching}H D']]accompagnement individuel premium en visio. Pour transformer votre projet en plan d'action solide, avec quelqu'un qui sait où il met les pieds.",
       },
       /** Les cinq points de la capture (le début de chacun y est en gras). */
       points: [
@@ -1254,10 +1233,11 @@ export const PAGE_SOCIETES = {
   questions: QUESTIONS_DES_FORMATIONS,
 
   appelFinal: {
-    /** Bouton de `/achat-formationsociete`, vers le tunnel. */
+    /** Bouton de `/achat-formationsociete`, vers le tunnel. Sans adresse :
+     *  sur la plateforme, il ouvre le paiement. */
     bouton: {
       libelle: "JE REJOINS LA FORMATION !",
-      lien: LIENS_FORMATIONS.paiementSocietes,
+      lien: null,
     } as Bouton,
   },
 
@@ -1295,7 +1275,7 @@ const ARGUMENTAIRE_MICRO: Argumentaire = {
       "Construire un prévisionnel financier réaliste",
       "Maîtriser vos obligations fiscales et sociales",
       "Vous immatriculer en toute autonomie",
-      `Bénéficier d'un accompagnement humain individuel de ${DUREES_MICRO.heuresDeCoaching}h`,
+      "Bénéficier d'un accompagnement humain individuel[[ de {coaching}h]]",
     ],
   },
 };
@@ -1316,17 +1296,18 @@ export const PAGE_MICRO = {
 
   /** L'ouverture telle que la page d'achat la montre (1re capture). Titre,
    *  accroche et présentation sont ceux de la carte du catalogue ; la capture
-   *  y ajoute l'étiquette et cinq pastilles. « 9 modules » y est conforme à
-   *  `NOMBRE_DE_MODULES.micro`. */
+   *  y ajoute l'étiquette et cinq pastilles. Trois d'entre elles citent un
+   *  chiffre que le serveur tient (durée, coaching, nombre de modules) : elles
+   *  ne s'affichent qu'une fois ce chiffre reçu. */
   ouvertureEnImage: {
     etiquette: "PARCOURS COMPLET",
     titre: CARTE_MICRO.titre,
     accroche: ACCROCHE_MICRO,
     corps: `${PRESENTATION_MICRO} ${PRESENTATION_MICRO_SUITE}`,
     pastilles: [
-      `${DUREES_MICRO.heuresEnLigne}h de formation`,
-      `+ ${DUREES_MICRO.heuresDeCoaching}h en visio`,
-      `${NOMBRE_DE_MODULES.micro} modules`,
+      "[[{heures}h de formation]]",
+      "[[+ {coaching}h en visio]]",
+      "[[{modules} modules]]",
       "Agent IA inclus",
       "Accès à vie",
     ],
@@ -1369,19 +1350,17 @@ export const PAGE_MICRO = {
     } satisfies BlocDeCartes,
   },
 
-  /** Même remarque que pour les sociétés : le nombre est écrit (tunnel et
-   *  capture d'ouverture), mais les INTITULÉS des modules ne figurent dans
-   *  AUCUNE des six captures de la page d'achat. `modules` reste VIDE. Les
-   *  deux phrases d'introduction sont IDENTIQUES à celles du tunnel
-   *  « sociétés », y compris « à votre stratégie commerciale ». */
+  /** Même remarque que pour les sociétés : le nombre de modules est une
+   *  marque, et leurs INTITULÉS se lisent au serveur. Les deux phrases
+   *  d'introduction sont IDENTIQUES à celles du tunnel « sociétés », y compris
+   *  « à votre stratégie commerciale ». */
   programme: {
     surtitre: "Formez-vous avec",
-    titre: `Les ${NOMBRE_DE_MODULES.micro} modules du parcours`,
+    titre: "Les [[{modules} ]]modules du parcours",
     corps: [
       "Un parcours progressif, du diagnostic de votre projet à votre stratégie commerciale.",
       "Chaque module combine vidéos, quiz, études de cas, outils, IA et fichiers téléchargeables.",
     ],
-    modules: [] as string[],
   },
 
   /** 4e capture de la page d'achat : six cartes.
@@ -1395,13 +1374,14 @@ export const PAGE_MICRO = {
     titre: "Une formation pensée pour vous mener jusqu'au lancement",
     cartes: [
       {
-        titre: `${DUREES_MICRO.heuresEnLigne}h de formation digitale`,
+        titre: "[[{heures}h de ]]formation digitale",
         corps:
           "Vidéos courtes (Canva), slides pédagogiques, accessibles 24h/24 depuis ordinateur ou tablette.",
       },
       {
-        titre: `${DUREES_MICRO.heuresDeCoaching}h d'accompagnement visio`,
-        corps: `Coaching individuel en ${DUREES_MICRO.seancesDeCoaching} séances d'${DUREES_MICRO.heuresParSeance}h : analyse projet, prévisionnel, plan d'action.`,
+        titre: "[[{coaching}h d']]accompagnement visio",
+        corps:
+          "Coaching individuel[[ en {seances} séances d'{heuresParSeance}h]] : analyse projet, prévisionnel, plan d'action.",
       },
       {
         titre: "Modules IA intégrés",
@@ -1440,7 +1420,7 @@ export const PAGE_MICRO = {
       corps: [
         "Ce qui distingue cette formation des autres :",
         "un vrai temps de coaching humain, en visio, pour ancrer la méthode sur votre projet réel.",
-        `${DUREES_MICRO.heuresDeCoaching}H D'accompagnement individuel en visio, réparties en ${DUREES_MICRO.seancesDeCoaching} séances d'${DUREES_MICRO.heuresParSeance} heure.`,
+        "[[{coaching}H D'accompagnement individuel en visio, réparties en {seances} séances d'{heuresParSeance} heure.]]",
         "Pour passer du contenu à l'action, sur votre projet à vous.",
       ],
       points: [
@@ -1479,10 +1459,11 @@ export const PAGE_MICRO = {
   questions: QUESTIONS_DES_FORMATIONS,
 
   appelFinal: {
-    /** Bouton de `/achat-formationmicro`, vers le tunnel. */
+    /** Bouton de `/achat-formationmicro`, vers le tunnel. Sans adresse : sur
+     *  la plateforme, il ouvre le paiement. */
     bouton: {
       libelle: "JE REJOINS LA FORMATION !",
-      lien: LIENS_FORMATIONS.paiementMicro,
+      lien: null,
     } as Bouton,
   },
 
@@ -1552,10 +1533,10 @@ export const PAGE_POP = {
       "Découvrir la puissance de L'IA avec un assistant entièrement personnalisé qui vous guidera dans l'accomplissement de vos objectifs professionnels",
     ],
     /** Relevé comme dernier point de la liste, en une ligne séparée par des
-     *  barres : « 7h de formation / 100% e-learning / Accès à vie / Agent IA
-     *  dédié ». */
+     *  barres : la durée de la formation (une marque, remplie par le serveur),
+     *  « 100% e-learning », « Accès à vie », « Agent IA dédié ». */
     enBref: [
-      `${DUREES_POP.heuresEnLigne}h de formation`,
+      "[[{heures}h de formation]]",
       "100% e-learning",
       "Accès à vie",
       "Agent IA dédié",
@@ -1574,7 +1555,7 @@ export const PAGE_POP = {
     argumentaire: ARGUMENTAIRE_POP,
     /** La seule phrase écrite qui nomme le public (tunnel de paiement). */
     public:
-      `La formation P.O.P en ${DUREES_POP.heuresEnLigne} heures est une expérience immersive et concrète, conçue pour les porteurs de projet, entrepreneurs et indépendants qui veulent enfin maîtriser leur temps, leurs priorités et leurs résultats.`,
+      "La formation P.O.P[[ en {heures} heures]] est une expérience immersive et concrète, conçue pour les porteurs de projet, entrepreneurs et indépendants qui veulent enfin maîtriser leur temps, leurs priorités et leurs résultats.",
     /** « 15 ans d'expérience » : voir la remarque sur l'ancienneté dans
      *  `PAGE_CATALOGUE.pourquoi`. */
     promesse:
@@ -1632,7 +1613,7 @@ export const PAGE_POP = {
     titre: "Tout ce dont vous avez besoin pour passer à l'action",
     cartes: [
       {
-        titre: `${DUREES_POP.heuresEnLigne}h de formation digitale`,
+        titre: "[[{heures}h de ]]formation digitale",
         corps:
           "Vidéos pédagogiques structurées, accessibles à votre rythme depuis ordinateur ou tablette.",
       },
@@ -1677,7 +1658,7 @@ export const PAGE_POP = {
     format: CARTE_POP.modalites,
     contenu: [
       "Planifiez. Organisez. Produisez.",
-      `${DUREES_POP.heuresEnLigne}h de formation digitale`,
+      "[[{heures}h de ]]formation digitale",
       "Exercices guidés à chaque étape",
       "Templates et tableaux de bord P.O.P",
       "Accès à un agent IA dédié",
@@ -1696,10 +1677,11 @@ export const PAGE_POP = {
   questions: QUESTIONS_DES_FORMATIONS,
 
   appelFinal: {
-    /** Bouton de `/achat-formationpop`, vers le tunnel. */
+    /** Bouton de `/achat-formationpop`, vers le tunnel. Sans adresse : sur la
+     *  plateforme, il ouvre le paiement. */
     bouton: {
       libelle: "JE REJOINS LA MÉTHODE P.O.P",
-      lien: LIENS_FORMATIONS.paiementPop,
+      lien: null,
     } as Bouton,
   },
 
@@ -1730,7 +1712,8 @@ export const PAGE_POP = {
 //     changé : une retouche qui ne trouve plus sa cible ne doit pas passer
 //     pour appliquée (règle 1).
 //
-// Aucun prix ici : ils se lisent dans `TARIFS_FORMATIONS`.
+// Aucun prix ici, aucune durée : ils se lisent au serveur (voir « CE QUE LE
+// SERVEUR REND », juste après les routes).
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── Routes de la plateforme ─────────────────────────────────────────────────
@@ -1738,8 +1721,9 @@ export const PAGE_POP = {
 /** Les pages de la nouvelle plateforme. Un ALIAS : chaque chemin est lu dans
  *  `contenuSite.CHEMINS`, la seule source des adresses du site (règle 5) ; le
  *  nom est gardé pour les fichiers qui l'importent. Les boutons « Je
- *  découvre… » du catalogue y mènent ; les boutons d'ACHAT, eux, mènent encore
- *  aux tunnels de paiement du site actuel (`LIENS_FORMATIONS.paiement*`). */
+ *  découvre… » du catalogue y mènent ; les boutons d'INSCRIPTION, eux,
+ *  n'ont pas d'adresse : ils ouvrent le paiement
+ *  (`Formations.BoutonDInscription`). */
 export const ROUTES_FORMATIONS = {
   catalogue: CHEMINS.formations,
   societes: CHEMINS.formationSocietes,
@@ -1749,12 +1733,131 @@ export const ROUTES_FORMATIONS = {
   etudes: CHEMINS.etudes,
 } as const;
 
-/** Le tunnel de paiement de chaque formation. */
-export const PAIEMENT_DES_FORMATIONS: Record<CleDeFormation, string> = {
-  societes: LIENS_FORMATIONS.paiementSocietes,
-  micro: LIENS_FORMATIONS.paiementMicro,
-  pop: LIENS_FORMATIONS.paiementPop,
+// ── CE QUE LE SERVEUR REND ──────────────────────────────────────────────────
+//
+// `GET /api/public/formations/` (`donnees.chargerFormations`) rend les
+// formations que la gérante a MISES EN LIGNE. Ce qui suit retrouve celle d'une
+// page dans la réponse et en tire ce que la page affiche : son prix, ses
+// chiffres, son programme. Des
+// fonctions pures : les pages des formations et celles des packs s'en servent,
+// leurs tests aussi.
+
+/** Le dernier segment d'un chemin : `/formations/methode-pop` → `methode-pop`.
+ *  Un chemin sans segment lève une erreur au chargement : un slug vide ne
+ *  trouverait jamais sa formation, et la page dirait « Indisponible » sans
+ *  que personne sache pourquoi (règle 1). */
+function dernierSegment(chemin: string): string {
+  const segment = chemin.split("/").filter(Boolean).pop();
+  if (!segment) {
+    throw new Error(`contenuFormations : le chemin « ${chemin} » n'a pas de slug`);
+  }
+  return segment;
+}
+
+/** Le slug de chaque formation côté serveur. Il n'est PAS écrit une seconde
+ *  fois : l'adresse de la page (`contenuSite.CHEMINS`) se termine par lui, et
+ *  c'est là qu'il se lit (règle 5). Changer l'adresse d'une page sans changer
+ *  le slug du serveur lui ferait perdre sa formation : le test
+ *  `les-pages-des-formations` écrit les trois slugs attendus en toutes
+ *  lettres. */
+export const SLUGS_DES_FORMATIONS: Record<CleDeFormation, string> = {
+  societes: dernierSegment(CHEMINS.formationSocietes),
+  micro: dernierSegment(CHEMINS.formationMicro),
+  pop: dernierSegment(CHEMINS.formationPop),
 };
+
+/** La formation d'une page dans la réponse du serveur, ou `null`.
+ *
+ *  `null` veut dire « pas en vente ici » : la gérante ne l'a pas (encore)
+ *  mise en ligne, OU le serveur la rend sans un prix que la page sache
+ *  afficher — un montant nul ou illisible, une devise autre que l'euro
+ *  (`donnees.euros` n'écrit que des euros : afficher « 1 490 € » pour un prix
+ *  en dollars serait un prix faux). Dans les deux cas la page dit
+ *  « Indisponible pour le moment », neutralise ses boutons d'inscription et
+ *  n'affiche ni chiffre ni programme. */
+export function formationEnLigne(
+  formations: FormationPublique[],
+  cle: CleDeFormation,
+): FormationPublique | null {
+  const slug = SLUGS_DES_FORMATIONS[cle];
+  const trouvee = formations.find((formation) => formation?.slug === slug);
+  if (!trouvee) return null;
+  if (!lisible(trouvee.prix_cents) || trouvee.devise !== "EUR") return null;
+  return trouvee;
+}
+
+/** Le prix tel que la page l'affiche : « 1 490 € TTC ». Le montant vient du
+ *  serveur et passe par `donnees.euros`, la fonction de l'accueil, des études
+ *  et de la boutique : mêmes espaces insécables, même séparateur de milliers.
+ *  La mention de taxe est celle du relevé (`MENTION_DE_TAXE`). */
+export function prixDeLaFormation(formation: FormationPublique): string {
+  return `${euros(formation.prix_cents)} ${MENTION_DE_TAXE}`;
+}
+
+/** Les modules d'une formation, tels que la page peut les afficher : ceux qui
+ *  portent un titre. Une réponse sans la liste attendue vaut « aucun module »
+ *  — la section du programme se réduit alors à son titre et à ses phrases. */
+export function modulesDeLaFormation(
+  formation: FormationPublique | null,
+): ModulePublic[] {
+  if (!formation || !Array.isArray(formation.modules)) return [];
+  return formation.modules.filter(
+    (module) => typeof module?.titre === "string" && module.titre.trim() !== "",
+  );
+}
+
+/** Les leçons d'un module, même règle. */
+export function leconsDuModule(module: ModulePublic): LeconPublique[] {
+  if (!Array.isArray(module.lecons)) return [];
+  return module.lecons.filter(
+    (lecon) => typeof lecon?.titre === "string" && lecon.titre.trim() !== "",
+  );
+}
+
+/** Les chiffres d'une formation que les PHRASES de la cliente citent, par nom
+ *  de marque (voir `chiffres.ts`). `null` : la phrase s'en passe. */
+export type ChiffresDeFormation = Record<
+  "heures" | "coaching" | "modules" | "seances" | "heuresParSeance",
+  number | null
+>;
+
+/** Un chiffre qu'une phrase peut citer : un entier d'au moins DEUX. Les
+ *  phrases relevées sont écrites au pluriel (« 18 HEURES », « 9 modules »,
+ *  « en 7 heures ») : y poser « 1 » écrirait « 1 HEURES ». Zéro, lui, n'est
+ *  pas un chiffre à annoncer — une formation sans coaching ne dit pas « 0h
+ *  d'accompagnement ». */
+function citable(nombre: unknown): number | null {
+  return lisible(nombre) && Number.isInteger(nombre) && nombre >= 2
+    ? nombre
+    : null;
+}
+
+/** Ce que le serveur rend pour une formation, prêt à poser dans le texte.
+ *  Sans formation (attente, panne, formation hors ligne) : tout est `null`, et
+ *  aucune phrase n'affiche de chiffre.
+ *
+ *  `modules` est le nombre de modules RENDUS (`modules.length`), pas un
+ *  compteur annoncé à part : le nombre et la liste ne peuvent pas diverger.
+ *
+ *  `seances` et `heuresParSeance` ne viennent pas du serveur, qui ne rend que
+ *  le total : ils ne sont connus que si ce total correspond au découpage
+ *  relevé (`SEANCES_DE_COACHING`). */
+export function chiffresDeLaFormation(
+  formation: FormationPublique | null,
+): ChiffresDeFormation {
+  const coaching = citable(formation?.heures_de_coaching);
+  const decoupageTenu =
+    coaching !== null &&
+    coaching ===
+      SEANCES_DE_COACHING.nombre * SEANCES_DE_COACHING.heuresParSeance;
+  return {
+    heures: citable(formation?.duree_heures),
+    coaching,
+    modules: citable(modulesDeLaFormation(formation).length),
+    seances: decoupageTenu ? SEANCES_DE_COACHING.nombre : null,
+    heuresParSeance: decoupageTenu ? SEANCES_DE_COACHING.heuresParSeance : null,
+  };
+}
 
 // ── Outils des vues ─────────────────────────────────────────────────────────
 
@@ -1794,6 +1897,31 @@ export function sansFleche(libelle: string): string {
 /** « 2 h », « 18 h » : une durée en grand chiffre. */
 export function dureeEnHeures(heures: number): string {
   return `${heures}\u00a0h`;
+}
+
+/** La dur\u00e9e d'une le\u00e7on, telle que le programme l'affiche : en minutes sous
+ *  l'heure, en heures et minutes au-del\u00e0. `null` quand le serveur n'en rend
+ *  pas (z\u00e9ro, ou une valeur illisible) : la le\u00e7on s'affiche sans dur\u00e9e, pas
+ *  avec une dur\u00e9e nulle. */
+export function dureeDeLecon(minutes: unknown): string | null {
+  if (!lisible(minutes)) return null;
+  const entieres = Math.round(minutes);
+  if (entieres < 60) return `${entieres}\u00a0min`;
+  const heures = Math.floor(entieres / 60);
+  const reste = entieres % 60;
+  return reste === 0
+    ? dureeEnHeures(heures)
+    : `${dureeEnHeures(heures)}\u00a0${String(reste).padStart(2, "0")}`;
+}
+
+/** La nature d'une le\u00e7on, en fran\u00e7ais, ou `null` pour une nature que la page
+ *  ne conna\u00eet pas : elle n'affiche pas le code du serveur \u00e0 la place. */
+export function natureDeLecon(nature: unknown): string | null {
+  const natures = ARTICULATION.programme.natures;
+  return typeof nature === "string" &&
+    Object.prototype.hasOwnProperty.call(natures, nature)
+    ? natures[nature]
+    : null;
 }
 
 // ── Les titres, en deux temps ───────────────────────────────────────────────
@@ -2065,15 +2193,53 @@ export const ARTICULATION = {
     nomDeLaListe: "Les trois formations en ligne",
   },
 
+  /** Autour du bouton d'inscription, qui ouvre le paiement (20/11/2026). Le
+   *  libellé du bouton lui-même reste celui du relevé (`appelFinal.bouton`). */
+  inscription: {
+    /** Le libellé du bouton pendant l'appel au serveur. */
+    attente: "Ouverture du paiement…",
+    /** Quand le serveur n'a pas répondu, ou pas lisiblement. La phrase se
+     *  termine par l'adresse de contact, posée par la page. */
+    panne:
+      "Le paiement n'a pas pu s'ouvrir. Vérifiez votre connexion et réessayez, ou écrivez-nous à",
+    /** Sous le refus « vous avez déjà cette formation » : où la retrouver. */
+    dejaAchetee: "Ouvrir «\u00a0Mes formations\u00a0»",
+    /** Au retour d'un paiement abandonné (`?paiement=abandon`). */
+    abandon: "Votre paiement n'a pas été finalisé. Rien n'a été débité.",
+    fermerLAbandon: "Fermer ce message",
+  },
+
   pourQui: { surtitre: "Pour qui" },
 
   programme: {
-    /** Sous le grand chiffre lu dans `NOMBRE_DE_MODULES`. */
+    /** Sous le grand chiffre : le nombre de modules que le serveur rend. */
     unite: "modules",
+    uniteAuSingulier: "module",
+    /** La nature d'une leçon, en français. Les clés sont celles du serveur
+     *  (`LeconDeFormation.nature`) ; voir `natureDeLecon`. */
+    natures: {
+      video: "Vidéo",
+      texte: "Texte",
+      document: "Document",
+      quiz: "Quiz",
+    } as Record<string, string>,
+    /** L'étiquette d'une leçon que la gérante a marquée « en aperçu libre ».
+     *  Une étiquette, pas un lien : le serveur ne rend pas le contenu ici. */
+    apercuLibre: "Aperçu libre",
+    /** La Méthode P.O.P n'a pas de bloc « programme » dans le relevé : ce
+     *  surtitre et ce titre sont écrits pour le jour où la gérante lui saisit
+     *  des modules. Sans module, la section n'existe pas. À VALIDER. */
+    pop: {
+      surtitre: "Le programme",
+      titre: {
+        avant: "Les [[{modules} ]]modules",
+        fin: "de la méthode",
+      } as TitreEnDeuxTemps,
+    },
   },
 
   coaching: {
-    /** Sous le grand chiffre lu dans `DUREES_*`. */
+    /** Sous le grand chiffre : les heures de coaching que le serveur rend. */
     unite: "de coaching individuel, en visio",
   },
 

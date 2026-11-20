@@ -1,244 +1,477 @@
-/** Coquille de l'espace administrateur — même charte que l'espace client.
+/** Coquille de l'espace administrateur.
  *
- * Elle réutilise les classes de `theme/espace.css` : une seconde feuille de
- * style pour l'administration finirait par dériver de la première, et deux
- * chartes pour un même produit se voient immédiatement.
+ * L'outil de travail quotidien de la gérante : elle y suit ses ventes, ses
+ * clients, la production des études, et y tient son catalogue. La coquille
+ * précédente alignait quatorze entrées à plat, sous des caractères
+ * typographiques en guise d'icônes, et son en-tête ne disait ni où l'on était
+ * ni ce qu'on pouvait y faire. Celle-ci pose quatre choses, pour tous les
+ * écrans :
  *
- * Deux différences assumées avec l'espace client, parce qu'elles portent du
- * sens et non du goût :
+ * 1. **Une barre en groupes** (`navigation.ts`) — Pilotage, Catalogue,
+ *    Clients, Production, Communication —, chaque entrée sous une icône
+ *    dessinée (`icones.tsx`). Repliable en rail d'icônes sur ordinateur,
+ *    tiroir sur téléphone et tablette.
+ * 2. **Un en-tête de page constant** : fil d'Ariane (groupe › écran › détail),
+ *    titre — le seul `h1` de l'écran —, phrase d'aide, et à droite un
+ *    emplacement que l'écran remplit avec `ActionsDePage`.
+ * 3. **Un pied de barre** : voir le site, l'espace client quand une session
+ *    y est ouverte sur ce poste, se déconnecter.
+ * 4. **Le langage d'écran** (`console.css`) : tout ce qui est rendu sous
+ *    `.console` — cartes, tableaux, chiffres, boutons, champs — prend la même
+ *    forme, sans qu'un écran ait à le demander.
  *
- * - le sceau est **noir sur or** au lieu d'or sur noir, pour qu'on sache d'un
- *   coup d'œil dans lequel des deux espaces on se trouve ;
- * - le bloc de pied affichait le nombre de **demandes à traiter**. Il a été
- *   retiré le 07/08/2026, en même temps que le solde de l'espace client. La
- *   pastille à côté de « Demandes » subsiste, elle : elle tient en deux
- *   chiffres et signale qu'il y a quelque chose à faire, là où le bloc de pied
- *   répétait la même information en grand sur chaque écran.
+ * ## Ce qui distingue l'administration de l'espace client
+ *
+ * Le sceau : **noir sur or**, là où l'espace client est or sur noir. On sait
+ * d'un coup d'œil dans lequel des deux on se trouve — agir dans le mauvais
+ * coûte plus cher qu'un regard.
+ *
+ * ## Ce que la coquille ne fait pas
+ *
+ * Elle ne charge aucun écran (`ecrans.ts`, `router.tsx`) et ne connaît aucune
+ * route : elle lit le chemin courant et le plan. Les adresses restent celles
+ * du routeur.
  */
-import { useBarreLaterale } from "../theme/useBarreLaterale";
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import {
+  type FocusEvent,
+  type MouseEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
-import { adminApi } from "./api";
+import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
+
 import { clearToken } from "../auth";
+import { jeton as jetonEspace } from "../espace/jeton";
+import { useBarreLaterale } from "../theme/useBarreLaterale";
+import { adminApi } from "./api";
+import { EmplacementDesActions } from "./emplacement";
+import { surveillerLesTableaux } from "./etiqueterTableaux";
+import { Icone } from "./icones";
+import { ENTETE_PAR_DEFAUT, GROUPES, positionDe } from "./navigation";
+import "./console.css";
 
-const ENTREES = [
-  { vers: "/admin", libelle: "Tableau de bord", icone: "◈", exact: true },
-  { vers: "/admin/organisations", libelle: "Organisations", icone: "◍" },
-  { vers: "/admin/livrables", libelle: "Livrables", icone: "▣" },
-  { vers: "/admin/boutique", libelle: "Boutique", icone: "▤" },
-  { vers: "/admin/annonces", libelle: "Annonces", icone: "◆" },
-  { vers: "/admin/prospection", libelle: "Prospection", icone: "◎" },
-  { vers: "/admin/transactions", libelle: "Transactions", icone: "◈" },
-  { vers: "/admin/demandes", libelle: "Demandes", icone: "◇" },
-  { vers: "/admin/signalements", libelle: "Signalements", icone: "⚑" },
-  { vers: "/admin/jobs", libelle: "Générations", icone: "▤" },
-  { vers: "/admin/incidents", libelle: "Incidents", icone: "⚠" },
-  { vers: "/admin/qualite", libelle: "Qualité", icone: "◇" },
-  { vers: "/admin/orders", libelle: "Commandes", icone: "◐" },
-  { vers: "/admin/clients", libelle: "Clients", icone: "◉" },
-] as const;
+/** L'identifiant du contenu : la cible du lien d'évitement. */
+const ID_DU_CONTENU = "contenu-admin";
+const ID_DE_LA_BARRE = "navigation-admin";
 
-const ENTETES: Record<string, { titre: string; sous: string }> = {
-  "/admin": {
-    titre: "Tableau de bord",
-    sous: "Activité, paiements, consommation de crédits et volumes produits.",
-  },
-  "/admin/organisations": {
-    titre: "Organisations",
-    sous: "Formule, solde, consommation et volumes, agence par agence.",
-  },
-  "/admin/livrables": {
-    titre: "Livrables",
-    sous: "Plan de chapitres, données collectées et charte du modèle, livrable par livrable.",
-  },
-  "/admin/boutique": {
-    titre: "Boutique",
-    sous: "Les études déjà rédigées : fiche, fichier, prix et mise en ligne.",
-  },
-  "/admin/annonces": {
-    titre: "Annonces",
-    sous: "Prévenir tous vos clients d'un livrable à venir ou disponible.",
-  },
-  "/admin/prospection": {
-    titre: "Prospection",
-    sous: "Trouver des prospects, préparer les e-mails, valider avant l'envoi, suivre les résultats.",
-  },
-  "/admin/transactions": {
-    titre: "Transactions",
-    sous: "Paiements aboutis, en cours et paniers abandonnés. Relance au cas par cas.",
-  },
-  "/admin/demandes": {
-    titre: "Demandes à traiter",
-    sous: "Changements de formule et achats de crédits venus des espaces clients.",
-  },
-  "/admin/signalements": {
-    titre: "Signalements",
-    sous: "Les problèmes remontés depuis les espaces clients, et l'accès d'assistance.",
-  },
-  "/admin/jobs": {
-    titre: "Générations",
-    sous: "Suivi des études en cours et terminées. Relance en cas d'échec.",
-  },
-  "/admin/incidents": {
-    titre: "Incidents",
-    sous: "Ce qui demande une intervention.",
-  },
-  "/admin/qualite": {
-    titre: "Qualité",
-    sous: "Ce que la production a trouvé et corrigé, chapitre par chapitre. Interne.",
-  },
-  "/admin/orders": { titre: "Commandes", sous: "Les commandes reçues et leur état." },
-  "/admin/clients": { titre: "Clients", sous: "Les contacts et leurs abonnements." },
-};
-
-/** En-tête de la page courante.
- *
- * La correspondance exacte ne couvrait pas les pages de détail : `/admin/jobs/42`
- * et `/admin/clients/<id>` retombaient sur « Administration », un titre qui ne
- * dit rien de l'écran affiché. On retient donc la clé la PLUS LONGUE qui
- * préfixe le chemin — ainsi une page de détail hérite du titre de sa liste, et
- * une nouvelle sous-route n'a pas à être déclarée pour être correctement
- * titrée. Viser la classe, pas les deux cas connus (règle 4).
- */
-function enteteDe(chemin: string): { titre: string; sous: string } {
-  const cle = Object.keys(ENTETES)
-    .filter((c) => chemin === c || chemin.startsWith(`${c}/`))
-    .sort((a, b) => b.length - a.length)[0];
+/** Un clic qui doit rester au navigateur : bouton du milieu, ou une touche
+ *  tenue pour ouvrir dans un onglet, une fenêtre, ou télécharger. */
+function clicDetourne(evenement: MouseEvent<HTMLAnchorElement>): boolean {
   return (
-    (cle ? ENTETES[cle] : undefined) ?? {
-      titre: "Administration",
-      sous: "Supervision de la plateforme.",
-    }
+    evenement.button !== 0 ||
+    evenement.metaKey ||
+    evenement.ctrlKey ||
+    evenement.shiftKey ||
+    evenement.altKey
+  );
+}
+
+/** `/admin/` et `/admin` sont le même écran. */
+function sansBarreFinale(chemin: string): string {
+  return chemin.length > 1 ? chemin.replace(/\/+$/, "") : chemin;
+}
+
+/** Ce qu'une pastille de la barre a à dire. Trois états, et pas deux : « rien
+ *  à traiter » et « je n'ai pas pu compter » ne se ressemblent pas. */
+type Compte =
+  | { etat: "connu"; nombre: number }
+  | { etat: "inconnu" }
+  | { etat: "en panne" };
+
+function compteDe(
+  lecture: { isError: boolean },
+  nombre: number | undefined,
+): Compte {
+  if (nombre !== undefined) return { etat: "connu", nombre };
+  return lecture.isError ? { etat: "en panne" } : { etat: "inconnu" };
+}
+
+/** La pastille d'une entrée : un nombre quand il y a quelque chose à traiter,
+ *  rien quand il n'y a rien — et un signe distinct quand le compte n'a pas pu
+ *  être lu. Une panne qui s'afficherait comme l'absence de pastille se lirait
+ *  « zéro demande » : des clients attendraient derrière une barre qui se
+ *  déclare à jour (règle 1). */
+function PastilleDeBarre({ compte, quoi }: { compte: Compte; quoi: string }) {
+  if (compte.etat === "en panne") {
+    // Pas de `role="status"` : la pastille est DANS le lien, elle fait partie
+    // de son nom (« Demandes — nombre de demandes indisponible »).
+    return (
+      <span className="console-pastille console-pastille-panne">
+        <span aria-hidden="true">?</span>
+        <span className="visuellement-cache">
+          {" "}
+          — nombre de {quoi} indisponible
+        </span>
+      </span>
+    );
+  }
+  if (compte.etat !== "connu" || compte.nombre <= 0) return null;
+  return (
+    <span className="console-pastille">
+      {compte.nombre}
+      <span className="visuellement-cache"> {quoi} à traiter</span>
+    </span>
   );
 }
 
 export function CoquilleAdmin() {
   const chemin = useRouterState({ select: (etat) => etat.location.pathname });
+  const routeur = useRouter();
   const barre = useBarreLaterale();
-  const entete = enteteDe(chemin);
+  const position = positionDe(chemin);
 
-  // La requete sert encore : la pastille a cote de << Demandes >> signale qu'il
-  // y a quelque chose a traiter. C'est le gros bloc de pied qui a ete retire,
-  // pas cet indicateur — il tient en deux chiffres et il est a sa place.
-  const { data: demandes } = useQuery({
+  /** Suivre une entrée du plan sans recharger la page.
+   *
+   * Les entrées sont de vrais liens (`<a href>`) : ils s'ouvrent dans un
+   * onglet, se copient, se lisent comme des liens. Un clic ordinaire, lui,
+   * passe par l'historique du routeur — la page ne se recharge pas.
+   *
+   * Pas de `Link` ici, à dessein. `Link` n'accepte que les chemins que le
+   * routeur a déclarés, vérifiés à la compilation ; ceux-ci viennent du plan
+   * (`navigation.ts`), une liste de données, qui peut nommer un écran avant
+   * que sa route n'existe (« Formations », écrite à part). Ce n'est donc pas
+   * le compilateur qui tient ces chemins : c'est
+   * `la-coquille-d-administration.test.tsx`, qui parcourt le plan et exige
+   * que chaque chemin soit une route de l'arbre RÉEL (`router.creerRouteur`).
+   * Et l'entrée courante se déduit du même plan que le titre et le fil
+   * d'Ariane (`positionDe`) — une seule réponse à « où suis-je ? », pas deux
+   * qui pourraient diverger.
+   *
+   * Un clic sur l'écran où l'on est déjà ne pousse rien : sinon chaque clic
+   * ajouterait à l'historique une entrée identique, et « Précédent » ne
+   * ferait plus rien autant de fois. */
+  function suivre(evenement: MouseEvent<HTMLAnchorElement>, vers: string) {
+    if (evenement.defaultPrevented || clicDetourne(evenement)) return;
+    evenement.preventDefault();
+    if (sansBarreFinale(routeur.history.location.pathname) === sansBarreFinale(vers)) return;
+    routeur.history.push(vers);
+  }
+
+  // Sur grand écran, « pas visible » veut dire REPLIÉE EN RAIL : les icônes
+  // restent, les libellés se retirent. Sur petit écran, c'est un tiroir, ouvert
+  // ou fermé.
+  const rail = barre.large && !barre.visible;
+  const tiroirOuvert = !barre.large && barre.visible;
+  const tiroirFerme = !barre.large && !barre.visible;
+
+  // ── Ce qui attend une réponse ───────────────────────────────────────────
+  // Les deux pastilles disent qu'il y a quelqu'un qui attend. Celle des
+  // signalements compte les NOUVEAUX et les EN COURS : n'afficher que les
+  // nouveaux la ferait tomber à zéro dès qu'on prend un dossier en charge.
+  const lectureDemandes = useQuery({
     queryKey: ["admin", "demandes"],
     queryFn: adminApi.demandes,
     staleTime: 60_000,
   });
-  const aTraiter = demandes?.ouvertes ?? 0;
-
-  // Meme role pour les signalements : une pastille dit qu'il y a quelqu'un qui
-  // attend. Elle compte les NOUVEAUX ET les EN COURS — n'afficher que les
-  // nouveaux la ferait tomber a zero des qu'on prend un dossier en charge, et
-  // laisserait croire qu'il n'y a plus rien a faire.
-  const { data: signalements } = useQuery({
+  const lectureSignalements = useQuery({
     queryKey: ["admin", "signalements"],
     queryFn: adminApi.signalements,
     staleTime: 60_000,
   });
-  const signalementsATraiter = signalements?.a_traiter ?? 0;
+  const comptes: Record<string, { compte: Compte; quoi: string }> = {
+    "/admin/demandes": {
+      compte: compteDe(lectureDemandes, lectureDemandes.data?.ouvertes),
+      quoi: "demandes",
+    },
+    "/admin/signalements": {
+      compte: compteDe(lectureSignalements, lectureSignalements.data?.a_traiter),
+      quoi: "signalements",
+    },
+  };
 
+  // ── Le tiroir : le focus y entre, et revient d'où il est parti ──────────
+  const boutonMenu = useRef<HTMLButtonElement>(null);
+  const boutonFermer = useRef<HTMLButtonElement>(null);
+  const etaitOuvert = useRef(false);
+  useEffect(() => {
+    if (tiroirOuvert) {
+      boutonFermer.current?.focus();
+    } else if (etaitOuvert.current) {
+      // Échap, le voile, la croix ou un lien choisi : dans tous les cas le
+      // focus revient au bouton qui a ouvert, jamais au début du document.
+      boutonMenu.current?.focus();
+    }
+    etaitOuvert.current = tiroirOuvert;
+  }, [tiroirOuvert]);
+
+  // ── Le contenu : tableaux étiquetés, emplacement des actions ────────────
+  const contenu = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!contenu.current) return;
+    return surveillerLesTableaux(contenu.current);
+  }, []);
+  const [emplacement, setEmplacement] = useState<HTMLElement | null>(null);
+
+  // ── L'infobulle du rail ─────────────────────────────────────────────────
+  // En rail, le libellé d'une entrée n'est plus visible : il reste lu par les
+  // lecteurs d'écran (il est toujours dans le lien), et il s'affiche ici pour
+  // les yeux, au survol COMME au focus du clavier. Elle est posée en
+  // `position: fixed`, hors de la barre : dedans, le défilement de la liste la
+  // couperait. Échap la retire sans déplacer le focus.
+  const [infobulle, setInfobulle] = useState<{ texte: string; haut: number } | null>(null);
+  const montrer = (
+    evenement: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
+    texte: string,
+  ) => {
+    if (!rail) return;
+    const cadre = evenement.currentTarget.getBoundingClientRect();
+    setInfobulle({ texte, haut: cadre.top + cadre.height / 2 });
+  };
+  const cacher = () => setInfobulle(null);
+  useEffect(() => {
+    if (!infobulle) return;
+    const surTouche = (evenement: KeyboardEvent) => {
+      if (evenement.key === "Escape") setInfobulle(null);
+    };
+    window.addEventListener("keydown", surTouche);
+    return () => window.removeEventListener("keydown", surTouche);
+  }, [infobulle]);
+  const infobulleVisible = rail ? infobulle : null;
 
   function deconnecter() {
     clearToken();
     window.location.href = "/login";
   }
 
+  /** Le lien d'évitement mène au contenu sans passer par l'adresse : un `#…`
+   *  ajouté à l'URL serait lu par le routeur comme un changement de page. */
+  function allerAuContenu(evenement: MouseEvent<HTMLAnchorElement>) {
+    evenement.preventDefault();
+    contenu.current?.focus();
+    contenu.current?.scrollIntoView?.();
+  }
+
+  const titre = position ? (position.detail ?? position.entree.titre) : ENTETE_PAR_DEFAUT.titre;
+  const aide = position ? position.entree.aide : ENTETE_PAR_DEFAUT.aide;
+
+  const classes = ["console"];
+  if (rail) classes.push("console-en-rail");
+  if (tiroirOuvert) classes.push("console-tiroir-ouvert");
+
   return (
-    <div className={barre.visible ? "espace" : "espace barre-repliee"}>
-      <nav
-        id="navigation-admin"
-        className={barre.visible ? "espace-barre ouverte" : "espace-barre"}
-        aria-label="Navigation de l'administration"
+    <div className={classes.join(" ")}>
+      {/* Tiroir ouvert, le contenu est inerte : le lien qui y mène l'est
+          aussi, sinon il resterait atteignable et viserait une zone morte. */}
+      <a
+        className="console-saut"
+        href={`#${ID_DU_CONTENU}`}
+        inert={tiroirOuvert}
+        onClick={allerAuContenu}
       >
-        <div className="espace-marque">
-          <span className="espace-sceau inverse" aria-hidden="true">
+        Aller au contenu
+      </a>
+
+      {/* Fermé, le tiroir est hors écran : `inert` le retire aussi de la
+          tabulation et des lecteurs d'écran. Sans cela on tabulait dans
+          quinze liens invisibles avant d'atteindre la page. */}
+      <nav
+        id={ID_DE_LA_BARRE}
+        className="console-barre"
+        aria-label="Navigation de l'administration"
+        inert={tiroirFerme}
+      >
+        <div className="console-marque">
+          <span className="console-sceau" aria-hidden="true">
             E
           </span>
-          <div>
-            <div className="espace-marque-nom">EVKHA</div>
-            <div className="espace-marque-sous">Administration</div>
+          <div className="console-marque-texte">
+            <div className="console-marque-nom">EVKHA</div>
+            <div className="console-marque-sous">Administration</div>
           </div>
+          <button
+            ref={boutonFermer}
+            type="button"
+            className="console-bouton-icone console-fermer-tiroir"
+            aria-label="Fermer le menu"
+            onClick={barre.fermer}
+          >
+            <Icone nom="fermer" />
+          </button>
         </div>
 
-        <ul className="espace-nav">
-          {ENTREES.map((entree) => (
-            <li key={entree.vers}>
-              <Link
-                to={entree.vers}
-                className="espace-lien"
-                activeProps={{ className: "espace-lien actif" }}
-                activeOptions={{ exact: "exact" in entree ? entree.exact : false }}
-                onClick={barre.fermer}
-              >
-                <span className="espace-lien-icone" aria-hidden="true">
-                  {entree.icone}
-                </span>
-                {entree.libelle}
-                {entree.vers === "/admin/demandes" && aTraiter > 0 && (
-                  <span className="espace-compteur">{aTraiter}</span>
-                )}
-                {entree.vers === "/admin/signalements" &&
-                  signalementsATraiter > 0 && (
-                    <span className="espace-compteur">
-                      {signalementsATraiter}
-                    </span>
-                  )}
-              </Link>
-            </li>
+        <div className="console-groupes">
+          {GROUPES.map((groupe) => (
+            <div key={groupe.cle} className="console-groupe">
+              <p className="console-groupe-titre" id={`groupe-${groupe.cle}`}>
+                {groupe.libelle}
+              </p>
+              <ul className="console-entrees" aria-labelledby={`groupe-${groupe.cle}`}>
+                {groupe.entrees.map((entree) => {
+                  const pastille = comptes[entree.vers];
+                  const courante = position?.entree.vers === entree.vers;
+                  return (
+                    <li key={entree.vers}>
+                      {/* L'entrée courante : `aria-current` pour qui ne voit pas
+                          la plaque d'or, `actif` pour qui la voit. Sur une
+                          page de détail, c'est l'écran parent qui l'est. */}
+                      <a
+                        href={entree.vers}
+                        className={courante ? "console-entree actif" : "console-entree"}
+                        aria-current={courante ? "page" : undefined}
+                        onClick={(evenement) => {
+                          suivre(evenement, entree.vers);
+                          cacher();
+                          barre.fermer();
+                        }}
+                        onMouseEnter={(evenement) => montrer(evenement, entree.libelle)}
+                        onMouseLeave={cacher}
+                        onFocus={(evenement) => montrer(evenement, entree.libelle)}
+                        onBlur={cacher}
+                      >
+                        <Icone nom={entree.icone} />
+                        <span className="console-entree-libelle">{entree.libelle}</span>
+                        {pastille && (
+                          <PastilleDeBarre compte={pastille.compte} quoi={pastille.quoi} />
+                        )}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
 
-        {/* Meme retrait que dans l'espace client. Le compteur de demandes a
-            d'autant moins sa place ici que la file s'est videe : depuis que le
-            paiement et l'achat de credits sont directs, plus rien n'y atterrit
-            sauf le changement de formule d'un abonnement sans carte. */}
-
-        <button type="button" className="bouton bouton-discret" onClick={deconnecter}>
-          Se déconnecter
-        </button>
+        <div className="console-pied">
+          {/* Des liens qui RECHARGENT la page, eux : le site public et
+              l'espace client sont d'autres morceaux de l'application, avec
+              leur propre garde d'accès — on y entre par un vrai chargement. */}
+          <a
+            className="console-entree"
+            href="/"
+            onMouseEnter={(evenement) => montrer(evenement, "Voir le site")}
+            onMouseLeave={cacher}
+            onFocus={(evenement) => montrer(evenement, "Voir le site")}
+            onBlur={cacher}
+          >
+            <Icone nom="site" />
+            <span className="console-entree-libelle">Voir le site</span>
+          </a>
+          {/* Seulement si une session cliente est ouverte sur ce poste (une
+              session d'assistance, le plus souvent) : sans elle le lien
+              mènerait à un écran de connexion, pas à un espace. */}
+          {jetonEspace.present() && (
+            <a
+              className="console-entree"
+              href="/espace"
+              onMouseEnter={(evenement) => montrer(evenement, "Espace client")}
+              onMouseLeave={cacher}
+              onFocus={(evenement) => montrer(evenement, "Espace client")}
+              onBlur={cacher}
+            >
+              <Icone nom="espace" />
+              <span className="console-entree-libelle">Espace client</span>
+            </a>
+          )}
+          <button
+            type="button"
+            className="console-entree console-entree-bouton"
+            onClick={deconnecter}
+            onMouseEnter={(evenement) => montrer(evenement, "Se déconnecter")}
+            onMouseLeave={cacher}
+            onFocus={(evenement) => montrer(evenement, "Se déconnecter")}
+            onBlur={cacher}
+          >
+            <Icone nom="deconnexion" />
+            <span className="console-entree-libelle">Se déconnecter</span>
+          </button>
+        </div>
       </nav>
 
+      {/* Décoratif pour le clavier : le tiroir a sa croix, et Échap ferme. Le
+          voile sert à qui clique à côté. */}
       <button
         type="button"
-        className={barre.visible && !barre.large ? "espace-voile visible" : "espace-voile"}
-        aria-label="Fermer la navigation"
+        className="console-voile"
+        aria-label="Fermer le menu"
+        tabIndex={-1}
+        hidden={!tiroirOuvert}
         onClick={barre.fermer}
       />
 
-      <div className="espace-corps">
-        <header className="espace-entete">
+      {infobulleVisible && (
+        <div
+          className="console-infobulle"
+          aria-hidden="true"
+          style={{ top: infobulleVisible.haut }}
+        >
+          {infobulleVisible.texte}
+        </div>
+      )}
+
+      {/* Tiroir ouvert : tout ce qui est derrière devient inerte — ni clic,
+          ni tabulation, ni lecture. Le tiroir est alors la seule chose à
+          l'écran pour tout le monde. */}
+      <div className="console-corps" inert={tiroirOuvert}>
+        <div className="console-haut">
           <button
+            ref={boutonMenu}
             type="button"
-            className="espace-hamburger"
-            aria-label={barre.visible ? "Fermer la navigation" : "Ouvrir la navigation"}
+            className="console-bouton-icone console-bouton-menu"
+            aria-label={
+              barre.large
+                ? barre.visible
+                  ? "Replier le menu"
+                  : "Déplier le menu"
+                : "Ouvrir le menu"
+            }
             aria-expanded={barre.visible}
-            aria-controls="navigation-admin"
+            aria-controls={ID_DE_LA_BARRE}
             onClick={barre.basculer}
           >
-            <span className="espace-hamburger-traits" aria-hidden="true" />
+            <Icone nom={barre.large ? (barre.visible ? "replier" : "deplier") : "menu"} />
           </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 className="espace-titre">{entete.titre}</h1>
-            <p className="espace-sous-titre">{entete.sous}</p>
+
+          <nav aria-label="Fil d'Ariane" className="console-fil">
+            <ol>
+              {position ? (
+                <>
+                  <li>{position.groupe.libelle}</li>
+                  <li>
+                    <Icone nom="chevron" taille={14} />
+                    {position.detail ? (
+                      <a
+                        href={position.entree.vers}
+                        onClick={(evenement) => suivre(evenement, position.entree.vers)}
+                      >
+                        {position.entree.libelle}
+                      </a>
+                    ) : (
+                      <span aria-current="page">{position.entree.libelle}</span>
+                    )}
+                  </li>
+                  {position.detail && (
+                    <li>
+                      <Icone nom="chevron" taille={14} />
+                      <span aria-current="page">{position.detail}</span>
+                    </li>
+                  )}
+                </>
+              ) : (
+                <li>
+                  <span aria-current="page">{ENTETE_PAR_DEFAUT.titre}</span>
+                </li>
+              )}
+            </ol>
+          </nav>
+        </div>
+
+        <header className="console-entete">
+          <div className="console-entete-texte">
+            <h1 className="console-titre-page">{titre}</h1>
+            <p className="console-aide">{aide}</p>
           </div>
-          <a
-            href="/espace"
-            className="bouton bouton-contour bouton-sm"
-            style={{ flex: "0 0 auto" }}
-          >
-            Espace client
-            {/* La flèche est nichée dans son propre disque (`.bouton__icone`),
-                jamais posée nue à côté du texte. Décorative : le nom du lien
-                reste « Espace client ». */}
-            <span className="bouton__icone" aria-hidden="true">
-              ↗
-            </span>
-          </a>
+          {/* Vide tant qu'aucun écran n'y dépose rien : la feuille le retire
+              alors de la mise en page (`:empty`). */}
+          <div ref={setEmplacement} className="console-entete-actions" />
         </header>
 
-        <main className="espace-contenu">
-          <Outlet />
+        <main ref={contenu} id={ID_DU_CONTENU} className="console-contenu" tabIndex={-1}>
+          <EmplacementDesActions.Provider value={emplacement}>
+            <Outlet />
+          </EmplacementDesActions.Provider>
         </main>
       </div>
     </div>

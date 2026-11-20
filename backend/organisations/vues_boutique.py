@@ -19,7 +19,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from catalog.models import ProduitBoutique
 
-from . import authentification, filigrane, limitation
+from . import authentification, filigrane, limitation, retours
 
 _log = logging.getLogger(__name__)
 
@@ -354,10 +354,17 @@ def acheter(request: HttpRequest) -> HttpResponse:
         return _refus("Cette étude n'est pas disponible.", "produit_inconnu", 404)
 
     email = str(charge.get("email") or "").strip()
+
+    # Même défaut que `vues_publiques.acheter` : le plafond était lu, jamais
+    # compté (audit du 19/11/2026). Et il est compté AVANT l'appel au
+    # prestataire : après, il ne voyait ni les ouvertures refusées, ni les
+    # requêtes parties ensemble (audit du 20/11/2026).
+    limitation.enregistrer(ACHATS_PAR_HEURE, adresse_ip)
+
     try:
         session = stripe_api.creer_paiement_de_produit(produit=produit, email=email)
     except stripe_api.PaiementIndisponible as refus:
-        _log.error("Achat du produit %s impossible : %s", slug, refus)
+        _log.error("Achat du produit %s impossible : %s", produit.slug, refus)
         return _refus(str(refus), "paiement_indisponible", 503)
 
     # Le panier est note AVANT que la personne ne parte payer. C'est tout
@@ -365,10 +372,6 @@ def acheter(request: HttpRequest) -> HttpResponse:
     from paiement import boutique as remise  # noqa: PLC0415
 
     remise.noter_la_tentative(session=session, produit=produit, email=email)
-
-    # Même défaut que `vues_publiques.acheter` : le plafond était lu, jamais
-    # compté (audit du 19/11/2026).
-    limitation.enregistrer(ACHATS_PAR_HEURE, adresse_ip)
     return JsonResponse({"adresse": session.adresse})
 
 
@@ -387,17 +390,14 @@ def retour(request: HttpRequest) -> HttpResponse:
     """
     from paiement import boutique as remise  # noqa: PLC0415
     from paiement import stripe_api  # noqa: PLC0415
+    from paiement.achats import reference_abregee  # noqa: PLC0415
 
+    # Plafond, corps, FORME de l'identifiant : la garde commune aux trois
+    # pages de retour, avant tout appel au prestataire (`retours`).
     try:
-        charge = json.loads(request.body or b"{}")
-    except json.JSONDecodeError:
-        return _refus("Requête illisible.", "corps_invalide")
-    if not isinstance(charge, dict):
-        return _refus("Requête illisible.", "corps_invalide")
-
-    identifiant = str(charge.get("session") or "").strip()
-    if not identifiant:
-        return _refus("Paiement introuvable.", "session_absente")
+        identifiant = retours.session_presentee(request)
+    except retours.Refus as refus:
+        return _refus(refus.message, refus.code, refus.statut)
 
     try:
         session = stripe_api.relire_la_session(identifiant)
@@ -410,7 +410,10 @@ def retour(request: HttpRequest) -> HttpResponse:
     try:
         resultat = remise.livrer_le_produit(session)
     except remise.AchatInexploitable as refus:
-        _log.error("Retour de boutique inexploitable (%s) : %s", identifiant, refus)
+        _log.error(
+            "Retour de boutique inexploitable (%s) : %s",
+            reference_abregee(identifiant), refus,
+        )
         return _refus(
             "Votre paiement a bien été reçu, mais votre accès n'a pas pu être "
             "ouvert. Écrivez-nous à contact@evkha.fr, nous le faisons "
@@ -428,7 +431,14 @@ def retour(request: HttpRequest) -> HttpResponse:
     # (`authentification.ouvrir_la_session_d_un_achat`). Les liens de
     # téléchargement, eux, sont ceux du fichier ACHETÉ : ils suivent le
     # paiement, pas le compte.
-    jeton_clair = authentification.ouvrir_la_session_d_un_achat(resultat.compte, identifiant)
+    #
+    # Sans compte né de ce paiement — le rejeu d'une session déjà livrée à
+    # quelqu'un qui avait un compte —, il n'y a rien à ouvrir.
+    jeton_clair = (
+        authentification.ouvrir_la_session_d_un_achat(resultat.compte, identifiant)
+        if resultat.compte is not None
+        else None
+    )
     return JsonResponse({
         "jeton": jeton_clair,
         "connexion_requise": jeton_clair is None,

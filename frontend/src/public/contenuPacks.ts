@@ -39,15 +39,21 @@
  * est `null`.
  *
  * UNE SOURCE PAR FAIT (règle 5). Le prix et la durée de la Méthode P.O.P,
- * offerte avec le Premium, ne sont PAS écrits ici : ils se lisent dans
- * `contenuFormations` (`TARIFS_FORMATIONS.pop`, `DUREES_POP`), où la formation
- * est vendue. Les adresses des trois pages se lisent dans
+ * offerte avec le Premium, ne sont PAS écrits ici, ni dans aucun fichier du
+ * frontend : la gérante les tient dans l'administration, et le serveur les
+ * rend (`GET /api/public/formations/`, formation `methode-pop`). Les phrases
+ * qui citent la « valeur » de la formation ou sa durée les portent en MARQUE
+ * (`{valeurPop}`, `{valeurPopEntiere}`, `{heuresPop}` — voir `chiffres.ts`),
+ * dans un passage facultatif : tant que la formation n'est pas en ligne, ou si
+ * l'appel échoue, la mention disparaît de la phrase et la page reste entière.
+ * Voir `chiffresDesPacks`. Les adresses des trois pages se lisent dans
  * `contenuSite.CHEMINS`, et les montants s'affichent par `donnees.euros`,
  * comme partout sur le site.
  */
-import { DUREES_POP, TARIFS_FORMATIONS } from "./contenuFormations";
+import type { Chiffres } from "./chiffres";
+import { chiffresDeLaFormation, formationEnLigne } from "./contenuFormations";
 import { CHEMINS } from "./contenuSite";
-import { euros } from "./donnees";
+import { euros, type FormationPublique } from "./donnees";
 
 // ── Tarifs ──────────────────────────────────────────────────────────────────
 
@@ -69,17 +75,14 @@ export type TarifReleve = {
  *  vaut donc `null`, et non une supposition. Les deux prix de vente ne
  *  figurent que sur `/packs` ; les pages de paiement ne les redisent pas.
  *
- *  `formationPop` : la valeur de la formation P.O.P offerte avec le Premium,
- *  telle que les pages des packs la citent. Ce n'est pas un prix de vente de
- *  ce lot : le montant est LU dans `contenuFormations.TARIFS_FORMATIONS.pop`,
- *  le prix auquel la formation est vendue. Écrit ici une seconde fois, il
- *  aurait suffi d'un changement de tarif de la formation pour que le Premium
- *  annonce une « valeur » que plus rien ne vend. Les pages des packs ne
- *  l'accompagnent d'aucune mention de taxe : `mentionTaxe` reste `null`. */
+ *  La « valeur » de la formation P.O.P offerte avec le Premium n'est PAS ici :
+ *  ce n'est pas un prix de vente de ce lot, c'est le prix auquel la formation
+ *  est vendue — et celui-là vient du serveur (voir `chiffresDesPacks`). Écrit
+ *  ici, il aurait suffi d'un changement de tarif de la formation pour que le
+ *  Premium annonce une « valeur » que plus rien ne vend. */
 export const TARIFS_PACKS = {
   essentiel: { centimes: 49500, mentionTaxe: null },
   premium: { centimes: 99500, mentionTaxe: null },
-  formationPop: { centimes: TARIFS_FORMATIONS.pop.centimes, mentionTaxe: null },
 } as const satisfies Record<string, TarifReleve>;
 
 /** Le montant en euros entiers, sans symbole (« 495 »). Un montant qui ne
@@ -104,13 +107,43 @@ function enEuros(tarif: TarifReleve): string {
   return euros(tarif.centimes);
 }
 
-/** La durée de la Méthode P.O.P, telle que les pages des packs l'écrivent :
- *  « 7h ». Le nombre d'heures est lu là où la formation est décrite. */
-const HEURES_POP = `${DUREES_POP.heuresEnLigne}h`;
-
 const PRIX_ESSENTIEL = enEuros(TARIFS_PACKS.essentiel);
 const PRIX_PREMIUM = enEuros(TARIFS_PACKS.premium);
-const VALEUR_POP = enEuros(TARIFS_PACKS.formationPop);
+
+// ── La formation P.O.P offerte : ce que le serveur en dit ───────────────────
+
+/** Les chiffres de la Méthode P.O.P que les pages des packs citent, par nom
+ *  de marque (voir `chiffres.ts`), tirés de la réponse de
+ *  `donnees.chargerFormations` — la MÊME que lisent les pages des formations :
+ *  le Premium ne peut pas annoncer une valeur que la page de la formation ne
+ *  vend pas.
+ *
+ *  - `valeurPop` : le prix de la formation, tel que le site l'affiche
+ *    (`donnees.euros`).
+ *  - `valeurPopEntiere` : le même en euros entiers, sans symbole, pour la
+ *    phrase relevée qui l'écrit en capitales. `null` si le prix ne tombe pas
+ *    sur un euro rond : la phrase s'en passe plutôt que d'arrondir.
+ *  - `heuresPop` : la durée en ligne de la formation.
+ *
+ *  `formations` vaut `null` tant que la réponse n'est pas arrivée ou si
+ *  l'appel a échoué. Dans ces deux cas, comme quand la formation n'est pas en
+ *  ligne, TOUT vaut `null` : les passages qui citent un chiffre disparaissent
+ *  des phrases, et la page du pack reste entière. Pas d'alerte : aucun prix
+ *  de PACK ne dépend de cet appel. */
+export function chiffresDesPacks(
+  formations: FormationPublique[] | null,
+): Chiffres {
+  const pop = formations ? formationEnLigne(formations, "pop") : null;
+  const enEurosRonds = pop ? pop.prix_cents / 100 : null;
+  return {
+    valeurPop: pop ? euros(pop.prix_cents) : null,
+    valeurPopEntiere:
+      enEurosRonds !== null && Number.isInteger(enEurosRonds)
+        ? enEurosRonds
+        : null,
+    heuresPop: chiffresDeLaFormation(pop).heures,
+  };
+}
 
 // ── Adresses ────────────────────────────────────────────────────────────────
 
@@ -297,7 +330,7 @@ export const PAGE_PACKS = {
       "Je crée une analyse et un plan stratégique pour la première année.",
       "Je crée votre Pitch impactant et animé pour convaincre vos interlocuteurs",
       "Vous bénéficiez de nombreux outils et tableaux de bord",
-      `BONUS EXCEPTIONNEL : ACCÈS À LA FORMATION POP (VALEUR ${eurosEntiers(TARIFS_PACKS.formationPop)} EUROS)`,
+      "BONUS EXCEPTIONNEL : ACCÈS À LA FORMATION POP[[ (VALEUR {valeurPopEntiere} EUROS)]]",
       "Vous profitez de 6 semaines de support mail/WhatsApp après livraison",
     ],
     sertATitre: "Ce pack sert à :",
@@ -588,7 +621,8 @@ export const PAGE_PACK_ESSENTIEL = {
       },
       {
         question: "Quelle est la différence avec le Pack Premium ?",
-        reponse: `Le Pack Essentiel couvre les 3 livrables fondamentaux et l'accompagnement de base. Le Pack Premium est plus complet : appels d'1 heure (au lieu de 45 min), business plan de 40 pages, étude de marché premium, pitch animé, plan stratégique année 1, tableaux de bord ET la formation P.O.P incluse (valeur ${VALEUR_POP}). Si vous visez un financement important ou avez un projet ambitieux, le Premium fait sens.`,
+        reponse:
+          "Le Pack Essentiel couvre les 3 livrables fondamentaux et l'accompagnement de base. Le Pack Premium est plus complet : appels d'1 heure (au lieu de 45 min), business plan de 40 pages, étude de marché premium, pitch animé, plan stratégique année 1, tableaux de bord ET la formation P.O.P incluse[[ (valeur {valeurPop})]]. Si vous visez un financement important ou avez un projet ambitieux, le Premium fait sens.",
       },
       {
         question: "Quels types de projets sont compatibles ?",
@@ -617,7 +651,8 @@ export const PAGE_PACK_ESSENTIEL = {
    *  dit du comparatif (pas de tableau ici). */
   versLePremium: {
     titre: "Le Pack Premium va plus loin",
-    corps: `Business plan de 40 pages, pitch animé, plan stratégique année 1, tableaux de bord… et la formation P.O.P incluse (valeur ${VALEUR_POP}). Pour les projets ambitieux qui veulent maximiser leurs chances.`,
+    corps:
+      "Business plan de 40 pages, pitch animé, plan stratégique année 1, tableaux de bord… et la formation P.O.P incluse[[ (valeur {valeurPop})]]. Pour les projets ambitieux qui veulent maximiser leurs chances.",
     bouton: {
       libelle: "Découvrir le Premium\u00a0→",
       lien: LIENS_PACKS.decouvrirPremium,
@@ -670,7 +705,7 @@ export const PAGE_PACK_PREMIUM = {
       "Pitch impactant et animé",
       "Outils et tableaux de bord",
       "6 semaines de support mail / WhatsApp",
-      `★ BONUS : Formation P.O.P incluse (${VALEUR_POP})`,
+      "★ BONUS : Formation P.O.P incluse[[ ({valeurPop})]]",
     ],
   },
 
@@ -830,11 +865,11 @@ export const PAGE_PACK_PREMIUM = {
         ],
       },
       {
-        titre: `Formation P.O.P incluse (valeur ${VALEUR_POP})`,
+        titre: "Formation P.O.P incluse[[ (valeur {valeurPop})]]",
         corps:
-          `L'accès complet à la formation Méthode P.O.P d'EVKHA : ${HEURES_POP} de formation pour structurer votre activité, organiser votre temps et gagner en rentabilité dès votre première année.`,
+          "L'accès complet à la formation Méthode P.O.P d'EVKHA[[ : {heuresPop}h de formation]] pour structurer votre activité, organiser votre temps et gagner en rentabilité dès votre première année.",
         points: [
-          `${HEURES_POP} de formation digitale`,
+          "[[{heuresPop}h de ]]formation digitale",
           "Méthode P.O.P : Planifiez, Organisez, Produisez",
           "Accès à un agent IA dédié",
           "Templates et tableaux de bord",
@@ -846,13 +881,14 @@ export const PAGE_PACK_PREMIUM = {
 
   formationOfferte: {
     titre: "La formation P.O.P offerte avec votre pack",
-    corps: `D'une valeur de ${VALEUR_POP}, la formation P.O.P est habituellement vendue séparément. Elle est intégralement offerte aux clients du Pack Premium. Parce qu'avoir un bon dossier, c'est bien — mais piloter son activité dans la durée, c'est ce qui fait la différence entre les projets qui durent et ceux qui s'essoufflent.`,
+    corps:
+      "[[D'une valeur de {valeurPop}, ]]la formation P.O.P est habituellement vendue séparément. Elle est intégralement offerte aux clients du Pack Premium. Parce qu'avoir un bon dossier, c'est bien — mais piloter son activité dans la durée, c'est ce qui fait la différence entre les projets qui durent et ceux qui s'essoufflent.",
     carte: {
       titre: "Planifiez. Organisez. Produisez.",
       corps:
         "Le système EVKHA pour structurer votre activité, reprendre le contrôle de votre temps et gagner en rentabilité dès votre première année d'activité.",
       points: [
-        `${HEURES_POP} de formation digitale à votre rythme`,
+        "[[{heuresPop}h de ]]formation digitale à votre rythme",
         "La méthode P.O.P appliquée à votre activité",
         "Outils, templates et tableaux de bord",
         "Accès à un agent IA dédié à vos objectifs",
@@ -903,7 +939,8 @@ export const PAGE_PACK_PREMIUM = {
 
   /** Le titre et l'introduction viennent de l'inventaire ; les douze lignes
    *  du tableau ont été relevées sur le site le 19/11/2026, dans l'ordre. Les
-   *  deux prix et la valeur de la formation lisent `TARIFS_PACKS`.
+   *  deux prix lisent `TARIFS_PACKS` ; la valeur de la formation est une
+   *  marque, remplie par le serveur — sans elle, la case garde son étoile.
    *
    *  À NOTER : le tableau coche « Prévisionnel financier 3 ans » pour le
    *  Premium, alors que la carte du Premium sur `/packs` ne le liste pas
@@ -937,7 +974,7 @@ export const PAGE_PACK_PREMIUM = {
       {
         critere: "Formation P.O.P incluse",
         essentiel: "—",
-        premium: `★ Valeur ${VALEUR_POP}`,
+        premium: "★[[ Valeur {valeurPop}]]",
       },
       {
         critere: "Support mail / WhatsApp",
@@ -966,7 +1003,8 @@ export const PAGE_PACK_PREMIUM = {
     questions: [
       {
         question: "Quelle est la vraie différence avec le Pack Essentiel ?",
-        reponse: `Le Premium est nettement plus complet : 3 appels d'1h au lieu de 2 de 45 min, business plan de 40 pages au lieu de 30, étude de marché premium, cadrage stratégique en amont, plan stratégique année 1, pitch animé, tableaux de bord, ET la formation P.O.P (valeur ${VALEUR_POP}). Si vous visez un financement important, un pitch devant des investisseurs ou un projet ambitieux, le Premium est fait pour vous.`,
+        reponse:
+          "Le Premium est nettement plus complet : 3 appels d'1h au lieu de 2 de 45 min, business plan de 40 pages au lieu de 30, étude de marché premium, cadrage stratégique en amont, plan stratégique année 1, pitch animé, tableaux de bord, ET la formation P.O.P[[ (valeur {valeurPop})]]. Si vous visez un financement important, un pitch devant des investisseurs ou un projet ambitieux, le Premium est fait pour vous.",
       },
       {
         question:

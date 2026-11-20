@@ -87,7 +87,10 @@ class Command(BaseCommand):
         commandes sans client et des générations sans commande — une base
         incohérente est pire qu'une base pleine.
         """
-        from catalog.models import Offer  # noqa: PLC0415, F401 — conserve
+        from catalog.models import (  # noqa: PLC0415
+            AchatFormation,
+            Offer,  # noqa: F401 — conserve
+        )
         from customers.models import Customer, Subscription  # noqa: PLC0415
         from delivery.models import DeliveryBatch, DeliveryEvent  # noqa: PLC0415
         from documents.models import DocumentArtifact  # noqa: PLC0415
@@ -141,6 +144,12 @@ class Command(BaseCommand):
         vider(Order, "commandes")
 
         # Organisations et crédits.
+        # Avant les organisations : `AchatFormation.organisation` est en
+        # PROTECT, et cette commande est reliee par un `&&` sec au demarrage.
+        # Sans cette ligne, une seule formation vendue la ferait lever, et le
+        # conteneur ne demarrerait plus. Les formations, elles, sont du
+        # catalogue : elles restent.
+        vider(AchatFormation, "achats de formation")
         vider(Encaissement, "encaissements")
         vider(MouvementCredit, "mouvements de credit")
         vider(PortefeuilleCredits, "portefeuilles")

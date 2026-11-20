@@ -1,140 +1,139 @@
-/* Porte du tableau de bord (`/login`) — une carte de verre sur le maillage.
+/* La porte de l'administration (`/login`) — au langage du site.
  *
- * La recette de la connexion de l'espace client (`public/Portail.css`) :
- * maillage or et crème, carte en double bordure, champ en creux, bouton-îlot.
- * Le champ et le bouton ne sont PAS redessinés ici : ce sont `.champ-saisie`
- * et `.bouton .bouton-principal` de `theme/espace.css`, chargée pour toute
- * l'application par `main.tsx`, comme les images clés `verre-arrivee` et
- * `verre-fondu`. Cette feuille ne porte que ce qui tient à la page : le fond,
- * la carte, l'en-tête, les textes. Aucune couleur écrite en dur — tout vient
- * de `theme/tokens.css`.
+ * Le ton des écrans de connexion du site (`public/Portail.css`) : papier
+ * crème, carte blanche à double bord, étiquette à pastille corail, mot
+ * d'accent en Fraunces italique, bouton pilule or dont la flèche loge dans un
+ * disque d'encre. En plus sobre encore : pas de visuel, pas d'onglets — un
+ * champ, un bouton.
  *
- * Deux contraintes d'intégration, qui expliquent la forme des sélecteurs :
+ * Ce qui la distingue, et qui reste : le SCEAU de l'administration, noir sur
+ * or, le même que dans la barre de la coquille (`admin/console.css`).
  *
- * - la page pose elle-même sa police, sa couleur et son fond. Elle le
- *   faisait quand Radix Themes enveloppait encore l'application, pour ne pas
- *   hériter des siens ; l'enveloppe a été retirée le 26/09/2026, et la page
- *   n'a plus à se défendre de rien, mais elle reste une racine complète ;
- * - cette feuille est importée par `Login.tsx`, donc via `./router`, que
- *   `main.tsx` importe AVANT `espace.css`. À spécificité égale, `.bouton`
- *   l'emporterait : ce qui ajuste un élément de l'espace est préfixé par
- *   `.connexion-admin` (0,2,0), comme `.ach .ach-bouton` sur la page d'achat.
+ * Le champ et le bouton sont `.champ-saisie` et `.bouton .bouton-principal`
+ * de `theme/espace.css`, chargée pour toute l'application par `main.tsx` ;
+ * cette feuille les ajuste. Elle est importée par `Login.tsx`, donc AVANT ou
+ * APRÈS `espace.css` selon le chemin de chargement : tout ce qui ajuste une
+ * classe de l'espace est préfixé par `.connexion-admin` (une classe de plus),
+ * et ne compte pas sur l'ordre.
+ *
+ * Aucune couleur écrite en dur — tout vient de `theme/tokens.css` — et aucune
+ * durée : chaque mouvement lit un jeton `--duree-*`.
+ *
+ * Contrastes (calculés) : encre sur blanc 17,4:1 ; texte doux #4A4A4A sur
+ * blanc 8,9:1 ; texte tenu #6E6E6E sur blanc 5,1:1, sur papier 4,8:1 ; rouge
+ * d'échec #B3261E sur blanc 6,5:1 ; noir sur l'or du bouton 12,2:1 ; or sur le
+ * disque d'encre 10,8:1 ; bord du champ #808080 sur blanc 3,9:1.
  */
 
-/* Le maillage : la coquille de la charte et trois halos — or en haut à
- * gauche, crème en bas à droite, un or très pâle au centre —, le fond de
- * `.espace`. Peint sur la page et non sur un calque fixe : elle tient dans un
- * écran, rien n'y défile sous un verre, donc aucun flou d'arrière-plan. */
 .connexion-admin {
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: var(--e-10) var(--e-4) var(--e-12);
+  /* Le papier du site, et un seul halo d'or, très dilué, derrière la carte :
+   * la page tient dans un écran, rien n'y défile. */
   background:
-    radial-gradient(40rem 32rem at 14% -4%, var(--halo-or) 0%, transparent 68%),
     radial-gradient(
-      36rem 30rem at 104% 104%,
-      var(--halo-creme) 0%,
-      transparent 66%
-    ),
-    radial-gradient(
-      52rem 34rem at 60% 46%,
-      color-mix(in srgb, var(--halo-or) 45%, transparent) 0%,
+      36rem 26rem at 50% 30%,
+      color-mix(in srgb, var(--evkha-or) 12%, transparent) 0%,
       transparent 70%
     ),
-    var(--fond-page);
+    var(--evkha-papier);
   color: var(--texte);
   font-family: var(--police-corps);
   font-size: var(--t-base);
   line-height: var(--interligne);
 }
 
-/* La carte de verre : coque translucide cernée d'un liseré, cœur blanc plus
- * dense en retrait de `--verre-marge` (`::before`, sous le contenu dans le
- * contexte isolé de la carte), rayons concentriques. Elle MONTE à l'arrivée ;
- * son contenu, lui, s'allume ensuite — deux montées empilées bougeraient deux
- * fois pour le même effet.
- *
- * Contraste calculé sur ce cœur (blanc à 78 % sur la coque, ≈ #FEFEFE) :
- * texte tenu #6E6E6E à 5,1:1, texte doux #4A4A4A à 8,8:1, rouge d'échec
- * #B3261E à 6,5:1, noir sur l'or du bouton à 11,5:1. */
+/* La carte : blanche, un liseré, et le second bord de l'écrin — la carte à
+ * double bord du site. Elle monte une fois, à l'arrivée. */
 .connexion-admin-carte {
-  position: relative;
-  isolation: isolate;
-  width: min(420px, 100%);
-  padding: calc(var(--e-8) + var(--verre-marge));
-  border: 1px solid var(--verre-bordure);
+  width: min(27.5rem, 100%);
+  padding: var(--e-10) var(--e-8) var(--e-8);
+  border: 1px solid var(--evkha-bordure);
   border-radius: var(--rayon-verre);
-  background: var(--verre-fond);
-  box-shadow: var(--ombre-ambiante-lg);
+  background: var(--evkha-blanc);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--evkha-encre) 3%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--evkha-encre) 6%, transparent),
+    0 22px 60px color-mix(in srgb, var(--evkha-miel) 12%, transparent);
   animation: verre-arrivee var(--duree-reveal) var(--ease-sortie) backwards;
 }
 
-.connexion-admin-carte::before {
-  content: "";
-  position: absolute;
-  inset: var(--verre-marge);
-  z-index: -1;
-  pointer-events: none;
-  border: 1px solid var(--verre-reflet);
-  border-radius: var(--rayon-verre-interne);
-  background: var(--verre-fond-fort);
-  box-shadow: inset 0 1px 0 var(--verre-reflet), 0 1px 2px var(--verre-bordure);
-}
-
-.connexion-admin-carte > * {
-  animation: verre-fondu var(--duree-reveal) var(--ease-sortie) backwards;
-  animation-delay: calc((var(--i, 0) + 2) * var(--decalage-reveal));
-}
-
-.connexion-admin-carte > :nth-child(2) {
-  --i: 1;
-}
-
-.connexion-admin-carte > :nth-child(n + 3) {
-  --i: 2;
-}
-
-/* ── En-tête ─────────────────────────────────────────────────────────────── */
+/* ── En-tête : le sceau et l'étiquette ───────────────────────────────────── */
 
 .connexion-admin-entete {
   display: flex;
   align-items: center;
   gap: var(--e-3);
-  margin-bottom: var(--e-8);
+  margin-bottom: var(--e-6);
 }
 
-/* Le sceau du tableau de bord : l'hexagone, NOIR dans une pastille d'or —
- * comme tout signe posé sur l'or de la charte, où le blanc plafonne à 1,9:1.
- * Décoratif, donc masqué aux lecteurs d'écran : le titre nomme la page. */
+/* Le sceau de l'administration : NOIR SUR OR, un disque, l'initiale dans la
+ * serif d'accent. Décoratif, donc masqué aux lecteurs d'écran : l'étiquette
+ * et le titre nomment la page. */
 .connexion-admin-sceau {
+  flex: none;
   display: grid;
   place-items: center;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--rayon-md);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
   background: var(--evkha-or);
   color: var(--texte-sur-or);
-  font-size: 1.5rem;
+  font-family: var(--police-accent);
+  font-style: italic;
+  /* 500 : la seule graisse de Fraunces italique que `index.html` charge. */
+  font-weight: var(--graisse-moyenne);
+  font-size: var(--t-xl);
   line-height: 1;
-  box-shadow: inset 0 1px 0 var(--verre-reflet), var(--ombre-or);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--evkha-or) 22%, transparent);
+}
+
+/* L'étiquette à pastille corail du site. */
+.connexion-admin-etiquette {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin: 0;
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-affiche);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--texte-fort);
+}
+
+.connexion-admin-etiquette::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--evkha-corail);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--evkha-corail) 18%, transparent);
 }
 
 .connexion-admin-titre {
   margin: 0;
   font-family: var(--police-titre);
-  font-size: var(--t-lg);
+  font-size: clamp(1.625rem, 1.3rem + 1.6vw, 2.125rem);
   font-weight: var(--graisse-affiche);
-  letter-spacing: 0.04em;
-  line-height: var(--interligne-serre);
+  letter-spacing: -0.025em;
+  line-height: 1.12;
   color: var(--texte-fort);
 }
 
+/* Le mot d'accent : Fraunces italique, comme `.acc-s` sur le site. */
+.connexion-admin-accent {
+  font-family: var(--police-accent);
+  font-style: italic;
+  font-weight: var(--graisse-moyenne);
+  letter-spacing: -0.01em;
+}
+
 .connexion-admin-sous-titre {
-  margin: 2px 0 0;
-  font-size: var(--t-sm);
+  margin: var(--e-2) 0 var(--e-8);
   color: var(--texte-doux);
 }
 
@@ -148,11 +147,29 @@
 }
 
 .connexion-admin-libelle {
-  font-size: var(--t-xs);
-  font-weight: var(--graisse-forte);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-titre);
   color: var(--texte-fort);
+}
+
+/* Le champ de l'espace, à la forme du langage commun : fond blanc, bord qui
+ * tient 3:1, 48 px de cible. Sa taille de texte reste celle de
+ * `.champ-saisie` (16 px au moins : sous ce seuil, Safari iOS zoome). */
+.connexion-admin .champ-saisie {
+  min-height: 48px;
+  border-color: var(--evkha-gris-doux);
+  border-radius: var(--rayon-sm);
+  background: var(--evkha-blanc);
+  box-shadow: none;
+}
+
+.connexion-admin .champ-saisie:focus {
+  border-color: var(--evkha-encre);
+  box-shadow: 0 0 0 1px var(--evkha-encre), 0 0 0 4px var(--halo-or-fort);
+}
+
+.connexion-admin .champ-saisie[aria-invalid="true"] {
+  border-color: var(--evkha-echec);
 }
 
 /* Le texte indicatif prend le gris « tenu » de la charte (5,1:1 sur blanc) :
@@ -166,43 +183,95 @@
 .connexion-admin-erreur {
   margin: 0;
   font-size: var(--t-sm);
-  font-weight: var(--graisse-moyenne);
+  font-weight: var(--graisse-forte);
   color: var(--evkha-echec);
 }
 
-/* Le bouton-îlot de l'espace, sur toute la largeur de la carte. Son libellé
- * peut passer à la ligne : à 320 px, « Accéder au dashboard » et son disque
- * ne tiennent pas sur une, et un `.bouton` ne se comprime jamais sous son
- * texte — il déborderait de la carte. */
-.connexion-admin .connexion-admin-bouton {
-  width: 100%;
-  padding: var(--e-4) var(--e-5);
-  font-size: var(--t-md);
-  white-space: normal;
-  text-align: center;
-}
-
-/* ── Aide ────────────────────────────────────────────────────────────────── */
-
 .connexion-admin-aide {
-  margin: var(--e-6) 0 0;
-  font-size: var(--t-xs);
+  margin: 0;
+  font-size: var(--t-sm);
   line-height: var(--interligne);
   color: var(--texte-tenu);
-  text-align: center;
 }
 
 /* Un nom de variable d'environnement se lit en chasse fixe, et se coupe
  * n'importe où plutôt que de faire déborder la carte sur un petit écran. */
 .connexion-admin-code {
   padding: 1px 6px;
-  border: 1px solid var(--verre-bordure);
+  border: 1px solid var(--evkha-bordure);
   border-radius: var(--rayon-xs);
-  background: var(--fond-enfonce);
+  background: var(--evkha-papier);
   font-family: var(--police-mono);
-  font-size: 0.95em;
+  font-size: 0.92em;
   color: var(--texte-fort);
   overflow-wrap: anywhere;
+}
+
+/* Le bouton pilule du site : l'or, et la flèche dans un disque d'encre collé
+ * au bord droit. Sur toute la largeur de la carte ; son libellé peut passer à
+ * la ligne — à 320 px il ne tient pas sur une, et un `.bouton` ne se comprime
+ * jamais sous son texte. */
+.connexion-admin .connexion-admin-bouton {
+  width: 100%;
+  min-height: 56px;
+  justify-content: space-between;
+  padding: var(--e-2) var(--e-2) var(--e-2) var(--e-6);
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  white-space: normal;
+  text-align: left;
+  box-shadow: none;
+}
+
+.connexion-admin-fleche {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--evkha-encre);
+  color: var(--evkha-or);
+  transition: transform var(--duree-micro) var(--ease-doux);
+}
+
+.connexion-admin-bouton:hover:not(:disabled) .connexion-admin-fleche {
+  transform: translateX(3px);
+}
+
+/* Le focus : un contour d'encre, décollé — l'ombre de `.bouton` se perdrait
+ * sur le second bord de la carte. */
+.connexion-admin .connexion-admin-bouton:focus-visible,
+.connexion-admin a:focus-visible {
+  outline: 2px solid var(--evkha-encre);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+/* ── Pied : les deux autres portes ───────────────────────────────────────── */
+
+.connexion-admin-pied {
+  margin: var(--e-6) 0 0;
+  font-size: var(--t-sm);
+  color: var(--texte-tenu);
+  text-align: center;
+}
+
+.connexion-admin-pied a {
+  /* Une cible confortable sans grossir le texte. */
+  display: inline-block;
+  padding: var(--e-2) var(--e-1);
+  border-radius: var(--rayon-xs);
+  color: var(--texte-doux);
+  font-weight: var(--graisse-forte);
+  text-decoration: underline;
+  text-decoration-color: var(--evkha-or-profond);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.connexion-admin-pied a:hover {
+  color: var(--texte-fort);
 }
 
 /* ── Adaptations ─────────────────────────────────────────────────────────── */
@@ -213,17 +282,24 @@
   }
 
   .connexion-admin-carte {
-    padding: calc(var(--e-6) + var(--verre-marge));
+    padding: var(--e-8) var(--e-5) var(--e-6);
   }
 }
 
 /* ── Mouvement réduit ────────────────────────────────────────────────────── */
 
 /* Les durées valent déjà 0 ms (`tokens.css`) ; ceci est le filet : la carte
- * et son contenu, dans leur état final, tout de suite. */
+ * dans son état final, tout de suite, et la flèche immobile. */
 @media (prefers-reduced-motion: reduce) {
-  .connexion-admin-carte,
-  .connexion-admin-carte > * {
+  .connexion-admin-carte {
     animation: none;
+  }
+
+  .connexion-admin-fleche {
+    transition: none;
+  }
+
+  .connexion-admin-bouton:hover:not(:disabled) .connexion-admin-fleche {
+    transform: none;
   }
 }
