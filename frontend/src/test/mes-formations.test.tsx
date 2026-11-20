@@ -24,7 +24,18 @@
  * 7. précédente / suivante, le focus au titre de la leçon, la dernière leçon
  *    retenue dans ce navigateur — et un stockage refusé qui n'empêche rien ;
  * 8. un slug qui n'est pas dans la réponse : dit, avec ses portes de sortie —
- *    et distinct d'une panne.
+ *    et distinct d'une panne ;
+ * 9. la progression : la barre et « X leçons sur Y terminées », telles que le
+ *    serveur les rend — et rien quand il n'en dit rien ; le dernier jour
+ *    d'accès ;
+ * 10. la trace d'une leçon : `{ouverte: true}` une fois à l'ouverture ;
+ *     « Marquer comme terminée » et son annulation ; la barre et la coche
+ *     suivent la RÉPONSE ; une trace ratée se dit sans bloquer la lecture ;
+ * 11. un accès échu : la formation reste, sans programme, avec sa date de
+ *     fin, son rachat et le contact ;
+ * 12. les séances en présentiel : le formulaire de signature seulement quand
+ *     le serveur dit la séance `signable`, ses autres états, la signature, et
+ *     chaque refus affiché avec la phrase du serveur.
  *
  * `React` est importé nommément : `src/test` est hors du `tsconfig`, le JSX y
  * est compilé en `React.createElement` classique.
@@ -171,6 +182,10 @@ const SANS_LECON = {
 /** Ce que le serveur a reçu : une ligne par lecture de la liste. */
 let lectures: (string | null)[];
 
+/** Les traces de lecture reçues (`POST formations/lecons/<id>/`). */
+const LECONS_API = `${ORIGINE}/api/espace/formations/lecons/:id/`;
+let traces: { lecon: string; corps: unknown; jeton: string | null }[];
+
 type Reponse = () => Response | Promise<Response>;
 
 /** Sert la liste. Chaque lecture est notée ; `suites` sert les lectures
@@ -249,6 +264,30 @@ beforeEach(() => {
   jeton.ecrire("jeton-de-session");
   lectures = [];
   departs = [];
+  traces = [];
+  // Depuis le 20/11/2026, ouvrir une leçon envoie sa trace au serveur. Par
+  // défaut il l'accepte, sans rien dire de la progression : les tests qui la
+  // regardent posent leur propre réponse.
+  server.use(
+    http.post(LECONS_API, async ({ request, params }) => {
+      traces.push({
+        lecon: String(params.id),
+        corps: await request.json(),
+        jeton: request.headers.get("Authorization"),
+      });
+      return HttpResponse.json({
+        lecon: {
+          id: String(params.id),
+          terminee: false,
+          terminee_le: null,
+          premiere_ouverture_le: "2026-11-20T09:00:00+00:00",
+          derniere_ouverture_le: "2026-11-20T09:00:00+00:00",
+        },
+        formation: "une-autre-formation",
+        progression: { terminees: 0, total: 0, pourcent: null },
+      });
+    }),
+  );
 });
 
 afterEach(() => {
@@ -834,5 +873,454 @@ describe("une formation qui n'est pas dans la réponse", () => {
     expect(await screen.findByText(/Impossible de charger votre formation/)).toBeInTheDocument();
     expect(screen.queryByText(/n'est pas dans votre espace/)).toBeNull();
     expect(screen.getByRole("link", { name: /Mes formations/ })).toHaveAttribute("href", "/espace/formations");
+  });
+});
+
+// ── 9 à 12. Le suivi : progression, traces, accès échu, présence ────────────
+//
+// Depuis le 20/11/2026 le serveur tient le suivi de chaque personne
+// (`catalog/suivi.py`, `vues_espace.mes_formations`) : chaque formation porte
+// `acces`, `acces_jusqu_au`, `progression` et `seances`, chaque leçon
+// `terminee`. Les charges ci-dessous ont cette forme, clé par clé.
+
+/** Une séance, telle que `mes_formations` l'écrit. Passée par défaut. */
+function seanceDEleve(surcharges: Record<string, unknown> = {}) {
+  return {
+    id: "s-1",
+    intitule: "Journée 1",
+    debut: "2020-11-10T08:00:00+00:00",
+    duree_minutes: 210,
+    lieu: "Salle Colbert, Lille",
+    signee_le: null,
+    annulee_le: null,
+    signable: false,
+    signature_jusqu_au: null,
+    ...surcharges,
+  };
+}
+
+/** La formation, avec son suivi : deux leçons terminées sur cinq. */
+function formationSuivie(surcharges: Record<string, unknown> = {}) {
+  const base = laFormation(LIEN_AFFICHE);
+  return {
+    ...base,
+    modules: base.modules.map((module) => ({
+      ...module,
+      lecons: module.lecons.map((uneLecon) => ({
+        ...uneLecon,
+        terminee: uneLecon.id === "l-2" || uneLecon.id === "l-3",
+      })),
+    })),
+    acces: "ouvert",
+    acces_jusqu_au: "2027-11-03",
+    progression: { terminees: 2, total: 5, pourcent: 40 },
+    seances: [] as object[],
+    ...surcharges,
+  };
+}
+
+/** Ce que rend une trace de lecture. */
+function suiviRendu(leconId: string, terminee: boolean, terminees: number) {
+  return HttpResponse.json({
+    lecon: {
+      id: leconId,
+      terminee,
+      terminee_le: terminee ? "2026-11-20T10:00:00+00:00" : null,
+      premiere_ouverture_le: "2026-11-20T09:00:00+00:00",
+      derniere_ouverture_le: "2026-11-20T10:00:00+00:00",
+    },
+    formation: SLUG,
+    progression: { terminees, total: 5, pourcent: Math.round((terminees / 5) * 100) },
+  });
+}
+
+/** Les envois d'UN genre (`ouverte` ou `terminee`), dans l'ordre. */
+function tracesDe(cle: "ouverte" | "terminee") {
+  return traces.filter((trace) => cle in (trace.corps as Record<string, unknown>));
+}
+
+function barre(dans: HTMLElement = document.body): HTMLElement {
+  return within(dans).getByRole("progressbar");
+}
+
+describe("la progression et la fin d'accès", () => {
+  it("la liste : la barre, « X leçons sur Y terminées », et le dernier jour d'accès", async () => {
+    servir(liste(formationSuivie()));
+    monter(<MesFormations />);
+
+    const carte = (await screen.findByRole("heading", { level: 2, name: "Créer sa micro-entreprise d'essai" })).closest(
+      "li",
+    ) as HTMLElement;
+    const progression = barre(carte);
+    expect(progression).toHaveAttribute("aria-valuenow", "40");
+    expect(progression).toHaveAttribute("aria-valuemin", "0");
+    expect(progression).toHaveAttribute("aria-valuemax", "100");
+    expect(progression).toHaveAccessibleName(/Votre progression dans/);
+    // La même chose, écrite : la barre ne se lit pas seule.
+    expect(texteDe(carte)).toContain("2 leçons sur 5 terminées");
+    expect(texteDe(carte)).toContain("Accès jusqu'au 3 novembre 2027");
+    expect(within(carte).getByRole("link", { name: /Ouvrir la formation/ })).toBeInTheDocument();
+  });
+
+  it("le singulier s'accorde, et un accès sans limite ne dit aucune date", async () => {
+    servir(
+      liste(formationSuivie({ acces_jusqu_au: null, progression: { terminees: 1, total: 5, pourcent: 20 } })),
+    );
+    monter(<MesFormations />);
+
+    const carte = (await screen.findByRole("heading", { level: 2 })).closest("li") as HTMLElement;
+    expect(texteDe(carte)).toContain("1 leçon sur 5 terminée");
+    expect(texteDe(carte)).not.toContain("terminées");
+    expect(texteDe(carte)).not.toMatch(/Accès jusqu'au/);
+  });
+
+  it("contre-épreuve : un serveur qui ne dit rien de la progression n'obtient ni barre ni zéro inventé", async () => {
+    servir(liste(laFormation(LIEN_AFFICHE), formationSuivie({ slug: "sans-lecon", titre: "Sans leçon", modules: [], progression: { terminees: 0, total: 0, pourcent: null } })));
+    monter(<MesFormations />);
+
+    await screen.findByRole("heading", { level: 2, name: "Créer sa micro-entreprise d'essai" });
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(texteDe(document.body)).not.toMatch(/sur \d+ terminée/);
+  });
+
+  it("une formation ouverte montre la même barre, et son dernier jour d'accès", async () => {
+    await ouvrirLaFormation(liste(formationSuivie()));
+
+    expect(barre()).toHaveAttribute("aria-valuenow", "40");
+    expect(texteDe(document.body)).toContain("2 leçons sur 5 terminées");
+    expect(texteDe(document.body)).toContain("Accès jusqu'au 3 novembre 2027");
+    // Les leçons terminées sont cochées dans le programme — le signe ET le mot.
+    expect(texteDe(ligne("Le guide à lire"))).toContain("✓ Terminée");
+    expect(texteDe(ligne("Le modèle de statuts"))).toContain("✓ Terminée");
+    expect(texteDe(ligne("Bienvenue"))).not.toContain("Terminée");
+  });
+});
+
+describe("la trace d'une leçon ouverte", () => {
+  it("ouvrir une leçon envoie {ouverte: true} UNE fois, sous le jeton — puis une fois pour la suivante", async () => {
+    await ouvrirLaFormation(liste(formationSuivie()));
+
+    await waitFor(() => expect(traces).toHaveLength(1));
+    expect(traces[0]).toEqual({ lecon: "l-1", corps: { ouverte: true }, jeton: "Bearer jeton-de-session" });
+    // Rien d'autre ne part tant qu'on reste sur la leçon.
+    await new Promise((resoudre) => setTimeout(resoudre, 60));
+    expect(traces).toHaveLength(1);
+
+    fireEvent.click(ligne("Valider ses acquis"));
+    await waitFor(() => expect(traces).toHaveLength(2));
+    expect(traces[1]).toMatchObject({ lecon: "l-4", corps: { ouverte: true } });
+  });
+
+  it("sous le mode strict de React, qui rejoue les effets : toujours une seule trace", async () => {
+    parametres.slug = SLUG;
+    servir(liste(formationSuivie()));
+    const requetes = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <React.StrictMode>
+        <QueryClientProvider client={requetes}>
+          <FormationSuivie />
+        </QueryClientProvider>
+      </React.StrictMode>,
+    );
+    await screen.findByRole("navigation", { name: "Programme" });
+
+    await waitFor(() => expect(traces.length).toBeGreaterThanOrEqual(1));
+    await new Promise((resoudre) => setTimeout(resoudre, 80));
+    expect(traces).toHaveLength(1);
+  });
+
+  it("« Marquer comme terminée » envoie {terminee: true} ; la barre, le texte et la coche suivent la RÉPONSE", async () => {
+    server.use(
+      http.post(LECONS_API, async ({ request, params }) => {
+        const corps = (await request.json()) as { ouverte?: true; terminee?: boolean };
+        traces.push({ lecon: String(params.id), corps, jeton: request.headers.get("Authorization") });
+        // Le serveur compte : trois terminées dès que celle-ci l'est.
+        return corps.terminee === true ? suiviRendu("l-1", true, 3) : suiviRendu("l-1", false, 2);
+      }),
+    );
+    await ouvrirLaFormation(liste(formationSuivie()));
+    expect(barre()).toHaveAttribute("aria-valuenow", "40");
+
+    fireEvent.click(screen.getByRole("button", { name: "Marquer comme terminée" }));
+
+    await waitFor(() => expect(barre()).toHaveAttribute("aria-valuenow", "60"));
+    expect(tracesDe("terminee")).toEqual([
+      { lecon: "l-1", corps: { terminee: true }, jeton: "Bearer jeton-de-session" },
+    ]);
+    expect(texteDe(document.body)).toContain("3 leçons sur 5 terminées");
+    expect(texteDe(ligne("Bienvenue"))).toContain("✓ Terminée");
+    expect(screen.getByRole("status")).toHaveTextContent("Leçon marquée comme terminée.");
+    // La liste n'a pas été relue : la réponse suffit.
+    expect(lectures).toHaveLength(1);
+
+    // Le même bouton défait le geste.
+    fireEvent.click(screen.getByRole("button", { name: "Terminée — annuler" }));
+    await waitFor(() => expect(barre()).toHaveAttribute("aria-valuenow", "40"));
+    expect(tracesDe("terminee").map((trace) => trace.corps)).toEqual([{ terminee: true }, { terminee: false }]);
+    expect(texteDe(ligne("Bienvenue"))).not.toContain("Terminée");
+    expect(screen.getByRole("button", { name: "Marquer comme terminée" })).toBeInTheDocument();
+  });
+
+  it("une leçon déjà terminée s'ouvre sur « Terminée — annuler »", async () => {
+    await ouvrirLaFormation(liste(formationSuivie()));
+    fireEvent.click(ligne("Le guide à lire"));
+
+    expect(await screen.findByRole("button", { name: "Terminée — annuler" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Marquer comme terminée" })).toBeNull();
+  });
+
+  it("une trace qui ne s'enregistre pas se DIT, et ne bloque pas la lecture", async () => {
+    server.use(http.post(LECONS_API, () => new HttpResponse("panne", { status: 500 })));
+    await ouvrirLaFormation(liste(formationSuivie()));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Votre passage sur cette leçon n'a pas pu être enregistré\. Vous pouvez continuer votre lecture/,
+    );
+    // La leçon est là, et l'on passe à la suivante.
+    expect(document.querySelector(".frs-video iframe")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Leçon suivante/ }));
+    await waitFor(() => expect(courantes()).toEqual(["Le guide à lire"]));
+    expect(texteDe(document.querySelector(".frs-texte"))).toContain("Premier paragraphe de la leçon.");
+  });
+
+  it("« Marquer comme terminée » refusé : une alerte, le bouton reste, la barre ne bouge pas", async () => {
+    server.use(
+      http.post(LECONS_API, async ({ request }) => {
+        const corps = (await request.json()) as { terminee?: boolean };
+        return "terminee" in corps ? new HttpResponse("panne", { status: 500 }) : suiviRendu("l-1", false, 2);
+      }),
+    );
+    await ouvrirLaFormation(liste(formationSuivie()));
+
+    fireEvent.click(screen.getByRole("button", { name: "Marquer comme terminée" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Votre choix n'a pas pu être enregistré/);
+    expect(barre()).toHaveAttribute("aria-valuenow", "40");
+    expect(texteDe(ligne("Bienvenue"))).not.toContain("Terminée");
+    const bouton = screen.getByRole("button", { name: "Marquer comme terminée" });
+    await waitFor(() => expect(bouton).not.toHaveAttribute("aria-disabled"));
+  });
+
+  it("un accès échu entre-temps (403 `acces_echu`) : la phrase du serveur, et la liste est relue", async () => {
+    const ECHU = "Votre accès à cette formation est terminé.";
+    server.use(
+      http.post(LECONS_API, () => HttpResponse.json({ error: ECHU, code: "acces_echu" }, { status: 403 })),
+    );
+    await ouvrirLaFormation(
+      liste(formationSuivie()),
+      liste(formationSuivie({ acces: "echu", acces_jusqu_au: "2026-11-19", modules: [] })),
+    );
+
+    // La relecture rend la formation échue : la page devient celle d'un
+    // accès terminé, sans programme.
+    expect(await screen.findByText(/Votre accès à cette formation s'est terminé le 19 novembre 2026/)).toBeInTheDocument();
+    expect(lectures).toHaveLength(2);
+    expect(screen.queryByRole("navigation", { name: "Programme" })).toBeNull();
+  });
+});
+
+describe("un accès échu", () => {
+  const ECHUE = () =>
+    formationSuivie({ acces: "echu", acces_jusqu_au: "2026-10-01", modules: [], progression: { terminees: 0, total: 0, pourcent: null } });
+
+  it("la liste : la formation reste, avec la date de fin, son rachat et le contact — sans « Ouvrir » ni programme compté", async () => {
+    servir(liste(ECHUE()));
+    monter(<MesFormations />);
+
+    const carte = (await screen.findByRole("heading", { level: 2, name: "Créer sa micro-entreprise d'essai" })).closest(
+      "li",
+    ) as HTMLElement;
+    expect(texteDe(carte)).toContain("Votre accès à cette formation s'est terminé le 1 octobre 2026.");
+    expect(within(carte).getByRole("link", { name: /Racheter la formation/ })).toHaveAttribute(
+      "href",
+      `/formations/${SLUG}`,
+    );
+    expect(within(carte).getByRole("link", { name: "Nous contacter" })).toHaveAttribute("href", "/contact");
+    expect(within(carte).queryByRole("link", { name: /Ouvrir la formation/ })).toBeNull();
+    // Le serveur ne rend plus le programme : on ne compte pas « 0 module ».
+    expect(texteDe(carte)).not.toMatch(/\d+ module/);
+    expect(within(carte).queryByRole("progressbar")).toBeNull();
+  });
+
+  it("ouverte par son adresse : le même message, sans programme, sans « Le programme arrive », et aucune trace", async () => {
+    parametres.slug = SLUG;
+    servir(liste(ECHUE()));
+    monter(<FormationSuivie />);
+
+    expect(await screen.findByText(/Votre accès à cette formation s'est terminé le 1 octobre 2026/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Créer sa micro-entreprise d'essai" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Racheter la formation/ })).toHaveAttribute("href", `/formations/${SLUG}`);
+    expect(screen.getByRole("link", { name: "Nous contacter" })).toHaveAttribute("href", "/contact");
+    expect(screen.queryByRole("navigation", { name: "Programme" })).toBeNull();
+    expect(screen.queryByText("Le programme arrive")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Marquer comme terminée/ })).toBeNull();
+    expect(texteDe(document.body)).not.toMatch(/\d+ module/);
+    await new Promise((resoudre) => setTimeout(resoudre, 60));
+    expect(traces).toEqual([]);
+  });
+
+  it("contre-épreuve : un accès ouvert ne dit rien d'un accès terminé", async () => {
+    await ouvrirLaFormation(liste(formationSuivie()));
+    expect(screen.queryByText(/s'est terminé/)).toBeNull();
+    expect(screen.queryByRole("link", { name: /Racheter/ })).toBeNull();
+  });
+});
+
+describe("les séances en présentiel de l'élève", () => {
+  const EMARGEMENT_API = `${ORIGINE}/api/espace/formations/seances/:id/emargement/`;
+  const FERMEE =
+    "La signature en ligne est fermée. Votre formatrice peut reporter votre signature sur la feuille d'émargement.";
+
+  function carteDe(intitule: string): HTMLElement {
+    return screen.getByRole("heading", { level: 4, name: intitule }).closest("li") as HTMLElement;
+  }
+
+  it("chaque séance dit sa date, sa durée, son lieu — et où en est la signature", async () => {
+    await ouvrirLaFormation(
+      liste(
+        formationSuivie({
+          seances: [
+            seanceDEleve({ id: "s-1", intitule: "À signer", signable: true }),
+            seanceDEleve({ id: "s-2", intitule: "Déjà signée", signee_le: "2020-11-10T08:05:00+00:00" }),
+            seanceDEleve({ id: "s-3", intitule: "À venir", debut: "2099-06-01T07:30:00+00:00" }),
+            seanceDEleve({ id: "s-4", intitule: "Annulée", annulee_le: "2020-11-09T10:00:00+00:00", signable: false }),
+            seanceDEleve({ id: "s-5", intitule: "Trop tard" }),
+          ],
+        }),
+      ),
+    );
+
+    expect(screen.getByRole("heading", { level: 3, name: "Séances en présentiel" })).toBeInTheDocument();
+    // À l'heure de Paris, quel que soit le fuseau du poste.
+    expect(texteDe(carteDe("À signer"))).toContain("10 novembre 2020 à 09:00 · 3 h 30 · Salle Colbert, Lille");
+
+    // Signable : le formulaire, et lui seul.
+    expect(within(carteDe("À signer")).getByLabelText("Votre nom et prénom")).toBeInTheDocument();
+    expect(within(carteDe("À signer")).getByRole("button", { name: "Je signe ma présence" })).toBeInTheDocument();
+
+    expect(texteDe(carteDe("Déjà signée"))).toContain("Présence signée le 10 novembre 2020 à 09:05");
+    expect(texteDe(carteDe("À venir"))).toContain("La signature s'ouvrira au début de la séance.");
+    expect(texteDe(carteDe("Annulée"))).toContain("Cette séance est annulée.");
+    expect(texteDe(carteDe("Trop tard"))).toContain(FERMEE);
+
+    // Un seul formulaire à l'écran : celui de la séance que le serveur ouvre.
+    expect(screen.getAllByRole("button", { name: "Je signe ma présence" })).toHaveLength(1);
+    for (const sans of ["Déjà signée", "À venir", "Annulée", "Trop tard"]) {
+      expect(within(carteDe(sans)).queryByRole("textbox")).toBeNull();
+    }
+    expect(texteDe(carteDe("Annulée"))).not.toContain(FERMEE);
+  });
+
+  it("c'est le serveur qui ouvre la signature : une séance commencée qu'il ne dit pas signable n'a pas de formulaire", async () => {
+    // Commencée, non annulée, non signée — et `signable` absent ou faux.
+    const sansLeDire = seanceDEleve({ id: "s-1", intitule: "Sans le dire" });
+    delete (sansLeDire as Record<string, unknown>).signable;
+    await ouvrirLaFormation(
+      liste(formationSuivie({ seances: [sansLeDire, seanceDEleve({ id: "s-2", intitule: "Refusée", signable: false })] })),
+    );
+
+    expect(screen.queryByRole("button", { name: "Je signe ma présence" })).toBeNull();
+    expect(texteDe(carteDe("Sans le dire"))).toContain(FERMEE);
+    expect(texteDe(carteDe("Refusée"))).toContain(FERMEE);
+  });
+
+  it("contre-épreuve : une séance À VENIR que le serveur dit signable montre bien le formulaire", async () => {
+    await ouvrirLaFormation(
+      liste(formationSuivie({ seances: [seanceDEleve({ debut: "2099-06-01T07:30:00+00:00", signable: true })] })),
+    );
+    expect(screen.getByRole("button", { name: "Je signe ma présence" })).toBeInTheDocument();
+    expect(screen.queryByText(/s'ouvrira au début/)).toBeNull();
+  });
+
+  it("signer : le nom part sous le jeton, puis « Présence signée le … » à la date que le serveur rend", async () => {
+    const envois: { seance: string; corps: unknown; jeton: string | null }[] = [];
+    server.use(
+      http.post(EMARGEMENT_API, async ({ request, params }) => {
+        envois.push({
+          seance: String(params.id),
+          corps: await request.json(),
+          jeton: request.headers.get("Authorization"),
+        });
+        return HttpResponse.json(
+          {
+            emargement: {
+              seance_id: "s-1",
+              signe_le: "2020-11-10T08:07:00+00:00",
+              mode: "en_ligne",
+              nom_signe: "Eva Martin",
+            },
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    await ouvrirLaFormation(liste(formationSuivie({ seances: [seanceDEleve({ signable: true })] })));
+    const champ = screen.getByLabelText("Votre nom et prénom");
+
+    // Sans nom : aucun envoi, et le champ le dit.
+    fireEvent.click(screen.getByRole("button", { name: "Je signe ma présence" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/Écrivez votre nom et votre prénom/);
+    expect(champ).toHaveAttribute("aria-invalid", "true");
+    await new Promise((resoudre) => setTimeout(resoudre, 50));
+    expect(envois).toEqual([]);
+
+    fireEvent.change(champ, { target: { value: "  Eva Martin  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Je signe ma présence" }));
+
+    const confirmation = await screen.findByText(/Présence signée le/);
+    expect(envois).toEqual([{ seance: "s-1", corps: { nom: "Eva Martin" }, jeton: "Bearer jeton-de-session" }]);
+    expect(texteDe(confirmation)).toContain("Présence signée le 10 novembre 2020 à 09:07");
+    // Le formulaire a quitté l'écran : le focus va à la confirmation.
+    expect(screen.queryByRole("button", { name: "Je signe ma présence" })).toBeNull();
+    await waitFor(() => expect(confirmation).toHaveFocus());
+    // La liste n'a pas été relue : la réponse suffit.
+    expect(lectures).toHaveLength(1);
+  });
+
+  for (const [code, statut, phrase] of [
+    ["seance_pas_commencee", 409, "Cette séance n'a pas encore commencé."],
+    ["seance_annulee", 409, "Cette séance est annulée."],
+    ["deja_signe", 409, "Vous avez déjà signé cette séance."],
+    ["signature_fermee", 409, "La signature en ligne est fermée depuis plus de 24 heures."],
+    ["seance_anterieure_a_l_achat", 409, "Cette séance a eu lieu avant votre inscription."],
+    ["nom_manquant", 400, "Écrivez votre nom : deux signes au moins."],
+    ["nom_illisible", 400, "Ce nom est illisible."],
+    ["assistance_sans_trace", 403, "Une session d'assistance ne signe pas à la place de l'élève."],
+  ] as const) {
+    it(`signature refusée (${statut} \`${code}\`) : la phrase du serveur, telle quelle, contre le champ`, async () => {
+      server.use(http.post(EMARGEMENT_API, () => HttpResponse.json({ error: phrase, code }, { status: statut })));
+      await ouvrirLaFormation(liste(formationSuivie({ seances: [seanceDEleve({ signable: true })] })));
+
+      const champ = screen.getByLabelText("Votre nom et prénom");
+      fireEvent.change(champ, { target: { value: "Eva Martin" } });
+      fireEvent.click(screen.getByRole("button", { name: "Je signe ma présence" }));
+
+      const alerte = await screen.findByRole("alert");
+      expect(alerte).toHaveTextContent(phrase);
+      expect(alerte.textContent).toBe(phrase);
+      expect((champ.getAttribute("aria-describedby") ?? "").split(" ")).toContain(alerte.id);
+      expect(screen.queryByText(/Présence signée/)).toBeNull();
+      // Un refus sur l'ÉTAT de la séance fait relire la liste ; une saisie
+      // refusée, non.
+      await waitFor(() => expect(lectures).toHaveLength(statut === 409 ? 2 : 1));
+    });
+  }
+
+  it("une panne à la signature se dit, et la saisie reste", async () => {
+    server.use(http.post(EMARGEMENT_API, () => new HttpResponse("panne", { status: 500 })));
+    await ouvrirLaFormation(liste(formationSuivie({ seances: [seanceDEleve({ signable: true })] })));
+
+    const champ = screen.getByLabelText("Votre nom et prénom");
+    fireEvent.change(champ, { target: { value: "Eva Martin" } });
+    fireEvent.click(screen.getByRole("button", { name: "Je signe ma présence" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Votre signature n'a pas pu être enregistrée/);
+    expect(champ).toHaveValue("Eva Martin");
+    expect(screen.queryByText(/Présence signée/)).toBeNull();
+  });
+
+  it("contre-épreuve : une formation sans séance n'affiche pas la rubrique", async () => {
+    await ouvrirLaFormation(liste(formationSuivie()));
+    expect(screen.queryByRole("heading", { name: "Séances en présentiel" })).toBeNull();
   });
 });

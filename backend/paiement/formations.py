@@ -31,8 +31,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
-from catalog.models import AchatFormation, Formation
+from catalog.models import AchatFormation, EtatDeLAcces, Formation
+from catalog.suivi import fin_d_acces
 from monitoring.models import IncidentSeverity, OperationalIncident
 from organisations import courriels, identifiants
 from organisations.models import CompteClient, Encaissement, Organisation
@@ -324,7 +326,12 @@ def livrer_la_formation(session: dict[str, Any]) -> AchatDeFormation:
     actifs = AchatFormation.objects.filter(
         organisation=organisation, formation=formation, revoque_le__isnull=True
     )
-    premier = actifs.first()
+    # Relu sous verrou de ligne : la clôture d'un accès échu, juste dessous,
+    # ne doit pas croiser un geste de la gérante sur le même achat.
+    premier = actifs.select_for_update().first()
+    if premier is not None and premier.etat_de_l_acces == EtatDeLAcces.ECHU:
+        _clore_l_acces_echu(premier)
+        premier = None
     if premier is None:
         try:
             # Point de sauvegarde : sous PostgreSQL, une erreur d'intégrité
@@ -340,6 +347,14 @@ def livrer_la_formation(session: dict[str, Any]) -> AchatDeFormation:
                     montant_cents=int(session["amount_total"]),
                     devise=str(session["currency"]).upper()[:3],
                     email=email,
+                    # FIGÉ ici, d'après la durée que la formation porte en
+                    # cet instant : la changer demain ne déplace la fin
+                    # d'aucun accès déjà vendu. Nul pour une durée de zéro
+                    # (sans limite). La gérante peut ensuite prolonger depuis
+                    # l'administration.
+                    acces_jusqu_au=fin_d_acces(
+                        timezone.localdate(), formation.duree_d_acces_mois
+                    ),
                 )
         except IntegrityError:
             # La base a tranché une arrivée simultanée. Deux contraintes
@@ -373,6 +388,38 @@ def livrer_la_formation(session: dict[str, Any]) -> AchatDeFormation:
     )
     return AchatDeFormation(
         organisation, compte, formation, premier, nouveau=False, en_double=True
+    )
+
+
+def _clore_l_acces_echu(ancien: AchatFormation) -> None:
+    """Un RACHAT après échéance : l'ancien achat est clos, le nouveau ouvrira.
+
+    ## Le défaut, trouvé à l'audit du 20/11/2026
+
+    Un achat échu comptait encore comme « détenu ». Racheter une formation
+    dont l'accès était terminé tombait donc dans la branche du double
+    paiement : l'argent était pris, un incident demandait de le rembourser,
+    et l'accès restait fermé.
+
+    ## Pourquoi clore, et ne PAS prolonger l'ancienne ligne
+
+    Chaque paiement doit être porté par SA ligne : c'est par la référence de
+    la session que `_deja_traitee` reconnaît un rejeu. Prolonger l'ancien
+    achat laisserait le nouveau paiement sans ligne, et son rejeu repasserait
+    par toute la livraison. L'ancien achat est donc retiré — avec un motif
+    qui dit pourquoi, la ligne reste — et le nouveau naît à côté, avec un
+    suivi neuf et sa propre échéance. C'est aussi ce que la contrainte
+    d'unicité exige : un seul achat non retiré par organisation et formation.
+    """
+    ancien.revoque_le = timezone.now()
+    ancien.motif_de_revocation = (
+        f"Accès échu, racheté le {timezone.localdate().strftime('%d/%m/%Y')}"
+    )
+    ancien.save(update_fields=["revoque_le", "motif_de_revocation", "updated_at"])
+    _log.info(
+        "Formation %s rachetée après échéance par l'organisation %s : "
+        "l'achat %s est clos.",
+        ancien.formation_id, ancien.organisation_id, ancien.id,
     )
 
 

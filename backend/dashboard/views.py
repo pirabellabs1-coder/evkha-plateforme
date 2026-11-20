@@ -1663,8 +1663,33 @@ def system_status(request: HttpRequest) -> JsonResponse:
             # L'âge de la dernière copie de la base, lu sur le disque à
             # l'instant : la preuve qu'une sauvegarde existe, pas la promesse.
             "sauvegarde": etat_des_sauvegardes(),
+            "webhooks_stripe_non_expurges": _webhooks_stripe_non_expurges(),
         }
     )
+
+
+def _webhooks_stripe_non_expurges() -> int | str:
+    """Combien d'événements Stripe gardent encore leur charge ENTIÈRE.
+
+    Zéro attendu depuis la migration `integrations.0008` : un événement entier
+    porte l'identifiant de session complet et les coordonnées de l'acheteur
+    (`paiement.vues.charge_a_conserver`). Ce compteur est la preuve, lisible
+    en production, que l'expurgation a bien eu lieu — et le signal si une
+    écriture se remettait un jour à enregistrer l'événement brut.
+
+    Compté sur la marque et non sur l'absence d'un champ : une ligne dont on
+    ne sait rien compte comme NON expurgée (règle 1).
+    """
+    from integrations.models import IntegrationProvider, WebhookEvent  # noqa: PLC0415
+
+    try:
+        # Le total MOINS les marquées, et non un `exclude` sur la marque : en
+        # SQL, une clé absente ne vaut ni vrai ni faux, et les lignes sans
+        # marque — celles-là mêmes qu'on cherche — sortaient du compte.
+        stripe = WebhookEvent.objects.filter(provider=IntegrationProvider.STRIPE)
+        return stripe.count() - stripe.filter(raw_payload__expurge=True).count()
+    except Exception as erreur:  # noqa: BLE001 — on DIT la panne, on ne la lève pas
+        return f"inconnu : {type(erreur).__name__}"
 
 
 def _etat_de_la_file() -> dict[str, Any]:

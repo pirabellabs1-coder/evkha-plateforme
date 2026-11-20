@@ -89,7 +89,10 @@ class Command(BaseCommand):
         """
         from catalog.models import (  # noqa: PLC0415
             AchatFormation,
+            Emargement,
             Offer,  # noqa: F401 — conserve
+            SeanceEnPresentiel,
+            SuiviDeLecon,
         )
         from customers.models import Customer, Subscription  # noqa: PLC0415
         from delivery.models import DeliveryBatch, DeliveryEvent  # noqa: PLC0415
@@ -149,6 +152,15 @@ class Command(BaseCommand):
         # Sans cette ligne, une seule formation vendue la ferait lever, et le
         # conteneur ne demarrerait plus. Les formations, elles, sont du
         # catalogue : elles restent.
+        #
+        # Et AVANT les achats, ce qui les designe en PROTECT : le suivi des
+        # lecons et les emargements — qui tiennent aussi, en PROTECT, les
+        # contacts effaces plus bas. Les seances partent apres leurs
+        # emargements : ce sont des dates passees avec des eleves qui
+        # n'existent plus, pas du catalogue.
+        vider(SuiviDeLecon, "suivis de lecon")
+        vider(Emargement, "emargements")
+        vider(SeanceEnPresentiel, "seances en presentiel")
         vider(AchatFormation, "achats de formation")
         vider(Encaissement, "encaissements")
         vider(MouvementCredit, "mouvements de credit")

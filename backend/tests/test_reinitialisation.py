@@ -231,3 +231,67 @@ def test_une_formation_vendue_n_empeche_pas_la_remise_a_zero(
     assert not AchatFormation.objects.exists()
     assert not Organisation.objects.exists()
     assert Formation.objects.filter(slug="methode-pop").exists()
+
+
+@pytest.mark.django_db
+def test_le_suivi_des_eleves_n_empeche_pas_la_remise_a_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Le suivi d'une leçon et un émargement tiennent en PROTECT l'achat ET le
+    contact : s'ils ne partent pas d'abord, la commande lève sur l'un puis sur
+    l'autre — et le conteneur ne démarre plus. Le programme, lui, reste."""
+    from django.db.models import ProtectedError
+
+    from catalog.models import (
+        AchatFormation,
+        Emargement,
+        Formation,
+        LeconDeFormation,
+        ModuleDeFormation,
+        SeanceEnPresentiel,
+        SuiviDeLecon,
+    )
+
+    _peupler()
+    contact = Customer.objects.get()
+    formation = Formation.objects.create(
+        slug="methode-pop", titre="Méthode P.O.P", prix_cents=85_000
+    )
+    module = ModuleDeFormation.objects.create(formation=formation, titre="Poser")
+    lecon = LeconDeFormation.objects.create(module=module, titre="Choisir sa cible")
+    achat = AchatFormation.objects.create(
+        organisation=Organisation.objects.get(),
+        formation=formation,
+        reference_paiement="cs_test_reinitialisation0002",
+        montant_cents=85_000,
+        devise="EUR",
+        email="partenaire@exemple.fr",
+    )
+    maintenant = timezone.now()
+    SuiviDeLecon.objects.create(
+        achat=achat, eleve=contact, lecon=lecon,
+        premiere_ouverture_le=maintenant, derniere_ouverture_le=maintenant,
+    )
+    seance = SeanceEnPresentiel.objects.create(
+        formation=formation, intitule="Atelier", debut=maintenant, duree_minutes=60
+    )
+    Emargement.objects.create(
+        seance=seance, achat=achat, eleve=contact, signe_le=maintenant,
+        nom_signe="Partenaire Exemple", mode="papier",
+    )
+    # Le piège est réel : tant que ces traces existent, ni l'achat ni le
+    # contact ne peuvent partir.
+    with pytest.raises(ProtectedError):
+        AchatFormation.objects.all().delete()
+    with pytest.raises(ProtectedError):
+        Customer.objects.all().delete()
+
+    sortie = _jouer(monkeypatch, phrase_attendue())
+
+    assert "remise a zero" in sortie
+    for modele in (SuiviDeLecon, Emargement, SeanceEnPresentiel, AchatFormation):
+        assert not modele.objects.exists(), modele.__name__
+    assert not Customer.objects.exists()
+    assert not Organisation.objects.exists()
+    assert LeconDeFormation.objects.filter(pk=lecon.pk).exists()
+    assert Formation.objects.filter(slug="methode-pop").exists()

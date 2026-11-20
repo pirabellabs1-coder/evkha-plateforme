@@ -560,12 +560,12 @@
   overflow-wrap: anywhere;
 }
 
-/* ── Les inscrits ─────────────────────────────────────────────────────────── */
+/* ── Les élèves ───────────────────────────────────────────────────────────── */
 
-/* Le corps de la carte, une fois dépliée : le refus, l'annonce, le tableau
- * (langage commun, `console.css`), puis la confirmation d'un retrait. Posé
- * sur un bloc INTÉRIEUR, monté à l'ouverture : `display: flex` sur le bloc
- * porteur de `hidden` l'aurait laissé visible. */
+/* Le corps d'une carte de suivi, une fois dépliée : le refus, l'annonce, la
+ * liste, puis le cadre d'un geste. Posé sur un bloc INTÉRIEUR, monté à
+ * l'ouverture : `display: flex` sur le bloc porteur de `hidden` l'aurait
+ * laissé visible. */
 .frm-inscrits-corps {
   display: flex;
   flex-direction: column;
@@ -578,6 +578,457 @@
   display: flex;
   flex-direction: column;
   gap: var(--e-3);
+}
+
+/* Le compte des lignes, et l'export pour l'auditeur. */
+.frm-eleves-outils {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-4);
+}
+
+.frm-eleves-outils .carte-note {
+  margin: 0;
+}
+
+/* Le tableau des élèves — SUR TÉLÉPHONE D'ABORD : neuf colonnes ne tiennent
+ * pas dans un écran étroit, et une page qui défile de côté est un défaut.
+ * Chaque ligne devient donc une carte : le nom en tête, puis chaque valeur
+ * précédée de son libellé (`data-libelle`, le même mot que l'en-tête de
+ * colonne). Les en-têtes restent dans la page pour qui ne voit pas l'écran,
+ * masqués à l'œil. À partir de 1100 px, c'est un vrai tableau.
+ *
+ * Deux classes par sélecteur : ces règles l'emportent sur celles du tableau
+ * commun (`.tableau tbody td`) quel que soit l'ordre d'arrivée des feuilles. */
+.frm-eleves-cadre {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.tableau.frm-eleves,
+.tableau.frm-eleves tbody,
+.tableau.frm-eleves tbody tr,
+.tableau.frm-eleves tbody th,
+.tableau.frm-eleves tbody td {
+  display: block;
+}
+
+.tableau.frm-eleves thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tableau.frm-eleves tbody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+}
+
+.tableau.frm-eleves tbody tr {
+  padding: var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+}
+
+.tableau.frm-eleves tbody tr:hover {
+  background: var(--evkha-blanc);
+}
+
+.tableau.frm-eleves tbody th,
+.tableau.frm-eleves tbody td {
+  padding: var(--e-2) 0;
+  border-bottom: 0;
+  text-align: left;
+  font-weight: inherit;
+  overflow-wrap: anywhere;
+}
+
+.tableau.frm-eleves tbody td[data-libelle] {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  gap: var(--e-1) var(--e-3);
+  align-items: start;
+}
+
+.tableau.frm-eleves tbody td[data-libelle]::before {
+  content: attr(data-libelle);
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+
+.frm-eleve-nom {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--texte-fort);
+}
+
+.tableau.frm-eleves tbody .frm-eleve-nom {
+  display: flex;
+  padding-top: 0;
+  font-size: var(--t-base);
+}
+
+.frm-eleve-adresse,
+.frm-acces-detail {
+  font-size: var(--t-sm);
+  color: var(--texte-doux);
+}
+
+.frm-acces {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--e-1);
+}
+
+/* La barre, puis la même chose en toutes lettres : la progression ne se lit
+ * jamais à la seule longueur d'un trait. */
+.frm-progression {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-1);
+  min-width: 0;
+}
+
+.frm-progression .jauge {
+  height: 8px;
+}
+
+.frm-progression-texte {
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-fort);
+}
+
+.frm-progression-vide {
+  color: var(--texte-doux);
+}
+
+.frm-eleve-gestes .console-gestes {
+  padding-top: var(--e-2);
+}
+
+/* Le champ d'un jour : pas plus large qu'une date. */
+.frm .frm-jour {
+  max-width: 14rem;
+}
+
+@media (min-width: 1100px) {
+  .frm-eleves-cadre {
+    border: 1px solid var(--evkha-bordure);
+    border-radius: var(--rayon-md);
+    background: var(--evkha-blanc);
+    overflow-x: auto;
+  }
+
+  .tableau.frm-eleves {
+    display: table;
+  }
+
+  .tableau.frm-eleves thead {
+    position: static;
+    display: table-header-group;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .tableau.frm-eleves tbody {
+    display: table-row-group;
+  }
+
+  .tableau.frm-eleves tbody tr {
+    display: table-row;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .tableau.frm-eleves tbody tr:hover {
+    background: var(--evkha-or-brume);
+  }
+
+  .tableau.frm-eleves tbody th,
+  .tableau.frm-eleves tbody td,
+  .tableau.frm-eleves tbody td[data-libelle],
+  .tableau.frm-eleves tbody .frm-eleve-nom {
+    display: table-cell;
+    padding: var(--e-3) var(--e-4);
+    border-bottom: 1px solid var(--evkha-bordure);
+    vertical-align: top;
+    font-size: inherit;
+  }
+
+  .tableau.frm-eleves tbody tr:last-child th,
+  .tableau.frm-eleves tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .tableau.frm-eleves tbody td[data-libelle]::before {
+    content: none;
+  }
+
+  .frm-eleve-nom strong,
+  .frm-eleve-adresse {
+    display: block;
+  }
+
+  .frm-progression {
+    min-width: 11rem;
+  }
+
+  .frm-eleve-gestes .console-gestes {
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 0;
+  }
+}
+
+/* ── Les séances en présentiel ────────────────────────────────────────────── */
+
+.frm-seances {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frm-seance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-3);
+  min-width: 0;
+  padding: var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: var(--rayon-md);
+  background: var(--evkha-blanc);
+}
+
+.frm-seance .carte-note,
+.frm-seance .bandeau {
+  margin: 0;
+}
+
+.frm-seance-tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-3);
+}
+
+.frm-seance-titre {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: var(--graisse-titre);
+  line-height: 1.3;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+/* Le titre reçoit le focus après un geste, pour situer : il n'est pas un
+ * geste, il ne se dessine donc pas de contour (comme `.frm-etat-titre`). */
+.frm-seance-titre:focus {
+  outline: none;
+}
+
+.frm-seance-faits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--e-3) var(--e-4);
+  margin: 0;
+}
+
+.frm-seance-faits dt {
+  font-size: var(--t-xs);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texte-tenu);
+}
+
+.frm-seance-faits dd {
+  margin: 0;
+  color: var(--texte-fort);
+  overflow-wrap: anywhere;
+}
+
+/* ── La feuille d'émargement ──────────────────────────────────────────────── */
+
+.frm-feuille {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-4);
+  color: var(--texte-fort);
+}
+
+.frm-feuille p {
+  margin: 0;
+}
+
+.frm-feuille-formation {
+  font-size: var(--t-sm);
+  font-weight: var(--graisse-forte);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+
+.frm-feuille-titre {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: var(--graisse-titre);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.frm-feuille-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+}
+
+.frm-feuille-table th,
+.frm-feuille-table td {
+  padding: var(--e-3);
+  border: 1px solid var(--evkha-bordure-forte);
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.frm-feuille-table thead th {
+  font-size: var(--t-xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: var(--fond-enfonce);
+}
+
+/* La colonne des signatures garde la place d'une signature à la main. */
+.frm-feuille-table th:last-child,
+.frm-feuille-table td:last-child {
+  width: 45%;
+}
+
+.frm-feuille-signe,
+.frm-feuille-preuve {
+  display: block;
+}
+
+.frm-feuille-signe {
+  font-weight: var(--graisse-titre);
+}
+
+.frm-feuille-preuve {
+  color: var(--texte-doux);
+}
+
+/* La case vide : la hauteur d'une signature. */
+.frm-feuille-case {
+  display: block;
+  min-height: 3rem;
+}
+
+.frm-feuille-case-large {
+  max-width: 22rem;
+  min-height: 5rem;
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: var(--rayon-xs);
+}
+
+.frm-feuille-formatrice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e-2);
+}
+
+.frm-feuille-intertitre {
+  font-weight: var(--graisse-titre);
+}
+
+.frm-feuille-gestes {
+  justify-content: flex-end;
+  margin-top: var(--e-5);
+}
+
+.frm-feuille-fenetre {
+  width: min(100% - var(--e-8), 56rem);
+  max-width: none;
+}
+
+/* ── Impression ─────────────────────────────────────────────────────────────
+ * Une feuille d'émargement se signe sur papier. À l'impression il ne reste
+ * QUE la feuille : elle est posée directement sous `body`, qui porte
+ * `frm-impression` tant qu'elle est ouverte ; tout autre enfant de `body`
+ * est écarté, sans rien connaître de la structure de la console.
+ *
+ * Encre sur blanc, pleine largeur, sans cadre ni ombre. Les couleurs lisent
+ * les mêmes jetons qu'à l'écran — aucune n'est écrite ici. */
+@media print {
+  body.frm-impression {
+    background: var(--evkha-blanc);
+  }
+
+  body.frm-impression::before,
+  body.frm-impression::after,
+  body.frm-impression > :not(.frm-feuille-fenetre) {
+    display: none;
+  }
+
+  body.frm-impression > .frm-feuille-fenetre {
+    position: static;
+    display: block;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--evkha-blanc);
+    color: var(--evkha-noir);
+    box-shadow: none;
+    overflow: visible;
+    animation: none;
+  }
+
+  body.frm-impression > .frm-feuille-fenetre::backdrop {
+    display: none;
+  }
+
+  .frm-feuille-fenetre .frm-feuille-gestes {
+    display: none;
+  }
+
+  .frm-feuille-table thead {
+    display: table-header-group;
+  }
+
+  .frm-feuille-table tr,
+  .frm-feuille-formatrice {
+    break-inside: avoid;
+  }
+
+  .frm-feuille-case {
+    min-height: 4rem;
+  }
 }
 
 /* Les durées valent déjà 0 ms sous ce réglage (`tokens.css`) ; ceci est le

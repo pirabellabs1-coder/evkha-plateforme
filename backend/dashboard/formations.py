@@ -51,6 +51,7 @@ from catalog.models import (
     LeconDeFormation,
     ModuleDeFormation,
 )
+from catalog.suivi import jour_saisi
 
 from .boutique import _refus
 
@@ -84,7 +85,10 @@ _ORDRE_AILLEURS = (
 
 _FORMATION = _Champs(
     textes=("titre", "sous_titre", "accroche", "description", "devise", "lien_d_achat"),
-    entiers=("prix_cents", "duree_heures", "heures_de_coaching", "rang"),
+    entiers=(
+        "prix_cents", "duree_heures", "heures_de_coaching", "duree_d_acces_mois",
+        "rang",
+    ),
     booleens=("en_ligne",),
     fichiers={"image": regles.image_acceptee},
     fermes={
@@ -433,6 +437,9 @@ def _vue(formation: Formation) -> dict[str, Any]:
         "devise": formation.devise,
         "duree_heures": formation.duree_heures,
         "heures_de_coaching": formation.heures_de_coaching,
+        # 0 = sans limite. Ne vaut que pour les achats À VENIR : la fin d'un
+        # accès déjà vendu est figée sur son achat.
+        "duree_d_acces_mois": formation.duree_d_acces_mois,
         "lien_d_achat": formation.lien_d_achat,
         "image": regles.adresse_de_l_image(formation),
         "en_ligne": formation.en_ligne,
@@ -771,6 +778,13 @@ def _vue_achat(achat: AchatFormation) -> dict[str, Any]:
         # dit que l'achat donne accès.
         "revoque_le": achat.revoque_le.isoformat() if achat.revoque_le else None,
         "motif_de_revocation": achat.motif_de_revocation,
+        # Le dernier jour d'accès (`null` = sans limite), et le VERDICT :
+        # « ouvert », « echu » ou « retire ». L'écran affiche le verdict, il
+        # ne le recalcule pas à partir des deux dates.
+        "acces_jusqu_au": (
+            achat.acces_jusqu_au.isoformat() if achat.acces_jusqu_au else None
+        ),
+        "acces": str(achat.etat_de_l_acces),
         "reference_paiement": reference_abregee(achat.reference_paiement),
     }
 
@@ -814,6 +828,10 @@ def _motif(donnees: Any) -> str:
 def achat(request: HttpRequest, achat_id: str) -> HttpResponse:
     """Retire l'accès qu'un achat donne (`{"revoque": true}`), ou le rétablit.
 
+    Et fixe son dernier jour : `{"acces_jusqu_au": "AAAA-MM-JJ"}`, ou `null`
+    pour un accès sans limite. C'est ici que la gérante prolonge — la durée
+    posée à la livraison n'était que celle de la formation ce jour-là.
+
     **Un accès se retire, il ne s'efface pas** (audit du 20/11/2026). Après
     un remboursement ou une contestation — que le webhook signale par un
     incident, sans rien retirer lui-même —, c'est ici que la gérante décide.
@@ -832,14 +850,27 @@ def achat(request: HttpRequest, achat_id: str) -> HttpResponse:
     )
     donnees = _donnees(request)
     revoque = _booleen(donnees["revoque"]) if "revoque" in donnees else None
-    if revoque is None:
+    # Deux gestes, ensemble ou séparément : retirer / rétablir, et fixer le
+    # dernier jour d'accès. Un envoi qui ne porte ni l'un ni l'autre — ou un
+    # « revoque » illisible — est refusé : répondre 200 à un écran qui croit
+    # avoir retiré un accès serait le pire des silences (règle 1).
+    borne = "acces_jusqu_au" in donnees
+    if revoque is None and ("revoque" in donnees or not borne):
         raise regles.Refus(
             "Indiquez s'il faut retirer l'accès ou le rétablir "
-            "(« revoque » : true ou false).",
+            "(« revoque » : true ou false), ou jusqu'à quel jour il vaut "
+            "(« acces_jusqu_au »).",
             "revoque_manquant",
             champ="revoque",
         )
     motif = _motif(donnees)
+    # Lu AVANT d'écrire quoi que ce soit : une date illisible ne doit pas
+    # laisser passer la moitié de l'envoi.
+    jusqu_au = (
+        jour_saisi(donnees["acces_jusqu_au"], champ="acces_jusqu_au")
+        if borne
+        else None
+    )
 
     with transaction.atomic():
         # Sous verrou : deux gestes simultanés sur le même achat se suivent.
@@ -848,7 +879,19 @@ def achat(request: HttpRequest, achat_id: str) -> HttpResponse:
             .select_related("organisation", "formation")
             .get(pk=cible.pk)
         )
-        if revoque and cible.revoque_le is None:
+        if borne and cible.acces_jusqu_au != jusqu_au:
+            # La gérante DÉCIDE de la durée : aucune borne n'est imposée ici,
+            # pas même « dans le futur » — une date passée ferme l'accès dès
+            # aujourd'hui, et la réponse le dit (`acces`).
+            cible.acces_jusqu_au = jusqu_au
+            cible.save(update_fields=["acces_jusqu_au", "updated_at"])
+            _log.info(
+                "Accès à la formation %s : dernier jour fixé au %s (achat %s).",
+                cible.formation.slug, jusqu_au or "sans limite", cible.id,
+            )
+        if revoque is None:
+            pass
+        elif revoque and cible.revoque_le is None:
             cible.revoque_le = timezone.now()
             cible.motif_de_revocation = motif
             cible.save(

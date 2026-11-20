@@ -318,3 +318,103 @@ def test_un_traitement_en_echec_n_ecrit_ni_session_ni_adresse(
         assert reference not in ecrit
         assert "camille.durand@example.com" not in ecrit
     assert "RuntimeError" in caplog.text
+
+
+# ── 4. Les événements enregistrés AVANT : expurgés une fois, pour de bon ──────
+
+ANCIENNE_SESSION = "cs_test_a1B2c3D4e5F6g7H8i9J0"
+
+
+def _ancien_evenement() -> WebhookEvent:
+    """Une ligne telle que le code d'avant l'écrivait : l'événement entier."""
+    return WebhookEvent.objects.create(
+        provider="stripe",
+        event_id=f"evt_{uuid.uuid4().hex[:16]}",
+        payload_hash="0" * 64,
+        status=WebhookStatus.FAILED,
+        error_message=f"Key (reference)=({ANCIENNE_SESSION}) ; camille@example.com",
+        raw_payload={
+            "id": "evt_ancien",
+            "type": "checkout.session.completed",
+            "data": {"object": {
+                "id": ANCIENNE_SESSION,
+                "amount_total": 14_900,
+                "payment_intent": "pi_3QabcDEF456ghiJKL",
+                "customer_details": {
+                    "email": "camille@example.com",
+                    "name": "Camille Durand",
+                    "address": {"line1": "12 rue des Lilas"},
+                },
+                "metadata": {"achat": "livrable", "offre_slug": "etude-marche"},
+            }},
+        },
+    )
+
+
+def _expurger() -> None:
+    import importlib  # noqa: PLC0415
+
+    from django.apps import apps  # noqa: PLC0415
+
+    migration = importlib.import_module(
+        "integrations.migrations.0008_expurge_les_charges_stripe"
+    )
+    migration.expurger(apps, None)
+
+
+def test_la_migration_expurge_les_anciens_evenements_et_garde_le_reste() -> None:
+    ancien = _ancien_evenement()
+    modifie_le = ancien.updated_at
+    autre = WebhookEvent.objects.create(
+        provider="tally", event_id="tally_1", payload_hash="1" * 64,
+        raw_payload={"email": "prospect@example.com"},
+    )
+
+    _expurger()
+    _expurger()  # rejouable sans effet
+
+    ancien.refresh_from_db()
+    ecrit = json.dumps(ancien.raw_payload, ensure_ascii=False) + ancien.error_message
+    for interdit in (
+        ANCIENNE_SESSION, "camille@example.com", "Camille Durand", "rue des Lilas",
+    ):
+        assert interdit not in ecrit, interdit
+    objet = ancien.raw_payload["data"]["object"]
+    assert objet["amount_total"] == 14_900
+    assert objet["payment_intent"] == "pi_3QabcDEF456ghiJKL"
+    assert objet["metadata"] == {"achat": "livrable", "offre_slug": "etude-marche"}
+    # Ni l'état ni la date : ils servent à reconnaître un traitement perdu.
+    assert ancien.status == WebhookStatus.FAILED
+    assert ancien.updated_at == modifie_le
+    # Contre-épreuve : les autres fournisseurs RELISENT leur charge
+    # (`integrations.tasks`) ; elle n'est pas touchée.
+    autre.refresh_from_db()
+    assert autre.raw_payload == {"email": "prospect@example.com"}
+
+
+def test_l_etat_du_systeme_compte_ce_qui_reste_a_expurger() -> None:
+    from dashboard.views import _webhooks_stripe_non_expurges  # noqa: PLC0415
+
+    _ancien_evenement()
+    WebhookEvent.objects.create(
+        provider="stripe", event_id="evt_sans_charge", payload_hash="2" * 64,
+    )
+    assert _webhooks_stripe_non_expurges() == 2
+
+    _expurger()
+
+    assert _webhooks_stripe_non_expurges() == 0
+
+
+def test_une_ligne_illisible_ne_fait_pas_echouer_le_demarrage(monkeypatch: Any) -> None:
+    """`migrate` est dans la chaîne de démarrage du conteneur."""
+    _ancien_evenement()
+
+    def casse(_: Any) -> Any:
+        raise ValueError("charge illisible")
+
+    monkeypatch.setattr(vues_de_paiement, "charge_a_conserver", casse)
+
+    _expurger()  # ne lève pas
+
+    assert WebhookEvent.objects.count() == 1

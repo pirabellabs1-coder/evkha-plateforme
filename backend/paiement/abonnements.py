@@ -772,6 +772,16 @@ def _montant(valeur: object) -> int:
         return 0
 
 
+#: Ce que l'incident d'un paiement repris dit de l'accès. Une entrée par
+#: état de `catalog.models.EtatDeLAcces` : un état ajouté demain sans phrase
+#: ici lève, au lieu d'être rangé avec « toujours ouvert » (règle 1).
+_ETATS_D_ACCES_DITS = {
+    "ouvert": "toujours ouvert",
+    "echu": "échu (la durée d'accès est passée)",
+    "retire": "déjà retiré",
+}
+
+
 def _signaler_un_paiement_repris(
     objet: dict[str, Any], *, titre: str, gravite: str, type_incident: str, **propres: Any
 ) -> str:
@@ -828,7 +838,10 @@ def _signaler_un_paiement_repris(
             achat=achat.id,
             formation=achat.formation.slug,
             organisation=achat.organisation_id,
-            acces="déjà retiré" if achat.revoque_le else "toujours ouvert",
+            # Le VERDICT de l'achat, pas la seule date de retrait : un accès
+            # échu n'est pas « toujours ouvert », et le dire enverrait la
+            # gérante retirer un accès qui est déjà fermé.
+            acces=_ETATS_D_ACCES_DITS[achat.etat_de_l_acces],
             a_faire=(
                 "Ce paiement est celui d'une formation. Rien n'a été retiré "
                 "automatiquement : si l'accès doit l'être, retirez-le depuis "

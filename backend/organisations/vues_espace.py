@@ -397,10 +397,15 @@ def _corps(request: HttpRequest) -> dict[str, Any]:
     erreur 500. Un client mal configuré doit recevoir un refus explicite, pas
     une page d'erreur serveur — constaté en envoyant un questionnaire accentué
     depuis un terminal Windows.
+
+    `RecursionError` aussi (audit du 20/11/2026) : un corps imbriqué à l'excès
+    (`[[[[…`) la lève dans l'analyseur, et elle n'est PAS une `ValueError` —
+    elle remontait en erreur 500 sur toute route de l'espace. `ValueError`
+    couvre les deux erreurs déjà attrapées.
     """
     try:
         charge = json.loads(request.body or b"{}")
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except (ValueError, RecursionError):
         return {}
     return charge if isinstance(charge, dict) else {}
 
@@ -3393,7 +3398,7 @@ def acheter_un_produit(
 VIE_DU_LIEN_DE_LECON_S = 3600
 
 
-def _lecon_achetee(position: int, lecon: Any) -> dict[str, Any]:
+def _lecon_achetee(position: int, lecon: Any, *, terminee: bool) -> dict[str, Any]:
     """Une leçon telle que l'acheteur la lit — contenu payant compris.
 
     Écrite clé par clé, comme la fiche publique : sérialiser le modèle
@@ -3419,6 +3424,9 @@ def _lecon_achetee(position: int, lecon: Any) -> dict[str, Any]:
             else ""
         ),
         "fichier_nom": fichier.name.rsplit("/", 1)[-1] if fichier else "",
+        # Pour CET élève : deux collaborateurs d'un même cabinet n'avancent
+        # pas du même pas.
+        "terminee": terminee,
     }
 
 
@@ -3431,9 +3439,32 @@ def mes_formations(
 
     **C'est le seul endroit qui rend le contenu payant** — l'adresse d'une
     vidéo, le texte d'une leçon, son document. Ce qui en donne le droit est
-    un `AchatFormation` NON RÉVOQUÉ de l'organisation du compte, et rien d'autre : la
-    requête part de l'achat, jamais de la formation. Il n'existe donc aucun
-    paramètre par lequel demander la formation d'un autre.
+    un `AchatFormation` de l'organisation du compte dont l'accès est OUVERT,
+    et rien d'autre : la requête part de l'achat, jamais de la formation. Il
+    n'existe donc aucun paramètre par lequel demander la formation d'un autre.
+
+    Le verdict d'accès n'est pas rendu ici : c'est
+    `AchatFormation.etat_de_l_acces`. Trois cas :
+
+    - **ouvert** : le programme, contenu compris ;
+    - **échu** (`acces_jusqu_au` dépassé) : la formation reste LISTÉE, avec
+      son état et sa date, mais `modules` est vide — cette réponse ne rend
+      plus le programme ;
+    - **retiré** depuis l'administration : la formation ne figure plus du
+      tout, comme avant.
+
+    Ce que fermer l'accès ne reprend PAS : une vidéo est hébergée ailleurs,
+    et son adresse, une fois lue, reste lisible par qui l'a notée ; un
+    document déjà téléchargé reste sur son disque. La plateforme cesse de
+    DONNER le contenu, elle ne le retire de nulle part.
+
+    ## Les séances
+
+    Une séance terminée AVANT l'achat n'est pas montrée (sauf si la personne
+    l'a signée) : l'élève n'y était pas inscrit. `signable` dit si CETTE
+    personne peut signer MAINTENANT, et `signature_jusqu_au` jusqu'à quand —
+    calculés par `catalog.suivi`, les règles mêmes du refus : l'écran ne
+    recalcule rien.
 
     Une formation mise HORS LIGNE après l'achat reste lisible : la requête ne
     regarde pas `en_ligne`. Ce qui est payé reste à qui l'a payé.
@@ -3441,14 +3472,27 @@ def mes_formations(
     Modules et leçons RETIRÉS n'y figurent pas, et `rang` est la place dans
     le programme affiché, de 1 à n — comme sur la page publique.
 
-    Trois requêtes quel que soit le nombre de formations.
+    `progression`, `terminee` et `signee_le` sont ceux de la PERSONNE
+    connectée, pas de son organisation. La progression sort de
+    `catalog.suivi.progression`, la fonction que lit aussi l'administration.
+
+    Six requêtes quel que soit le nombre de formations.
     """
     from django.db.models import Prefetch  # noqa: PLC0415
 
     from catalog import formations as regles  # noqa: PLC0415
-    from catalog.models import AchatFormation  # noqa: PLC0415
+    from catalog import suivi  # noqa: PLC0415
+    from catalog.models import (  # noqa: PLC0415
+        AchatFormation,
+        Emargement,
+        EtatDeLAcces,
+        SeanceEnPresentiel,
+        SuiviDeLecon,
+    )
 
-    achats = (
+    eleve = membre.customer
+    en_assistance = getattr(request, "assistance", None) is not False
+    achats = list(
         # `revoque_le` nul : un accès RETIRÉ depuis l'administration ne rend
         # plus rien, sans que la ligne de l'achat soit effacée.
         AchatFormation.objects.filter(
@@ -3456,41 +3500,312 @@ def mes_formations(
         )
         .select_related("formation")
         .prefetch_related(
-            Prefetch("formation__modules", queryset=regles.programme_de_l_acheteur())
+            Prefetch("formation__modules", queryset=regles.programme_de_l_acheteur()),
+            Prefetch(
+                "formation__seances",
+                queryset=SeanceEnPresentiel.objects.order_by("debut", "created_at"),
+            ),
         )
         .order_by("-created_at")
     )
-    return JsonResponse({
-        "formations": [
-            {
-                "slug": achat.formation.slug,
-                "titre": achat.formation.titre,
-                "sous_titre": achat.formation.sous_titre,
-                "accroche": achat.formation.accroche,
-                "image": regles.adresse_de_l_image(achat.formation),
-                "duree_heures": achat.formation.duree_heures,
-                "heures_de_coaching": achat.formation.heures_de_coaching,
-                "achetee_le": achat.created_at.isoformat(),
-                "modules": [
-                    {
-                        "rang": place,
-                        "titre": module.titre,
-                        "description": module.description,
-                        "lecons": [
-                            _lecon_achetee(numero, lecon)
-                            for numero, lecon in enumerate(
-                                module.lecons.all(), start=1
-                            )
-                        ],
-                    }
-                    for place, module in enumerate(
-                        achat.formation.modules.all(), start=1
-                    )
-                ],
-            }
-            for achat in achats
+
+    terminees: dict[Any, set[Any]] = {}
+    for achat_id, lecon_id in SuiviDeLecon.objects.filter(
+        achat__in=achats, eleve=eleve, terminee_le__isnull=False
+    ).values_list("achat_id", "lecon_id"):
+        terminees.setdefault(achat_id, set()).add(lecon_id)
+    # Une personne signe une séance une fois, quel que soit l'achat au titre
+    # duquel elle l'a fait : on ne filtre donc pas sur l'achat.
+    signees = dict(
+        Emargement.objects.filter(
+            eleve=eleve,
+            seance__formation__in={achat.formation_id for achat in achats},
+        ).values_list("seance_id", "signe_le")
+    )
+
+    def vue(achat: Any) -> dict[str, Any]:
+        formation = achat.formation
+        modules = list(formation.modules.all())
+        faites = terminees.get(achat.id, set())
+        # Le programme préchargé EST l'ensemble des leçons présentes
+        # (`regles.programme_de_l_acheteur`) : c'est lui que l'on compte.
+        avancee = suivi.progression(
+            (lecon.id for module in modules for lecon in module.lecons.all()),
+            faites,
+        )
+        etat = achat.etat_de_l_acces
+        montrees = [
+            seance
+            for seance in formation.seances.all()
+            if seance.id in signees
+            or not suivi.seance_d_avant_l_achat(seance, achat)
         ]
+        return {
+            "slug": formation.slug,
+            "titre": formation.titre,
+            "sous_titre": formation.sous_titre,
+            "accroche": formation.accroche,
+            "image": regles.adresse_de_l_image(formation),
+            "duree_heures": formation.duree_heures,
+            "heures_de_coaching": formation.heures_de_coaching,
+            "achetee_le": achat.created_at.isoformat(),
+            # « ouvert » ou « echu » — un accès retiré n'arrive pas jusqu'ici.
+            "acces": str(etat),
+            # Le dernier jour d'accès, compris. `null` : sans limite.
+            "acces_jusqu_au": (
+                achat.acces_jusqu_au.isoformat() if achat.acces_jusqu_au else None
+            ),
+            "progression": avancee.en_dict(),
+            "modules": [
+                {
+                    "rang": place,
+                    "titre": module.titre,
+                    "description": module.description,
+                    "lecons": [
+                        _lecon_achetee(numero, lecon, terminee=lecon.id in faites)
+                        for numero, lecon in enumerate(module.lecons.all(), start=1)
+                    ],
+                }
+                for place, module in enumerate(modules, start=1)
+                # Un accès échu ne lit plus le programme. La garde est ICI,
+                # sur le verdict de l'achat, et non dans l'écran.
+            ] if etat == EtatDeLAcces.OUVERT else [],
+            "seances": [
+                {
+                    "id": str(seance.id),
+                    "intitule": seance.intitule,
+                    "debut": seance.debut.isoformat(),
+                    "duree_minutes": seance.duree_minutes,
+                    "lieu": seance.lieu,
+                    # `null` tant que CET élève n'a pas signé.
+                    "signee_le": (
+                        signees[seance.id].isoformat()
+                        if seance.id in signees
+                        else None
+                    ),
+                    # Une séance annulée reste affichée, et le dit : la
+                    # faire disparaître laisserait l'élève se présenter.
+                    "annulee_le": (
+                        seance.annulee_le.isoformat() if seance.annulee_le else None
+                    ),
+                    # Peut-il signer MAINTENANT ? Jamais en assistance : la
+                    # route le refuserait, le bouton ne doit pas le promettre.
+                    "signable": not en_assistance
+                    and suivi.signable_en_ligne(
+                        seance, achat, deja_signee=seance.id in signees
+                    ),
+                    # La fin de la fenêtre de signature en ligne. `null` pour
+                    # une séance annulée : elle ne se signera pas.
+                    "signature_jusqu_au": (
+                        None
+                        if seance.annulee_le
+                        else suivi.signature_en_ligne_jusqu_au(seance).isoformat()
+                    ),
+                }
+                for seance in montrees
+            ],
+        }
+
+    return JsonResponse({"formations": [vue(achat) for achat in achats]})
+
+
+def _trace_refusee_en_assistance(request: HttpRequest) -> JsonResponse | None:
+    """Une session d'assistance ne laisse AUCUNE trace de suivi au nom de l'élève.
+
+    Une leçon « terminée » et une signature de présence sont des PREUVES, que
+    la gérante montre à un auditeur. Un agent d'EVKHA entré pour dépanner
+    n'est pas l'élève : s'il pouvait cocher une leçon ou signer une séance,
+    la preuve ne prouverait plus rien.
+
+    **Pourquoi la garde n'est pas `espace(interdit_en_assistance=True)`.** Ce
+    drapeau du décorateur a UN sens, et un message qui le dit : « aucune
+    dépense au nom du client ». `test_assistance_et_signalements` s'appuie
+    dessus pour vérifier que les vues qui touchent au paiement le portent.
+    Lui faire dire aussi « aucune preuve de suivi » demanderait un second
+    message et brouillerait ce que le drapeau garantit. La garde est donc
+    ici, appelée en TÊTE des deux vues.
+
+    **Elle se ferme quand elle ne sait pas.** `request.assistance` est posé
+    par le décorateur `espace`. S'il manque — une vue appelée sans lui, un
+    décorateur réordonné —, on ne sait pas qui parle : on REFUSE. Un repli à
+    « faux » ouvrirait la porte précisément quand le contrôle n'a pas tourné
+    (règle 1).
+    """
+    if getattr(request, "assistance", None) is False:
+        return None
+    return _refus(
+        "Une session d'assistance ne peut ni noter une leçon ni signer une "
+        "présence à la place de l'élève.",
+        "assistance_sans_trace",
+        403,
+    )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+# Sans rôle, et c'est voulu : ce que cette vue écrit n'est pas une donnée de
+# l'organisation, c'est « CETTE personne a ouvert / terminé cette leçon ».
+# Un compte « Lecture seule » est un élève comme un autre.
+@espace()
+def suivre_une_lecon(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    lecon_id: str,
+) -> HttpResponse:
+    """Note que l'élève a ouvert une leçon (`ouverte`), ou l'a terminée (`terminee`).
+
+    ## Ce qui donne le droit d'écrire ici
+
+    Un achat de SON organisation, à l'accès OUVERT, sur la formation de cette
+    leçon. La leçon est cherchée parmi les leçons PRÉSENTES, puis l'achat dans
+    l'organisation du membre : une leçon d'une formation qu'il n'a pas
+    achetée, une leçon retirée et un identifiant inventé rendent le MÊME 404
+    — dire « cette leçon n'est pas à vous » confirmerait qu'elle existe.
+
+    Un accès échu, lui, est dit franchement (403 `acces_echu`) : la formation
+    est dans sa liste, il sait qu'elle existe.
+
+    ## Ce qui est écrit
+
+    Une ligne par élève, achat et leçon — la sienne, jamais celle d'un
+    collègue : l'élève est la personne de la session, aucun paramètre ne le
+    désigne.
+    """
+    from catalog import formations as regles  # noqa: PLC0415
+    from catalog import suivi  # noqa: PLC0415
+    from catalog.models import SuiviDeLecon  # noqa: PLC0415
+
+    refus = _trace_refusee_en_assistance(request)
+    if refus is not None:
+        return refus
+
+    introuvable = _refus("Cette leçon est introuvable.", "lecon_inconnue", 404)
+    identifiant = suivi.identifiant_lu(lecon_id)
+    lecon = (
+        regles.lecons_presentes()
+        .filter(pk=identifiant)
+        .select_related("module")
+        .first()
+        if identifiant is not None
+        else None
+    )
+    if lecon is None:
+        return introuvable
+    achat = suivi.achat_non_retire(organisation, lecon.module.formation_id)
+    if achat is None:
+        return introuvable
+    try:
+        suivi.exiger_un_acces_ouvert(achat)
+    except regles.Refus as echu:
+        return _refus(echu.message, echu.code, echu.statut)
+
+    charge = _corps(request)
+    ouverte, terminee = charge.get("ouverte"), charge.get("terminee")
+    # Des booléens JSON, et rien d'autre : lire « non » ou 0 comme un oui
+    # écrirait une preuve que personne n'a donnée.
+    if (
+        ("ouverte" in charge and ouverte is not True)
+        or ("terminee" in charge and not isinstance(terminee, bool))
+        or not ({"ouverte", "terminee"} & set(charge))
+    ):
+        return _refus(
+            "Indiquez « ouverte » : true, ou « terminee » : true ou false.",
+            "geste_illisible",
+            400,
+        )
+
+    trace = suivi.noter_une_lecon(
+        achat, membre.customer, lecon,
+        terminee=terminee if isinstance(terminee, bool) else None,
+    )
+    faites = set(
+        SuiviDeLecon.objects.filter(
+            achat=achat, eleve=membre.customer, terminee_le__isnull=False
+        ).values_list("lecon_id", flat=True)
+    )
+    return JsonResponse({
+        "lecon": {
+            "id": str(lecon.id),
+            "terminee": trace.terminee_le is not None,
+            "terminee_le": (
+                trace.terminee_le.isoformat() if trace.terminee_le else None
+            ),
+            "premiere_ouverture_le": trace.premiere_ouverture_le.isoformat(),
+            "derniere_ouverture_le": trace.derniere_ouverture_le.isoformat(),
+        },
+        "formation": achat.formation.slug,
+        "progression": suivi.progression(
+            suivi.ids_des_lecons_presentes(achat.formation_id), faites
+        ).en_dict(),
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+# Sans rôle, pour la raison écrite sur `suivre_une_lecon` : on signe SA
+# présence, pas au nom de la maison.
+@espace()
+def signer_sa_presence(
+    request: HttpRequest,
+    membre: MembreOrganisation,
+    organisation: Organisation,
+    seance_id: str,
+) -> HttpResponse:
+    """L'élève signe sa présence à une séance : il tape son nom, on horodate.
+
+    La séance doit être celle d'une formation que SON organisation tient par
+    un achat non retiré — sinon 404, le même que pour une séance inventée.
+    Un accès ÉCHU signe encore : la durée d'accès borne la lecture du
+    programme en ligne, pas la présence en salle (et la feuille d'émargement
+    de l'administration liste les mêmes personnes).
+
+    Les règles sont dans `catalog.suivi.signer` : une séance annulée ne se
+    signe plus, une séance à venir pas encore, et une signature posée ne se
+    refait pas (409 `deja_signe`). L'adresse d'où part la signature est
+    gardée avec elle.
+    """
+    from catalog import formations as regles  # noqa: PLC0415
+    from catalog import suivi  # noqa: PLC0415
+    from catalog.models import ModeDEmargement, SeanceEnPresentiel  # noqa: PLC0415
+
+    refus = _trace_refusee_en_assistance(request)
+    if refus is not None:
+        return refus
+
+    introuvable = _refus("Cette séance est introuvable.", "seance_inconnue", 404)
+    identifiant = suivi.identifiant_lu(seance_id)
+    seance = (
+        SeanceEnPresentiel.objects.filter(pk=identifiant).first()
+        if identifiant is not None
+        else None
+    )
+    if seance is None:
+        return introuvable
+    achat = suivi.achat_non_retire(organisation, seance.formation_id)
+    if achat is None:
+        return introuvable
+
+    try:
+        emargement = suivi.signer(
+            seance.pk,
+            achat=achat,
+            eleve=membre.customer,
+            nom=suivi.nom_signe(_corps(request).get("nom")),
+            mode=ModeDEmargement.EN_LIGNE,
+            adresse_ip=suivi.adresse_ip_lisible(limitation.adresse_client(request)),
+        )
+    except regles.Refus as non:
+        return _refus(non.message, non.code, non.statut)
+    return JsonResponse(
+        {
+            "emargement": {
+                "seance_id": str(seance.id),
+                **suivi.vue_emargement(emargement),
+            }
+        },
+        status=201,
+    )
 
 
 @csrf_exempt
@@ -3517,7 +3832,7 @@ def acheter_une_formation(
     from paiement import stripe_api  # noqa: PLC0415
 
     from catalog import formations as regles  # noqa: PLC0415
-    from catalog.models import AchatFormation  # noqa: PLC0415
+    from catalog import suivi  # noqa: PLC0415
 
     trop = _trop_d_ouvertures(organisation)
     if trop is not None:
@@ -3530,12 +3845,15 @@ def acheter_une_formation(
     except regles.Refus as refus:
         return _refus(refus.message, refus.code, refus.statut)
 
-    # Parmi les achats qui DONNENT ACCÈS : un achat révoqué — remboursé,
-    # contesté — ne bloque pas le rachat, qui rouvrira l'accès sur une
-    # nouvelle ligne.
-    if AchatFormation.objects.filter(
-        organisation=organisation, formation=formation, revoque_le__isnull=True
-    ).exists():
+    # Parmi les achats qui DONNENT ACCÈS — et le verdict est celui de
+    # l'achat (`etat_de_l_acces`), pas la seule absence de retrait. Un achat
+    # révoqué ne bloque pas le rachat ; un achat ÉCHU non plus (audit du
+    # 20/11/2026) : il répondait « vous avez déjà cette formation » à qui ne
+    # pouvait plus la lire, sans aucun moyen de la reprendre. La livraison
+    # clôt alors l'ancien achat et en ouvre un neuf
+    # (`paiement.formations._clore_l_acces_echu`).
+    detenu = suivi.achat_non_retire(organisation, formation.pk)
+    if detenu is not None and detenu.donne_acces:
         # « Mes formations » : le nom de l'entrée du menu, tel qu'on le lit.
         return _refus(
             "Vous avez déjà cette formation : elle est dans votre espace, dans "

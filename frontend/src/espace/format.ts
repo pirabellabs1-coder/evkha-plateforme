@@ -56,6 +56,33 @@ export const dateHeure = (iso: string | null): string =>
       }).format(new Date(iso))
     : "—";
 
+/** Un JOUR sans heure (`AAAA-MM-JJ`) : le dernier jour d'un accès.
+ *
+ * `new Date("2027-05-20")` vaut minuit en temps universel : écrit dans le
+ * fuseau du poste, il devient le 19 à l'ouest de Greenwich. Le jour est donc lu
+ * ET écrit en temps universel — il ne dépend plus du réglage du poste. Une
+ * valeur illisible rend le tiret, pas une exception. */
+export const jour = (iso: string | null | undefined): string => {
+  if (!iso) return "—";
+  const instant = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(instant.getTime())) return "—";
+  return new Intl.DateTimeFormat(LOCALE, { dateStyle: "long", timeZone: "UTC" }).format(instant);
+};
+
+/** Le jour et l'heure d'un rendez-vous en salle, À L'HEURE DE PARIS
+ *  (« 20 novembre 2026 à 14:30 ») : c'est l'heure que la gérante a saisie, et
+ *  celle de la salle. Elle ne suit pas le fuseau du poste qui la lit. */
+export const dateHeureDeParis = (iso: string | null | undefined): string => {
+  if (!iso) return "—";
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return "—";
+  return new Intl.DateTimeFormat(LOCALE, {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(instant);
+};
+
 /** Accord du pluriel. « 1 crédits » se remarque tout de suite. */
 export const credits = (nombreDeCredits: number): string =>
   `${nombre(nombreDeCredits)} crédit${Math.abs(nombreDeCredits) > 1 ? "s" : ""}`;

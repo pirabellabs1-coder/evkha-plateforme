@@ -378,6 +378,56 @@ export interface LeconAchetee {
    *  au serveur au moment d'ouvrir le document. Vide sans document. */
   fichier: string;
   fichier_nom: string;
+  /** La personne connectée a-t-elle terminé cette leçon ? FACULTATIF : un
+   *  serveur qui ne le dit pas n'a rien dit, et l'écran ne coche rien. */
+  terminee?: boolean;
+}
+
+/** Où en est la personne connectée dans une formation. `pourcent` vaut
+ *  `null` quand la formation n'a aucune leçon : rien à calculer. */
+export interface ProgressionDeFormation {
+  terminees: number;
+  total: number;
+  pourcent: number | null;
+}
+
+/** Une séance en présentiel, vue de l'élève. */
+export interface SeanceDeLEleve {
+  id: string;
+  intitule: string;
+  debut: string;
+  duree_minutes: number;
+  lieu: string;
+  /** Quand CETTE personne a signé sa présence, ou `null`. */
+  signee_le: string | null;
+  annulee_le: string | null;
+  /** Cette personne peut-elle signer MAINTENANT ? C'est le serveur qui le
+   *  dit : l'écran ne le recalcule pas à partir de `debut`. */
+  signable?: boolean;
+  /** Jusqu'à quand la signature en ligne reste ouverte, ou `null`. */
+  signature_jusqu_au?: string | null;
+}
+
+/** Ce que rend une trace de lecture (`POST formations/lecons/<id>/`). */
+export interface SuiviDeLecon {
+  lecon: {
+    id: string;
+    terminee: boolean;
+    terminee_le: string | null;
+    premiere_ouverture_le: string;
+    derniere_ouverture_le: string;
+  };
+  /** Le slug de la formation. */
+  formation: string;
+  progression: ProgressionDeFormation;
+}
+
+/** Ce que rend une signature de présence. */
+export interface EmargementDeLEleve {
+  seance_id: string;
+  signe_le: string;
+  mode: "en_ligne" | "papier";
+  nom_signe: string;
 }
 
 export interface ModuleAchete {
@@ -400,7 +450,15 @@ export interface FormationAchetee {
   heures_de_coaching: number;
   /** Date ISO de l'achat. */
   achetee_le: string;
+  /** Vide quand l'accès est échu : le programme ne se rend plus. */
   modules: ModuleAchete[];
+  /** `echu` : le dernier jour de l'accès est passé. La formation reste
+   *  listée, sans son programme. Absent : un serveur d'avant, accès ouvert. */
+  acces?: "ouvert" | "echu";
+  /** Le DERNIER jour de l'accès (`AAAA-MM-JJ`), ou `null` : sans limite. */
+  acces_jusqu_au?: string | null;
+  progression?: ProgressionDeFormation;
+  seances?: SeanceDeLEleve[];
 }
 
 /** Une etude de boutique proposee a l'achat depuis l'espace. */
@@ -842,6 +900,21 @@ export const espaceApi = {
     }
     return { formations: charge.formations as FormationAchetee[] };
   },
+  /** Note que la personne a ouvert une leçon (`ouverte`), l'a terminée ou ne
+   *  l'a finalement pas terminée (`terminee`). Rend la progression À JOUR,
+   *  calculée par le serveur. */
+  suivreUneLecon: (leconId: string, geste: { ouverte?: true; terminee?: boolean }) =>
+    appel<SuiviDeLecon>(`/formations/lecons/${leconId}/`, {
+      method: "POST",
+      body: JSON.stringify(geste),
+    }),
+  /** Signe sa présence à une séance en présentiel. Une signature ne se
+   *  retire pas. */
+  signerMaPresence: (seanceId: string, nom: string) =>
+    appel<{ emargement: EmargementDeLEleve }>(`/formations/seances/${seanceId}/emargement/`, {
+      method: "POST",
+      body: JSON.stringify({ nom }),
+    }),
   /** Ouvre le paiement d'une formation depuis l'espace : l'achat suit alors
    *  le COMPTE, pas l'adresse saisie chez le prestataire.
    *

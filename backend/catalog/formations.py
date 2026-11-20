@@ -66,7 +66,17 @@ LIBELLES: dict[str, str] = {
     "adresse_video": "L'adresse de la vidéo",
     "duree_minutes": "La durée en minutes",
     "nature": "La nature de la leçon",
+    "duree_d_acces_mois": "La durée d'accès en mois",
+    "intitule": "L'intitulé de la séance",
+    "lieu": "Le lieu",
+    "nom_de_la_formatrice": "Le nom de la formatrice",
 }
+
+#: Plafond de `Formation.duree_d_acces_mois`. Cinquante ans : au-delà, ce
+#: n'est plus une durée, c'est « sans limite » — qui s'écrit 0. Le plafond
+#: garde aussi le calcul de la date de fin (`catalog.suivi.fin_d_acces`) dans
+#: le calendrier : un petit entier admet 32 767 mois, soit l'an 4757.
+DUREE_D_ACCES_MAX_MOIS = 600
 
 
 def texte_propre(valeur: object) -> str:
@@ -291,6 +301,13 @@ def verifier_formation(formation: Formation) -> None:
             champ="slug",
         )
     _verifier_les_champs(formation)
+    if formation.duree_d_acces_mois > DUREE_D_ACCES_MAX_MOIS:
+        raise Refus(
+            f"La durée d'accès ne dépasse pas {DUREE_D_ACCES_MAX_MOIS} mois. "
+            "Pour un accès sans limite, saisissez 0.",
+            "valeur_trop_grande",
+            champ="duree_d_acces_mois",
+        )
     if len(formation.devise) != 3 or not (
         # `isascii` : « ééé » est alphabétique, et `Intl.NumberFormat` lève
         # sur une devise pareille — l'écran entier tombait.
