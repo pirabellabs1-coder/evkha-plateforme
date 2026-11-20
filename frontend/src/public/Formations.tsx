@@ -72,6 +72,10 @@
  *   tunnel n'est pas rendu.
  * - Présentiel, financement, orientation : un courriel prérempli ou le
  *   rendez-vous en ligne. Aucun formulaire : rien ne le recevrait.
+ * - La FICHE TECHNIQUE (20/11/2026) : un PDF du site, à télécharger. Sous le
+ *   prix de l'ouverture et dans « En pratique » sur chaque page de formation,
+ *   en lien discret sur chaque carte du catalogue. Jamais neutralisée : elle
+ *   ne dépend pas du serveur (`BoutonDeFiche`, `LienDeFiche`).
  *
  * ## Le programme
  *
@@ -129,6 +133,7 @@ import {
   CARTE_MICRO,
   CARTE_POP,
   CARTE_SOCIETES,
+  FICHES_TECHNIQUES,
   INCLUS_AFFICHE,
   ONGLETS_DES_PAGES,
   ORGANISME_DE_FORMATION,
@@ -581,6 +586,59 @@ function BoutonDInscription({
   );
 }
 
+// ── La fiche technique : un PDF à télécharger ───────────────────────────────
+
+/** Le bouton « Télécharger la fiche technique » d'une page de formation.
+ *
+ *  Un vrai lien vers un fichier du site (`FICHES_TECHNIQUES`), que le
+ *  navigateur enregistre (`download`) : il ne dépend ni du serveur ni du
+ *  catalogue, et reste donc actif quand la formation n'est pas en ligne —
+ *  c'est même là qu'il sert le plus, le programme n'étant pas encore affiché.
+ *  Le libellé dit le format et le poids : on sait ce qu'on télécharge. La
+ *  flèche pointe vers le bas, et ne pivote pas au survol (voir la feuille). */
+function BoutonDeFiche({ cle }: { cle: CleDeFormation }) {
+  const fiche = FICHES_TECHNIQUES[cle];
+  const textes = ARTICULATION.ficheTechnique;
+  return (
+    <a
+      className="acc-btn acc-btn-clair for-bouton for-fiche"
+      href={fiche.fichier}
+      type="application/pdf"
+      download
+    >
+      <span>
+        {textes.telecharger}{" "}
+        <span className="for-fiche-format">
+          ({textes.format}, {fiche.poids})
+        </span>
+      </span>
+      <span className="acc-btn-fleche" aria-hidden="true">
+        ↓
+      </span>
+    </a>
+  );
+}
+
+/** Le même fichier, en lien discret sous le bouton d'une carte du catalogue.
+ *  Trois cartes, trois liens au même libellé : le nom accessible de chacun
+ *  est complété par le titre de SA formation (`idDuTitre`). */
+function LienDeFiche({ cle, idDuTitre }: { cle: CleDeFormation; idDuTitre: string }) {
+  const id = `fiche-${cle}`;
+  const textes = ARTICULATION.ficheTechnique;
+  return (
+    <a
+      className="for-fiche-discret"
+      id={id}
+      href={FICHES_TECHNIQUES[cle].fichier}
+      type="application/pdf"
+      download
+      aria-labelledby={`${id} ${idDuTitre}`}
+    >
+      {textes.court} ({textes.format})
+    </a>
+  );
+}
+
 /** Une liste cochée. */
 function ListeCochee({ points }: { points: string[] }) {
   return (
@@ -901,6 +959,7 @@ function CarteDuCatalogue({
           >
             {sansFleche(carte.bouton.libelle)}
           </BoutonLong>
+          <LienDeFiche cle={carte.cle} idDuTitre={titre} />
         </div>
 
         <div className="for-carte-corps">
@@ -1530,6 +1589,11 @@ function PageDeFormation({ fiche: releve }: { fiche: Fiche }) {
                 emplacement="ouverture"
               />
             </div>
+            {/* La fiche technique, sous le prix et l'inscription : toujours
+                là, formation en ligne ou non. */}
+            <div className="for-fiche-rang acc-entre" style={variables({ "--i": 5 })}>
+              <BoutonDeFiche cle={cle} />
+            </div>
           </div>
 
           <div className="for-maitrise acc-entre" style={variables({ "--i": 3 })}>
@@ -1800,6 +1864,7 @@ function PageDeFormation({ fiche: releve }: { fiche: Fiche }) {
                 inscription={inscription}
                 emplacement="pratique"
               />
+              <BoutonDeFiche cle={cle} />
             </div>
             <div className="for-pratique-corps">
               {pratique.titre && <h3>{pratique.titre}</h3>}

@@ -1733,6 +1733,29 @@ export const ROUTES_FORMATIONS = {
   etudes: CHEMINS.etudes,
 } as const;
 
+// ── Les fiches techniques ───────────────────────────────────────────────────
+
+/** La fiche technique d'une formation : un PDF que la gérante a rédigé et
+ *  transmis le 20/11/2026, à télécharger depuis la page de la formation.
+ *
+ *  `fichier` : son adresse sur le site (`public/fiches-techniques/`). C'est
+ *  LE SEUL endroit où elle s'écrit : les pages la lisent ici.
+ *  `poids` : celui du fichier, arrondi au kilo-octet (1 Ko = 1 000 octets),
+ *  dit à qui télécharge sur un forfait mobile. Remplacer un PDF sans relever
+ *  son poids fait échouer `les-fiches-techniques-se-telechargent`, qui
+ *  compare les deux — comme un fichier absent ou renommé.
+ *
+ *  Le CONTENU de ces fiches (tarifs, durées, nombre de modules, financements)
+ *  est celui de la gérante, et n'est recopié nulle part : les chiffres que
+ *  les pages affichent restent ceux du serveur. */
+export type FicheTechnique = { fichier: string; poids: string };
+
+export const FICHES_TECHNIQUES: Record<CleDeFormation, FicheTechnique> = {
+  societes: { fichier: "/fiches-techniques/creer-son-entreprise.pdf", poids: "54 Ko" },
+  micro: { fichier: "/fiches-techniques/creer-sa-micro-entreprise.pdf", poids: "58 Ko" },
+  pop: { fichier: "/fiches-techniques/methode-pop.pdf", poids: "52 Ko" },
+};
+
 // ── CE QUE LE SERVEUR REND ──────────────────────────────────────────────────
 //
 // `GET /api/public/formations/` (`donnees.chargerFormations`) rend les
@@ -2207,6 +2230,16 @@ export const ARTICULATION = {
     /** Au retour d'un paiement abandonné (`?paiement=abandon`). */
     abandon: "Votre paiement n'a pas été finalisé. Rien n'a été débité.",
     fermerLAbandon: "Fermer ce message",
+  },
+
+  /** Le lien de la fiche technique (`FICHES_TECHNIQUES`). Il ne dépend pas du
+   *  serveur : il reste là quand la formation n'est pas en ligne. */
+  ficheTechnique: {
+    /** Sur la page d'une formation, suivi du format et du poids. */
+    telecharger: "Télécharger la fiche technique",
+    /** Sur une carte du catalogue, suivi du format. */
+    court: "Fiche technique",
+    format: "PDF",
   },
 
   pourQui: { surtitre: "Pour qui" },

@@ -19,8 +19,10 @@
  * Le premier article, « Ai-je une idée de business viable ? », est relevé sur
  * le site de la cliente. Son texte vit dans
  * `contenuRessources.ARTICLE_IDEE_BUSINESS_VIABLE` ; il est RÉUTILISÉ ici, pas
- * recopié (règle 5). Les suivants sont les guides de `contenuGuides.ts`,
- * écrits pour la plateforme et à faire valider par elle.
+ * recopié (règle 5). Viennent ensuite les portraits de « La Lettre des
+ * Porteurs » (`contenuPortraits.ts`, 20/11/2026) : ses textes aussi, publiés.
+ * Puis les guides de `contenuGuides.ts`, écrits pour la plateforme et à faire
+ * valider par elle.
  *
  * Éditorial uniquement : aucun prix, aucun montant. Les passerelles de fin de
  * page mènent à l'étape payante la plus proche sans en écrire le tarif.
@@ -36,6 +38,7 @@ import {
   type SectionDArticle,
 } from "./contenuRessources";
 import { GUIDES, GUIDES_PUBLIES } from "./contenuGuides";
+import { PORTRAITS } from "./contenuPortraits";
 import { CHEMINS, SLUG_IDEE_BUSINESS_VIABLE } from "./contenuSite";
 
 // ── Adresses ────────────────────────────────────────────────────────────────
@@ -60,14 +63,17 @@ export function adresseDuTheme(theme: SlugDeTheme): string {
 
 // ── Les thèmes : une liste FERMÉE ───────────────────────────────────────────
 
-/** Les cinq thèmes du blog, dans l'ordre des filtres. Un thème sans article
- *  reste affiché, désactivé : la liste dit de quoi parle le blog. */
+/** Les six thèmes du blog, dans l'ordre des filtres. Un thème sans article
+ *  reste affiché, désactivé : la liste dit de quoi parle le blog.
+ *  « Portraits » (20/11/2026) : les porteurs de projet que la gérante présente
+ *  dans sa lettre d'information. */
 export const THEMES = [
   { slug: "creation", libelle: "Création" },
   { slug: "statuts", libelle: "Statuts" },
   { slug: "etude-de-marche", libelle: "Étude de marché" },
   { slug: "financement", libelle: "Financement" },
   { slug: "productivite", libelle: "Productivité" },
+  { slug: "portraits", libelle: "Portraits" },
 ] as const;
 
 export type SlugDeTheme = (typeof THEMES)[number]["slug"];
@@ -86,6 +92,21 @@ export function libelleDuTheme(slug: SlugDeTheme): string {
 
 // ── Le type d'un article ────────────────────────────────────────────────────
 
+/** La photo d'un article : en tête de sa page, sur sa carte dans la liste, et
+ *  déclarée aux moteurs. Un fichier de `public/`, à ses dimensions réelles. */
+export type ImageDArticle = {
+  src: string;
+  /** Ce que la photo montre, sobrement : elle n'est pas décorative. */
+  alt: string;
+  /** Les dimensions du FICHIER, en pixels : elles réservent la place de
+   *  l'image avant son chargement. La feuille donne la taille affichée. */
+  largeur: number;
+  hauteur: number;
+  /** Le point de la photo gardé en vue quand son cadre la rogne (une valeur
+   *  CSS `object-position`, « 50% 20% »). Absent : le centre. */
+  cadrage?: string;
+};
+
 /** Ce qu'on ÉCRIT pour un article. */
 export type SourceDArticle = {
   /** Son adresse : `/blog/<slug>`. Unique dans `ARTICLES`. */
@@ -98,6 +119,13 @@ export type SourceDArticle = {
   publieLe: string | null;
   /** Le titre de l'onglet et la méta-description. */
   entete: { titreOnglet: string; description: string };
+  /** La photo de l'article. Absente : l'article n'en a pas, et rien n'en
+   *  tient lieu. */
+  image?: ImageDArticle;
+  /** Le chapô court des cartes, quand la première phrase du chapô ne dit pas
+   *  de quoi l'article parle. Une phrase DE L'ARTICLE, pas une réécriture.
+   *  Absent : `composer` prend la première phrase du chapô. */
+  accroche?: string;
   /** Le chapô : son intertitre d'ouverture et ses paragraphes. */
   chapo: { intertitre: string; paragraphes: string[] };
   sections: SectionDArticle[];
@@ -126,7 +154,8 @@ export type SourceDArticle = {
 /** Un article tel que les pages le lisent : la source, plus ce qui se
  *  CALCULE sur son texte. */
 export type Article = SourceDArticle & {
-  /** Le chapô court des cartes : la première phrase du chapô. */
+  /** Le chapô court des cartes : celui de la source s'il est écrit, sinon la
+   *  première phrase du chapô. */
   accroche: string;
   nombreDeMots: number;
   /** En minutes, calculé — voir `MOTS_PAR_MINUTE`. */
@@ -145,6 +174,10 @@ function texteDeLElement(element: ElementDArticle): string[] {
     case "question":
     case "exemple":
       return [element.amorce, element.texte];
+    case "citation":
+      return [element.texte, element.auteur ?? ""];
+    case "lien":
+      return [element.libelle];
   }
 }
 
@@ -210,7 +243,7 @@ export function composer(source: SourceDArticle): Article {
   const nombreDeMots = compterLesMots(texteDeLArticle(source));
   return {
     ...source,
-    accroche: premierePhrase(premier),
+    accroche: source.accroche ?? premierePhrase(premier),
     nombreDeMots,
     tempsDeLecture: minutesDeLecture(nombreDeMots),
   };
@@ -232,8 +265,11 @@ export const AUTEUR_DU_BLOG = "Evangeline Khaili";
  *  fin d'article. Il la NOMME par le titre de l'article, qui est le sien. */
 const OBJET_DE_LA_CHECKLIST = `Je souhaite recevoir la checklist « ${VIABLE.titre} »`;
 
-/** LA LISTE. Le plus récent en premier : le premier de la liste est mis en
- *  avant, en grand, sur `/blog`. */
+/** LA LISTE. Le premier de la liste est mis en avant, en grand, sur `/blog`.
+ *
+ *  L'ordre : l'article relevé d'abord — il reste à la une, aucune date ne dit
+ *  qu'un portrait est plus récent que lui, et c'est le seul article de fond de
+ *  la gérante —, puis ses portraits, puis les guides une fois validés. */
 export const ARTICLES: Article[] = [
   composer({
     slug: SLUG_IDEE_BUSINESS_VIABLE,
@@ -277,8 +313,11 @@ export const ARTICLES: Article[] = [
       bouton: { libelle: "Découvrir l'étude de marché", lien: ROUTES_RESSOURCES.etudes },
     },
   }),
-  // Les guides écrits pour la plateforme (`contenuGuides.ts`), APRÈS l'article
-  // de la cliente, et seulement une fois qu'elle les a validés
+  // Les portraits de « La Lettre des Porteurs » (`contenuPortraits.ts`) : les
+  // textes de la gérante, publiés à sa demande du 20/11/2026.
+  ...PORTRAITS.map(composer),
+  // Les guides écrits pour la plateforme (`contenuGuides.ts`), APRÈS les
+  // textes de la cliente, et seulement une fois qu'elle les a validés
   // (`GUIDES_PUBLIES`).
   ...(GUIDES_PUBLIES ? GUIDES.map(composer) : []),
 ];
@@ -338,6 +377,12 @@ export const PAGE_ARTICLE = {
   blog: "Blog",
   sommaire: "Dans cet article",
   publieLe: "Publié le",
+  /** Les guillemets qu'une citation reçoit à l'affichage, espace insécable
+   *  comprise : le contenu écrit les paroles sans guillemets. */
+  guillemets: { ouvrant: "«\u00a0", fermant: "\u00a0»" },
+  /** Après le libellé d'un lien qui sort du site : il s'ouvre ailleurs, et
+   *  la page le dit à tout le monde, pas seulement aux lecteurs d'écran. */
+  nouvelOnglet: "(nouvel onglet)",
   /** Le nom de la maison d'édition, pour les données structurées. */
   editeur: "EVKHA Business & Formations",
   introuvable: {

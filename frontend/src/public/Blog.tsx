@@ -30,6 +30,14 @@
  * `Article` en JSON-LD. Aucune date n'y figure tant que `publieLe` vaut
  * `null` : une date supposée serait un fait inventé, déclaré aux moteurs.
  *
+ * ## La photo, les citations, les liens sortants (portraits, 20/11/2026)
+ *
+ * Un article PEUT porter une photo (`image`) : elle ouvre sa page, coiffe sa
+ * carte dans la liste, et se déclare dans les données structurées. Sans
+ * photo, rien ne change — ni cadre vide, ni image de remplacement.
+ * Une citation est un `<blockquote>`, son auteur une légende ; un lien qui
+ * sort du site s'ouvre dans un nouvel onglet, et le dit.
+ *
  * Le corps de l'article n'attend pas le défilement pour apparaître : un texte
  * qu'on vient lire s'affiche. Seul l'encadré de fin est révélé.
  *
@@ -43,7 +51,7 @@
  * passerelle vers l'étape payante la plus proche de son sujet (`Passage`),
  * sans prix. Aucun montant n'est écrit ici.
  */
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { useParams } from "@tanstack/react-router";
 
 import {
@@ -60,6 +68,7 @@ import {
   ROUTE_DU_BLOG,
   THEMES,
   type Article,
+  type ImageDArticle,
   type SlugDeTheme,
 } from "./contenuBlog";
 import type { ElementDArticle } from "./contenuRessources";
@@ -108,11 +117,35 @@ function ecrireLeThemeDansLAdresse(theme: SlugDeTheme | null): void {
   );
 }
 
+/** Le point de la photo gardé en vue quand son cadre la rogne. Sans cadrage
+ *  écrit, aucun style : la feuille centre. */
+function cadrageDe(image: ImageDArticle): CSSProperties | undefined {
+  return image.cadrage === undefined ? undefined : { objectPosition: image.cadrage };
+}
+
 /** Une carte d'article. `aLaUne` : la première de la liste, en grand. */
 function CarteDArticle({ article, aLaUne }: { article: Article; aLaUne: boolean }) {
+  const { image } = article;
   return (
     <li className={aLaUne ? "res-article-rang res-article-rang-une" : "res-article-rang"}>
-      <article className="res-article" data-reveal="">
+      <article className={image ? "res-article res-article-illustre" : "res-article"} data-reveal="">
+        {/* La photo coiffe la carte. Le cadre donne la forme, les attributs
+            le ratio du fichier : rien ne saute au chargement. Sous la ligne
+            de flottaison : chargée à l'approche. */}
+        {image && (
+          <div className="res-article-image">
+            <img
+              className="res-article-photo"
+              src={image.src}
+              alt={image.alt}
+              width={image.largeur}
+              height={image.hauteur}
+              loading="lazy"
+              decoding="async"
+              style={cadrageDe(image)}
+            />
+          </div>
+        )}
         <div className="res-article-tete">
           <span className="acc-tag">{libelleDuTheme(article.theme)}</span>
           <h3>
@@ -267,6 +300,31 @@ function ElementDuCorps({ element }: { element: ElementDArticle }) {
           <p>{element.texte}</p>
         </div>
       );
+    case "citation":
+      // Les guillemets sont du TEXTE, pas un décor de la feuille : ils
+      // suivent la citation quand on la copie.
+      return (
+        <figure className="res-citation">
+          <blockquote>
+            <p>
+              {PAGE_ARTICLE.guillemets.ouvrant}
+              {element.texte}
+              {PAGE_ARTICLE.guillemets.fermant}
+            </p>
+          </blockquote>
+          {element.auteur && <figcaption>{element.auteur}</figcaption>}
+        </figure>
+      );
+    case "lien":
+      // Un site tiers : nouvel onglet, sans lui donner la main sur celui-ci
+      // (`noopener`). Le libellé dit où il mène, la mention qu'il sort.
+      return (
+        <p className="res-lien-sortant">
+          <a href={element.lien} target="_blank" rel="noopener">
+            {element.libelle} <span className="res-lien-mention">{PAGE_ARTICLE.nouvelOnglet}</span>
+          </a>
+        </p>
+      );
   }
 }
 
@@ -302,6 +360,18 @@ function donneesStructurees(article: Article): Record<string, unknown> {
     publisher: { "@type": "Organization", name: PAGE_ARTICLE.editeur },
     mainEntityOfPage: adresse,
     url: adresse,
+    // La photo, à son adresse complète et à ses dimensions — seulement si
+    // l'article en a une.
+    ...(article.image
+      ? {
+          image: {
+            "@type": "ImageObject",
+            url: `${window.location.origin}${article.image.src}`,
+            width: article.image.largeur,
+            height: article.image.hauteur,
+          },
+        }
+      : {}),
     ...(article.publieLe === null ? {} : { datePublished: article.publieLe }),
   };
 }
@@ -363,6 +433,29 @@ function PageDArticle({ article }: { article: Article }) {
                 </li>
               )}
             </ul>
+            {/* La photo de l'article. Haut de page : pas de chargement
+                différé. Une photo verticale garde un cadre vertical, plus
+                étroit, plutôt que d'être rognée en bandeau. */}
+            {article.image && (
+              <div
+                className={
+                  article.image.hauteur > article.image.largeur
+                    ? "res-photo res-photo-verticale"
+                    : "res-photo"
+                }
+              >
+                <img
+                  className="res-photo-image"
+                  src={article.image.src}
+                  alt={article.image.alt}
+                  width={article.image.largeur}
+                  height={article.image.hauteur}
+                  loading="eager"
+                  decoding="async"
+                  style={cadrageDe(article.image)}
+                />
+              </div>
+            )}
           </div>
         </div>
 

@@ -895,21 +895,27 @@ export function Accueil() {
                 rendue trois fois bout à bout pour que la bande reste pleine sur
                 un grand écran ; seule la première est lue (les copies sont
                 `aria-hidden`, leurs images sans texte). Elle s'arrête au survol,
-                au focus et avec le bouton de pause, comme le ruban. */}
+                au focus et avec le bouton de pause, comme le ruban.
+                Une référence SANS logo s'affiche par son nom, en texte : dans
+                une copie, c'est le `aria-hidden` de sa case qui la tait. */}
             <div className="acc-confiance-bande">
               <ul className="acc-confiance-logos">
                 {[0, 1, 2].flatMap((copie) =>
                   CONFIANCE.logos.map((logo) => (
                     <li key={`${copie}-${logo.nom}`} aria-hidden={copie > 0 ? true : undefined}>
-                      <img
-                        className="acc-confiance-logo"
-                        src={logo.image}
-                        alt={copie > 0 ? "" : logo.nom}
-                        width={logo.largeur}
-                        height={logo.hauteur}
-                        loading="lazy"
-                        decoding="async"
-                      />
+                      {logo.image ? (
+                        <img
+                          className="acc-confiance-logo"
+                          src={logo.image.src}
+                          alt={copie > 0 ? "" : logo.nom}
+                          width={logo.image.largeur}
+                          height={logo.image.hauteur}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <span className="acc-confiance-nom">{logo.nom}</span>
+                      )}
                     </li>
                   )),
                 )}

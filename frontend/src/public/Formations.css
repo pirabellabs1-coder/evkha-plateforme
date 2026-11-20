@@ -175,6 +175,50 @@
   transform: none;
 }
 
+/* ── La fiche technique : un PDF à télécharger ───────────────────────────── */
+
+/* Sa propre ligne, sous le prix et l'inscription. */
+.for-fiche-rang {
+  margin-top: 18px;
+}
+
+/* Le texte reste à gauche de sa flèche quand il prend deux lignes. */
+.acc-btn.for-fiche {
+  text-align: left;
+}
+
+/* Le format et le poids ne se séparent pas : « 54 Ko » sur une seule ligne. */
+.for-fiche-format {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* La flèche du socle pivote au survol, pour dire « on y va ». Celle-ci
+   pointe vers le bas — on télécharge — et pivotée, elle ne dirait plus rien :
+   elle reste droite. Le bouton, lui, se soulève comme les autres. */
+.acc-btn.for-fiche:hover .acc-btn-fleche {
+  transform: none;
+}
+
+/* Sur une carte du catalogue : un lien discret sous le bouton, à l'encre,
+   souligné — et haut de 44 px, une cible que le doigt atteint. */
+.for-fiche-discret {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--acc-encre);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
+.for-fiche-discret:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
 /* Le refus : le rouge de la charte sur son voile (4,5:1), un filet à gauche —
    jamais la couleur seule, le texte dit ce qui se passe. Même habillage que
    `.bou-erreur`. */

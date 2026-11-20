@@ -572,12 +572,20 @@ export const BOITE_A_OUTILS = {
  *  - `paragraphe` : du texte courant ;
  *  - `liste` : des points, avec leur phrase d'introduction s'il y en a une ;
  *  - `question` : l'encadré « Demandez-vous : » et la ou les questions ;
- *  - `exemple` : l'encadré « Exemple : », un cas concret. */
+ *  - `exemple` : l'encadré « Exemple : », un cas concret ;
+ *  - `citation` : des paroles rapportées, avec le nom de qui les a dites —
+ *    absent quand la source ne le dit pas : un auteur ne se suppose pas. Le
+ *    texte s'écrit SANS guillemets : la page les pose (portraits du blog,
+ *    20/11/2026) ;
+ *  - `lien` : un lien qui SORT du site (le site de la personne présentée). Son
+ *    libellé dit où il mène : il s'ouvre dans un nouvel onglet. */
 export type ElementDArticle =
   | { genre: "paragraphe"; texte: string }
   | { genre: "liste"; introduction?: string; points: string[] }
   | { genre: "question"; amorce: string; texte: string }
-  | { genre: "exemple"; amorce: string; texte: string };
+  | { genre: "exemple"; amorce: string; texte: string }
+  | { genre: "citation"; texte: string; auteur?: string }
+  | { genre: "lien"; libelle: string; lien: string };
 
 export type SousSection = {
   intertitre: string;

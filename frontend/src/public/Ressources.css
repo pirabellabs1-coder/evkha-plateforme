@@ -751,6 +751,29 @@
   box-shadow: var(--acc-ecrin), var(--acc-ombre);
 }
 
+/* La photo d'un article coiffe sa carte (portraits du blog). Le cadre est le
+   même pour toutes — trois sur deux — pour que les cartes d'une ligne
+   s'alignent ; une photo verticale y est rognée autour du point que son
+   contenu désigne (`cadrage`, posé en style par la page). `height: auto` :
+   sans elle, l'attribut `height` de l'image fixerait sa hauteur en pixels et
+   le ratio serait ignoré. Le lien du titre, étendu à la carte, la couvre. */
+.res-article-illustre {
+  grid-template-rows: auto auto 1fr;
+}
+
+.res-article-image {
+  overflow: hidden;
+  background: var(--acc-or-brume);
+}
+
+.res-article-photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
 .res-article-tete {
   display: flex;
   flex-direction: column;
@@ -808,6 +831,27 @@
 /* À la une : deux volets, le titre en grand sur l'or. */
 .res-article-rang-une .res-article {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+/* À la une, la photo est un troisième volet, à gauche, à la hauteur de la
+   carte. Pas un bandeau au-dessus des deux autres : sur toute la largeur, un
+   portrait serait agrandi au-delà de son fichier et rogné jusqu'au visage
+   (vu à l'écran le 20/11/2026). Elle remplit son volet, d'où qu'en vienne la
+   hauteur. */
+.res-article-rang-une .res-article-illustre {
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-rows: auto;
+}
+
+.res-article-rang-une .res-article-image {
+  position: relative;
+}
+
+.res-article-rang-une .res-article-photo {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 .res-article-rang-une .res-article-tete {
@@ -907,6 +951,35 @@
   font-weight: 700;
 }
 
+/* La photo de l'article, sous son en-tête. Moins large que la page : à
+   pleine largeur, elle repousserait le texte sous l'écran. Une photo
+   verticale garde un cadre vertical, plus étroit — rognée en bandeau, elle
+   perdrait son sujet. `height: auto` : voir `.res-article-photo`. */
+.res-photo {
+  max-width: 760px;
+  margin-top: 32px;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-brume);
+  box-shadow: var(--acc-ecrin);
+}
+
+.res-photo-verticale {
+  max-width: 420px;
+}
+
+.res-photo-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.res-photo-verticale .res-photo-image {
+  aspect-ratio: 4 / 5;
+}
+
 .res-lecture-grille {
   display: grid;
   grid-template-columns: minmax(0, 250px) minmax(0, 1fr);
@@ -972,7 +1045,8 @@
 
 .res-prose p,
 .res-prose .res-liste,
-.res-prose .res-encadre {
+.res-prose .res-encadre,
+.res-prose .res-citation {
   margin: 0 0 1.15em;
 }
 
@@ -1076,6 +1150,62 @@
   background: var(--acc-blanc);
 }
 
+/* Une citation : des paroles rapportées, en Fraunces, derrière un filet d'or
+   — et, dessous, le nom de qui les a dites. C'est le `<blockquote>` qui dit
+   « citation », pas la couleur. */
+.res-citation {
+  padding: 4px 0 4px 22px;
+  border-left: 4px solid var(--acc-or);
+}
+
+.res-citation blockquote {
+  margin: 0;
+}
+
+.res-prose .res-citation p {
+  margin: 0;
+  color: var(--acc-encre);
+  font-family: var(--acc-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.22rem;
+  line-height: 1.5;
+}
+
+.res-citation figcaption {
+  margin-top: 10px;
+  color: var(--acc-gris);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.res-citation figcaption::before {
+  content: "— ";
+}
+
+/* Un lien qui sort du site : souligné comme ceux du fil d'Ariane, et assez
+   haut pour le doigt. Sa mention « nouvel onglet » reste lisible, en retrait. */
+.res-lien-sortant a {
+  display: inline-block;
+  padding: 10px 0;
+  color: var(--acc-encre);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--acc-or-fonce);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
+.res-lien-sortant a:hover {
+  text-decoration-color: var(--acc-encre);
+}
+
+.res-lien-mention {
+  color: var(--acc-gris);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 .res-prose .res-salut {
   margin: 1.6em 0 0;
   color: var(--acc-encre);
@@ -1162,6 +1292,19 @@
     min-height: 0;
   }
 
+  /* Empilée, la carte à la une reprend le cadre des autres : la photo
+     au-dessus, trois sur deux. */
+  .res-article-rang-une .res-article-illustre {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .res-article-rang-une .res-article-photo {
+    position: static;
+    height: auto;
+    aspect-ratio: 3 / 2;
+  }
+
   /* Le sommaire passe au-dessus du texte, et ne colle plus. */
   .res-lecture-grille {
     grid-template-columns: minmax(0, 1fr);
@@ -1199,6 +1342,14 @@
 
   .res-encadre {
     padding: 18px 20px;
+  }
+
+  .res-citation {
+    padding-left: 16px;
+  }
+
+  .res-prose .res-citation p {
+    font-size: 1.12rem;
   }
 }
 

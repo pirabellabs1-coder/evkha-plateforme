@@ -1230,6 +1230,30 @@ a.acc-prete:hover {
   opacity: 1;
 }
 
+/* Une référence sans logo : son NOM, en Fraunces, sur la même pastille. À la
+   hauteur des logos — la bande garde une seule ligne de base —, au gris du
+   titre et à leur opacité (5,9:1 sur le blanc de la pastille), et sur une
+   seule ligne : un nom coupé en deux ferait une pastille plus haute que ses
+   voisines. */
+.acc-confiance-nom {
+  display: grid;
+  place-items: center;
+  height: 56px;
+  color: var(--acc-gris);
+  font-family: var(--acc-serif);
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  opacity: 0.86;
+  transition: opacity var(--duree-acc-survol) var(--ease-sortie);
+}
+
+.acc-confiance-logos li:hover .acc-confiance-nom {
+  opacity: 1;
+}
+
 /* ── Formations et accompagnement : deux cartes, sans prix ───────────────── */
 
 .acc-ailleurs {
@@ -2053,6 +2077,11 @@ a.acc-prete:hover {
     height: 44px;
     max-width: 130px;
   }
+
+  .acc-confiance-nom {
+    height: 44px;
+    font-size: 1.1rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2159,6 +2188,7 @@ a.acc-prete:hover {
   .acc-volet-contenu,
   .acc-prete,
   .acc-confiance-logo,
+  .acc-confiance-nom,
   .acc-case-signe,
   .acc-elle-image {
     transition-duration: max(var(--duree-acc-survol), var(--calme-survol));

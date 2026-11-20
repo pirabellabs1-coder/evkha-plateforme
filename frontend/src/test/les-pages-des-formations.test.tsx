@@ -827,10 +827,13 @@ describe("les pages des formations", () => {
       const c = cartes[k];
       expect(within(c).getByRole("heading", { level: 3 })).toHaveTextContent(carte.titre);
       expect(texteDe(c.querySelector(".for-prix")), carte.cle).toBe(PRIX[carte.cle]);
-      // UN lien dans la carte : la page de la formation, sur la plateforme.
+      // Deux liens dans la carte : la page de la formation, sur la
+      // plateforme, puis sa fiche technique à télécharger (20/11/2026 —
+      // éprouvée dans `les-fiches-techniques-se-telechargent`).
       const liens = within(c).getAllByRole("link");
-      expect(liens, carte.cle).toHaveLength(1);
+      expect(liens, carte.cle).toHaveLength(2);
       expect(liens[0], carte.cle).toHaveAttribute("href", route);
+      expect(liens[1], carte.cle).toHaveAttribute("download");
       // La flèche du libellé relevé n'est pas doublée par celle du bouton.
       expect(texteDe(liens[0]).match(/→/g), carte.cle).toHaveLength(1);
       // Des repères de durée ou de format sur chacune.
@@ -869,7 +872,10 @@ describe("les pages des formations", () => {
     // La carte reste entière, et son bouton mène toujours à sa page : la page
     // se lit même quand la formation n'est pas en ligne.
     expect(within(micro).getByRole("heading", { level: 3 })).toHaveTextContent(CARTE_MICRO.titre);
-    expect(within(micro).getByRole("link")).toHaveAttribute("href", "/formations/creer-sa-micro-entreprise");
+    expect(within(micro).getByRole("link", { name: /Je découvre/ })).toHaveAttribute(
+      "href",
+      "/formations/creer-sa-micro-entreprise",
+    );
     expect(micro.querySelector(".acc-btn-inactif")).toBeNull();
     for (const acquis of CARTE_MICRO.acquis) expect(texteDe(micro)).toContain(acquis);
     // Ses repères chiffrés ne s'affichent pas ; les autres, si.
@@ -1070,8 +1076,9 @@ describe("les pages des formations", () => {
     for (const carte of cartes()) {
       expect(texteDe(carte.querySelector(".for-prix-absent"))).toBe(PANNE);
       expect(texteDe(carte)).not.toMatch(MONTANT);
-      // La page de la formation reste à un clic.
-      expect(within(carte).getAllByRole("link")).toHaveLength(1);
+      // La page de la formation reste à un clic — et sa fiche technique,
+      // qui ne dépend pas du serveur, aussi.
+      expect(within(carte).getAllByRole("link")).toHaveLength(2);
     }
     expect(texte()).not.toContain(ABSENT);
   });

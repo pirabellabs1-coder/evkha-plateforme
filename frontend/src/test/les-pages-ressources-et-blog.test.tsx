@@ -193,7 +193,8 @@ const VIABLE = ARTICLES[0];
  *  ajoute le sien (`ESSAI`). Les guides inscrits le 20/11/2026
  *  (`contenuGuides.ts`) en sont donc retirés ICI, pour ce fichier seulement :
  *  ils sont jugés un par un dans `les-guides-du-blog.test.tsx`, qui lit la
- *  liste entière. */
+ *  liste entière. Les portraits (`contenuPortraits.ts`) aussi : ils sont
+ *  jugés dans `les-portraits-du-blog.test.tsx`. */
 ARTICLES.splice(1);
 
 /** Un second article, pour prouver que le blog se construit sur la liste. Il
@@ -515,15 +516,18 @@ describe("la liste du blog", () => {
     return Array.from(document.querySelectorAll<HTMLElement>("article.res-article"));
   }
 
-  it("la liste fermée des thèmes : création, statuts, étude de marché, financement, productivité", () => {
+  // « Portraits » : ajouté le 20/11/2026, à la demande de la gérante, pour
+  // les porteurs de projet de sa lettre (`les-portraits-du-blog`).
+  it("la liste fermée des thèmes : création, statuts, étude de marché, financement, productivité, portraits", () => {
     expect(THEMES.map((theme) => theme.libelle)).toEqual([
       "Création",
       "Statuts",
       "Étude de marché",
       "Financement",
       "Productivité",
+      "Portraits",
     ]);
-    expect(new Set(THEMES.map((theme) => theme.slug)).size).toBe(5);
+    expect(new Set(THEMES.map((theme) => theme.slug)).size).toBe(6);
   });
 
   it("« Tous » par défaut ; un thème sans article est affiché désactivé, jamais masqué", () => {

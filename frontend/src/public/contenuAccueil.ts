@@ -146,36 +146,46 @@ export const RUBAN = [
 
 // ── Ils me font confiance ───────────────────────────────────────────────────
 
+/** Une structure de la bande « Ils me font confiance ».
+ *
+ *  `image` est OPTIONNELLE : sans logo, la référence s'affiche par son NOM, en
+ *  texte, dans la même bande. Un logo ne se fabrique pas et ne se prend pas
+ *  sur le site d'un tiers : il s'ajoute ici le jour où la structure le
+ *  fournit. `largeur` × `hauteur` : les dimensions du fichier — elles
+ *  réservent la place du logo avant son chargement. */
+export type Reference = {
+  nom: string;
+  image?: { src: string; largeur: number; hauteur: number };
+  /** Le site de la structure, tel que la gérante l'a donné. Gardé pour
+   *  mémoire, NON affiché : la bande défile, un lien y serait une cible qui
+   *  bouge — et aucune des références n'en porte. */
+  site?: string;
+};
+
 /** Les quatre structures affichées sur l'accueil du site actuel, sous le même
- *  titre. `largeur` × `hauteur` : les dimensions des fichiers, relevées sur le
- *  site — elles réservent la place de chaque logo avant son chargement. */
-export const CONFIANCE = {
+ *  titre, puis les deux que la gérante a ajoutées par courriel le 20/11/2026
+ *  (Orichi formation, Althea Provence) — sans logo fourni, donc en texte. */
+export const CONFIANCE: { titre: string; logos: Reference[] } = {
   titre: "Ils me font confiance",
   logos: [
     {
       nom: "LegalPlace",
-      image: IMAGES_ACCUEIL.logoLegalPlace,
-      largeur: 870,
-      hauteur: 198,
+      image: { src: IMAGES_ACCUEIL.logoLegalPlace, largeur: 870, hauteur: 198 },
     },
     {
       nom: "Réseau Initiative France",
-      image: IMAGES_ACCUEIL.logoInitiativeFrance,
-      largeur: 1388,
-      hauteur: 646,
+      image: { src: IMAGES_ACCUEIL.logoInitiativeFrance, largeur: 1388, hauteur: 646 },
     },
     {
       nom: "Swapn",
-      image: IMAGES_ACCUEIL.logoSwapn,
-      largeur: 404,
-      hauteur: 402,
+      image: { src: IMAGES_ACCUEIL.logoSwapn, largeur: 404, hauteur: 402 },
     },
     {
       nom: "Yyyours",
-      image: IMAGES_ACCUEIL.logoYyyours,
-      largeur: 208,
-      hauteur: 226,
+      image: { src: IMAGES_ACCUEIL.logoYyyours, largeur: 208, hauteur: 226 },
     },
+    { nom: "Orichi formation", site: "https://www.orichiconseil.fr/" },
+    { nom: "Althea Provence", site: "https://www.altheaprovence.com/" },
   ],
 };
 

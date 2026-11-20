@@ -7,8 +7,8 @@
  * ne les a pas relus. Ce fichier verrouille, pour CHAQUE guide de la liste —
  * elle n'est pas recopiée ici (règle 4) :
  *
- * (a) le guide est publié par la liste du blog, après l'article de la
- *     cliente, qui reste à la une ;
+ * (a) le guide est publié par la liste du blog, après les textes de la
+ *     cliente — son article, qui reste à la une, puis ses portraits ;
  * (b) sa page se rend à son adresse, avec un seul `h1`, son sommaire, ses
  *     données structurées `Article`, et sans date de publication inventée ;
  * (c) il ne cite AUCUN montant et aucun des points non confirmés par la
@@ -92,7 +92,11 @@ describe("les guides du blog", () => {
   it("(a) une fois inscrits, ils suivent l'article de la cliente, qui reste à la une", () => {
     expect(GUIDES.length).toBeGreaterThanOrEqual(3);
     expect(ARTICLES[0].slug).toBe(SLUG_IDEE_BUSINESS_VIABLE);
-    expect(ARTICLES.slice(1).map((article) => article.slug)).toEqual(GUIDES.map((guide) => guide.slug));
+    // Les guides FERMENT la liste : depuis le 20/11/2026, les portraits de la
+    // gérante (`contenuPortraits.ts`) viennent entre son article et eux.
+    expect(ARTICLES.slice(-GUIDES.length).map((article) => article.slug)).toEqual(
+      GUIDES.map((guide) => guide.slug),
+    );
     expect(new Set(ARTICLES.map((article) => article.slug)).size).toBe(ARTICLES.length);
     for (const guide of GUIDES) {
       expect(guide.slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
