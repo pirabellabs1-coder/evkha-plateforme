@@ -36,9 +36,11 @@ const DIST = join(RACINE, "dist");
 const ENTREE = join(RACINE, "dist-prerendu", "prerendu.js");
 const MANIFESTE = join(DIST, ".vite", "manifest.json");
 
-/** Le temps laissé à une page pour se rendre. Large : la première charge
- *  tout le site. */
-const ATTENTE_MAX_MS = 60_000;
+/** Le temps laissé à une page pour se rendre. Très large : la première
+ *  charge tout le site, et elle a mis 33 s dans l'image Docker sur une
+ *  machine occupée (mesuré le 20/11/2026). Ce délai ne coûte rien quand tout
+ *  va bien — il ne s'écoule que si une page ne se rend pas. */
+const ATTENTE_MAX_MS = 180_000;
 const PAS_MS = 25;
 
 function echec(message) {
