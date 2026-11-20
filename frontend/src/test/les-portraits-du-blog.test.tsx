@@ -273,6 +273,15 @@ describe("les portraits du blog", () => {
       await ouvrir(portrait.slug);
       const page = texteDuContenu();
 
+      // L'aperçu d'un lien partagé montre la PERSONNE, à son adresse complète
+      // et à ses dimensions — pas le logo du gabarit.
+      const partage = (selecteur: string) =>
+        document.head.querySelector(selecteur)?.getAttribute("content");
+      expect(partage('meta[property="og:image"]')).toBe(`https://evkha.fr${portrait.image?.src}`);
+      expect(partage('meta[name="twitter:image"]')).toBe(`https://evkha.fr${portrait.image?.src}`);
+      expect(partage('meta[property="og:image:width"]')).toBe(String(portrait.image?.largeur));
+      expect(partage('meta[property="og:image:height"]')).toBe(String(portrait.image?.hauteur));
+
       // Un seul h1, des titres sans saut, la page se laisse indexer.
       const titres = screen.getAllByRole("heading", { level: 1 });
       expect(titres).toHaveLength(1);
@@ -450,6 +459,8 @@ describe("les portraits du blog", () => {
     expect(screen.getByRole("main").querySelector("img")).toBeNull();
     expect(document.querySelector(".res-photo")).toBeNull();
     expect(donneesDeLArticle()).not.toHaveProperty("image");
+    // Et aucune image de partage posée par la page : celle du gabarit reste.
+    expect(document.head.querySelector('meta[property="og:image"]')).toBeNull();
     expect(document.querySelector("figure.res-citation")).toBeNull();
     expect(screen.getByRole("main").querySelector('a[target="_blank"]')).toBeNull();
   });

@@ -130,7 +130,8 @@ export const CARTES = {
    *  invisible parce qu'un texte manque. */
   chapeauSobre: "Un document complet, en Word et en PDF",
   commanderSobre: (libelle: string) => `Commander ${libelle.toLowerCase()}`,
-  attente: "Chargement du catalogue…",
+  /** Dite au-dessus des cartes, déjà affichées par leur argumentaire. */
+  attente: "Les tarifs arrivent dans un instant.",
   /** Dite dans la région d'alerte du haut de page, suivie de l'adresse. */
   panne: "Le catalogue est momentanément indisponible.",
   panneSuite: "Écrivez-nous à",

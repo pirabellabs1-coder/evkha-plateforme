@@ -336,7 +336,7 @@ export const BLOG = {
   /** Sans la marque : `site.titreDOnglet` la pose à la fin, comme partout. */
   titreOnglet: "Le blog : conseils pour créer et développer votre entreprise",
   description:
-    "Création, statuts, étude de marché, financement, productivité : les articles pratiques d'EVKHA pour avancer dans votre projet d'entreprise.",
+    "Création, statuts, étude de marché, financement, productivité, et les portraits d'entrepreneurs accompagnés : les articles d'EVKHA pour avancer dans votre projet d'entreprise.",
   surtitre: "Le blog",
   titre: { avant: "Des conseils concrets pour", fin: "bien entreprendre." },
   presentation:

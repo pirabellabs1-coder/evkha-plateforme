@@ -383,7 +383,12 @@ function PageDArticle({ article }: { article: Article }) {
 
   useReveler(page, article.slug, { memeEnMouvementReduit: true });
   useAimants(page);
-  useTitreDePage(titreDOnglet(article.entete.titreOnglet), article.entete.description);
+  useTitreDePage(
+    titreDOnglet(article.entete.titreOnglet),
+    article.entete.description,
+    true,
+    article.image,
+  );
 
   const theme = libelleDuTheme(article.theme);
   // Les parties du sommaire : chaque section, puis la conclusion. Les ancres

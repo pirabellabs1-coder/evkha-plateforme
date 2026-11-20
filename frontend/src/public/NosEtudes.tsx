@@ -210,16 +210,20 @@ function Carte({
   etude,
   rang,
   suivante,
+  provisoire = false,
 }: {
-  etude: LivrablePublic;
+  etude: Pick<LivrablePublic, "slug" | "libelle"> & { prix_cents?: number };
   rang: number;
-  suivante: LivrablePublic | null;
+  suivante: Pick<LivrablePublic, "slug" | "libelle"> | null;
+  /** Le catalogue n'a pas encore répondu : la carte porte son argumentaire,
+   *  la phrase d'attente à la place du prix, et un bouton neutralisé. */
+  provisoire?: boolean;
 }) {
   const texte = ETUDES[etude.slug];
   const suite = SUITE_DU_PARCOURS[etude.slug];
   // Une offre créée à zéro (brouillon, erreur de saisie) n'a pas de prix :
   // la carte le dit et son bouton est neutralisé, comme sur l'accueil.
-  const vendable = lisible(etude.prix_cents);
+  const vendable = !provisoire && lisible(etude.prix_cents);
   const titre = `${ancreDe(etude.slug)}-titre`;
 
   return (
@@ -229,6 +233,7 @@ function Carte({
         id={ancreDe(etude.slug)}
         aria-labelledby={titre}
         data-reveal=""
+        data-provisoire={provisoire ? "" : undefined}
       >
         <div className="etu-carte-tete">
           <span className="etu-carte-numero" aria-hidden="true">
@@ -238,11 +243,11 @@ function Carte({
           <h3 id={titre}>{etude.libelle}</h3>
           {vendable ? (
             <p className="etu-prix">
-              {euros(etude.prix_cents)}
+              {euros(etude.prix_cents ?? 0)}
               <span className="etu-prix-mention"> {MENTION_DU_PRIX}</span>
             </p>
           ) : (
-            <p className="etu-prix-absent">{TARIFS.absent}</p>
+            <p className="etu-prix-absent">{provisoire ? TARIFS.attente : TARIFS.absent}</p>
           )}
           <Bouton
             lien={lienCommande(etude.slug)}
@@ -477,18 +482,29 @@ export function NosEtudes() {
 
             {enPanne && <p className="acc-panne">{CARTES.rappel}</p>}
 
+            {/* Tant que le catalogue n'a pas répondu, les quatre études
+                s'affichent DÉJÀ, par leur argumentaire (`contenu.ETUDES`) :
+                seuls le prix et le bouton attendent. La page montrait
+                « Chargement du catalogue… » et quatre formes vides — et
+                c'est cet état que le pré-rendu écrit pour les robots, qui
+                n'interrogent jamais le serveur : ils ne lisaient aucune des
+                quatre études de la page qui les vend. */}
             {livrables.etat === "attente" && (
               <>
                 <p className="etu-attente" role="status">
                   {CARTES.attente}
                 </p>
-                {/* La forme d'une carte, sans un seul chiffre. Immobile. */}
-                <div className="etu-gabarit" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
+                <ol className="etu-cartes">
+                  {PARCOURS_DES_ETUDES.map((slug, k) => (
+                    <Carte
+                      key={slug}
+                      etude={{ slug, libelle: ETUDES[slug].nom }}
+                      rang={k}
+                      suivante={null}
+                      provisoire
+                    />
+                  ))}
+                </ol>
               </>
             )}
 

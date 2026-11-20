@@ -265,12 +265,20 @@ function meta(cle: "name" | "property", nom: string): () => HTMLElement {
  *  Elle garde son titre et sa description, mais ne se dit ni canonique ni
  *  rangée dans un fil d'Ariane : ce serait déclarer aux moteurs, comme une
  *  vraie page, l'adresse fautive qu'on leur demande par ailleurs de ne pas
- *  indexer (`useSansIndexation`). */
+ *  indexer (`useSansIndexation`).
+ *
+ *  `image` : la photo de la page, pour l'aperçu d'un lien partagé. Absente,
+ *  la page garde l'image du gabarit (le logo). Un portrait du blog partagé
+ *  sur un réseau montrait le logo d'EVKHA, pas la personne dont il parle. */
 export function useTitreDePage(
   titre: string,
   description: string,
   aSonAdresse: boolean = true,
+  image?: { src: string; largeur: number; hauteur: number },
 ): void {
+  const source = image?.src;
+  const largeur = image?.largeur;
+  const hauteur = image?.hauteur;
   useEffect(() => {
     const titreDAvant = document.title;
     document.title = titre;
@@ -291,6 +299,27 @@ export function useTitreDePage(
         description,
       ),
     ];
+    if (source !== undefined) {
+      const photo = adresseAbsolue(source);
+      defaire.push(
+        poserDansLEnTete('meta[property="og:image"]', meta("property", "og:image"), "content", photo),
+        poserDansLEnTete('meta[name="twitter:image"]', meta("name", "twitter:image"), "content", photo),
+        // Les dimensions du gabarit sont celles du logo : laissées telles
+        // quelles, elles mentiraient sur la photo.
+        poserDansLEnTete(
+          'meta[property="og:image:width"]',
+          meta("property", "og:image:width"),
+          "content",
+          String(largeur),
+        ),
+        poserDansLEnTete(
+          'meta[property="og:image:height"]',
+          meta("property", "og:image:height"),
+          "content",
+          String(hauteur),
+        ),
+      );
+    }
     if (aSonAdresse) {
       const adresse = adresseAbsolue(cheminCourant());
       defaire.push(
@@ -317,7 +346,7 @@ export function useTitreDePage(
       // du gabarit retrouve sa valeur.
       defaire.reverse().forEach((remettre) => remettre());
     };
-  }, [titre, description, aSonAdresse]);
+  }, [titre, description, aSonAdresse, source, largeur, hauteur]);
 }
 
 /** Les blocs de données structurées que le SOCLE pose de lui-même sur toute

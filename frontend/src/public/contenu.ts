@@ -181,6 +181,11 @@ export const CONTACT_EMAIL = "contact@evkha.fr";
  *  invisible parce qu'un texte manque.
  */
 export type ArgumentaireEtude = {
+  /** Le nom de l'étude, affiché TANT QUE le catalogue n'a pas répondu — et
+   *  dans la page écrite à la construction, qu'un robot lit sans jamais
+   *  interroger le serveur. Dès que le catalogue répond, c'est son libellé
+   *  qui s'affiche : le nom vendu reste celui de l'administration. */
+  nom: string;
   /** Le bénéfice, en capitales au-dessus du titre. */
   surtitre: string;
   /** Nombre de chapitres ANNONCÉ, tel qu'il figure sur `evkha.fr`.
@@ -205,6 +210,7 @@ export type ArgumentaireEtude = {
 
 export const ETUDES: Record<string, ArgumentaireEtude> = {
   "etude-marche": {
+    nom: "Étude de marché",
     chapitres: 22,
     surtitre: "POUR VALIDER VOTRE IDÉE",
     chapeau: "chapitres clairs et structurés comprenant :",
@@ -220,6 +226,7 @@ export const ETUDES: Record<string, ArgumentaireEtude> = {
     bouton: "Commander mon étude",
   },
   "etude-concurrence": {
+    nom: "Étude de la concurrence",
     chapitres: 9,
     surtitre: "POUR CONNAÎTRE VOS CONCURRENTS",
     chapeau: "chapitres clairs et structurés comprenant :",
@@ -234,6 +241,7 @@ export const ETUDES: Record<string, ArgumentaireEtude> = {
     bouton: "Commander mon étude",
   },
   "business-plan": {
+    nom: "Business plan",
     chapitres: 21,
     surtitre: "POUR CONVAINCRE VOTRE BANQUE",
     chapeau: "chapitres, présentés comme une banque aime les lire :",
@@ -247,6 +255,7 @@ export const ETUDES: Record<string, ArgumentaireEtude> = {
     bouton: "Commander mon business plan",
   },
   "strategie-business": {
+    nom: "Stratégie business",
     chapitres: 20,
     surtitre: "POUR PASSER À L'ACTION",
     chapeau: "chapitres pour structurer votre business :",

@@ -116,7 +116,12 @@ function alerte(): HTMLElement {
 
 /** Les cartes d'étude, dans l'ordre du DOM. */
 function cartes(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>("article.etu-carte"));
+  // Les cartes du CATALOGUE. Celles de l'attente (`data-provisoire`) portent
+  // l'argumentaire sans prix : les compter ici ferait croire le catalogue
+  // arrivé avant qu'il ait répondu.
+  return Array.from(
+    document.querySelectorAll<HTMLElement>("article.etu-carte:not([data-provisoire])"),
+  );
 }
 
 function carte(slug: string): HTMLElement {
@@ -130,7 +135,7 @@ async function cartesChargees(nombre: number) {
 }
 
 async function catalogueRepondu() {
-  await waitFor(() => expect(screen.queryByText(/Chargement du catalogue/)).toBeNull());
+  await waitFor(() => expect(document.querySelector(".etu-attente")).toBeNull());
 }
 
 /** Un montant en euros, où qu'il soit. */
@@ -212,7 +217,25 @@ describe("la page des études lit ses prix au serveur", () => {
     expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
     expect(texte()).not.toMatch(MONTANT);
     // L'attente se dit, elle ne laisse pas un trou — et ce n'est pas une panne.
-    expect(screen.getByRole("status")).toHaveTextContent(/Chargement du catalogue/);
+    expect(screen.getByRole("status")).toHaveTextContent(/Les tarifs arrivent/);
+    // Les quatre études sont DÉJÀ là, par leur argumentaire : leur nom, leurs
+    // puces, la phrase d'attente à la place du prix, un bouton neutralisé.
+    // C'est cet état que le pré-rendu écrit pour les robots.
+    const provisoires = Array.from(
+      document.querySelectorAll<HTMLElement>("article.etu-carte[data-provisoire]"),
+    );
+    expect(provisoires.map((c) => c.querySelector("h3")?.textContent)).toEqual([
+      "Étude de marché",
+      "Étude de la concurrence",
+      "Business plan",
+      "Stratégie business",
+    ]);
+    for (const provisoire of provisoires) {
+      expect(provisoire).toHaveTextContent("Tarif en cours de chargement");
+      expect(provisoire.querySelectorAll(".etu-points li").length).toBeGreaterThan(3);
+      expect(provisoire.querySelector("a")).toBeNull();
+      expect(provisoire.querySelector('[aria-disabled="true"]')).not.toBeNull();
+    }
     expect(texteDe(document.querySelector(".etu-preuve-prix"))).toContain("Tarif en cours de chargement");
     expect(alerte()).toBeEmptyDOMElement();
     expect(cartes()).toHaveLength(0);
