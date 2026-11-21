@@ -2084,6 +2084,14 @@ _EN_TETE_DE_REMUNERATION = re.compile(
     r"|\bsalaire\b[^|]{0,25}\b(?:dirigeant|g[ée]rant|pr[ée]sident)|\bpr[ée]l[èe]vements?\b"
 )
 
+#: Ce qui fait d'une « rémunération » ou de « prélèvements » autre chose que le
+#: revenu du dirigeant : les salariés, les charges sociales. « Rémunération des
+#: salariés | 0 € » ou « Prélèvements sociaux | 0 € » restent jugés (porte
+#: finale du 21/11/2026).
+_PAS_LE_DIRIGEANT = re.compile(
+    r"(?i)salari|social|sociaux|cotisation|charges|personnel|[ée]quipe|employ|fiscal"
+)
+
 #: Juste après un zéro, ce qui en fait un RÉSULTAT : « (0 € d'écart) »
 #: (business plan de test `ac010864`, 16/11/2026, chapitre 1). En tableau, la
 #: colonne le dit (`_EN_TETE_DE_RESULTAT`) ; en prose, c'est le mot qui suit.
@@ -2329,7 +2337,9 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
             en_tete, _, ligne = mesure.phrase.partition(" : ")
             if _EN_TETE_DE_RESULTAT.search(en_tete) or _EN_TETE_DE_RESULTAT.search(ligne):
                 continue
-            if _EN_TETE_DE_REMUNERATION.search(en_tete):
+            if _EN_TETE_DE_REMUNERATION.search(en_tete) and not _PAS_LE_DIRIGEANT.search(
+                en_tete
+            ):
                 continue
             if _zero_commente_dans_sa_cellule(mesure):
                 continue

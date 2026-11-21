@@ -345,3 +345,12 @@ def test_un_cout_nul_sans_explication_reste_signale() -> None:
     """Contre-épreuve : une colonne qui n'est pas une rémunération."""
     phrase = "Coût d'acquisition client : 2027 | 0 € | 0 €"
     assert _zeros_signales(_Mesure("0 €", contexte=phrase, phrase=phrase, tableau=True))
+
+
+def test_la_remuneration_des_salaries_n_est_pas_une_decision_du_dirigeant() -> None:
+    """Contre-épreuve de la porte finale (21/11/2026)."""
+    for phrase in (
+        "Rémunération des salariés : 2027 | 0 € | 0 €",
+        "Prélèvements sociaux : 2027 | 0 € | 0 €",
+    ):
+        assert _zeros_signales(_Mesure("0 €", contexte=phrase, phrase=phrase, tableau=True))
