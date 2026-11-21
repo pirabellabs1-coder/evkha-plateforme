@@ -207,6 +207,20 @@ journée.
 
 ### Et déployer, c'est fusionner dans `main` — pas pousser sa branche
 
+> **Les domaines ont changé le 19/11/2026.** Le site public et l'espace client
+> répondent sur **`evkha.fr`** (`EVKHA_APP_URL`), l'API reste sur
+> `api2.evkha.fr`. `app2.evkha.fr` existe toujours : ses pages publiques
+> renvoient à `evkha.fr`, mais l'espace client, l'administration et `/api/` y
+> restent servis, parce que des sessions y sont ouvertes (`frontend/nginx.conf`).
+> Les paragraphes ci-dessous ont été écrits avant et citent `app2` : lisez-y
+> `evkha.fr` pour tout ce qui est public. Une preuve de déploiement se relève
+> donc sur `https://evkha.fr`.
+>
+> Depuis le 20/11/2026, nginx répond **404 à toute adresse qu'il ne connaît
+> pas**. Une route ajoutée à `frontend/src/router.tsx` doit être dite dans
+> `frontend/nginx.conf` ; le test `le-serveur-connait-chaque-route` échoue
+> sinon.
+
 La production — `api2.evkha.fr` ET `app2.evkha.fr` — est servie par
 l'application **`evkha-plateforme`** (`zft1wslml9mp2dlwuvttjbxw`), qui
 construit la branche **`espace-client-et-credits`** du dépôt

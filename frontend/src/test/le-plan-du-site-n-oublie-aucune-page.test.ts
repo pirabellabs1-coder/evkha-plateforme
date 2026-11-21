@@ -135,6 +135,9 @@ describe("(d) la chaîne qui sert les pages pré-rendues est entière", () => {
     const nginx = lire("nginx.conf")
       .split("\n")
       .filter((ligne) => !ligne.trim().startsWith("#"))
+      // Le renvoi de l'ancien nom `app2.` porte ses propres accolades : il
+      // fausserait la lecture d'un bloc « d'une accolade à la suivante ».
+      .filter((ligne) => !ligne.includes("$domaine_nu"))
       .join("\n");
 
     // `/etudes` → `etudes.html` : écrit par le script, servi par `$uri.html`.

@@ -60,7 +60,11 @@ def _directives() -> list[str]:
 def _try_files() -> str:
     """Celle du bloc general, `location /` : la premiere du fichier."""
     contenu = "\n".join(
-        ligne.split("#", 1)[0] for ligne in NGINX.read_text(encoding="utf-8").splitlines()
+        ligne.split("#", 1)[0]
+        for ligne in NGINX.read_text(encoding="utf-8").splitlines()
+        # Le renvoi de l'ancien nom `app2.` porte ses propres accolades : il
+        # fermerait le bloc avant sa directive `try_files`.
+        if "$domaine_nu" not in ligne
     )
     trouve = re.search(r"location / \{[^}]*?try_files([^;]*);", contenu)
     assert trouve is not None, "le bloc general n'a pas de directive try_files"

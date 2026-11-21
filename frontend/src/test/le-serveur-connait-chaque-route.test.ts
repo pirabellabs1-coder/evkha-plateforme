@@ -36,10 +36,18 @@ const FRONT = join(__dirname, "..", "..");
 const lire = (fichier: string) => readFileSync(join(FRONT, fichier), "utf-8");
 
 /** `nginx.conf` sans ses commentaires. */
-const nginx = lire("nginx.conf")
+const sansCommentaires = lire("nginx.conf")
   .split("\n")
   .filter((ligne) => !ligne.trim().startsWith("#"))
   .join("\n");
+
+/** Le renvoi de l'ancien nom `app2.` : la seule directive à accolades posée
+ *  DANS un bloc. Elle est remplacée par un mot avant la lecture des blocs,
+ *  que ce fichier découpe d'une accolade à la suivante. */
+const RENVOI_DE_L_ANCIEN_NOM = "if ($domaine_nu) { return 301 https://$domaine_nu$request_uri; }";
+const MARQUE_DU_RENVOI = "renvoi_de_l_ancien_nom;";
+
+const nginx = sansCommentaires.split(RENVOI_DE_L_ANCIEN_NOM).join(MARQUE_DU_RENVOI);
 
 type Reponse =
   | { quoi: "page" } // le fichier pré-rendu de la page
@@ -198,6 +206,36 @@ describe("nginx connaît chaque route de l'application", () => {
   it("l'API et les fichiers de l'application passent avant toute expression", () => {
     expect(nginx).toMatch(/location \^~ \/api\/ \{/);
     expect(nginx).toMatch(/location \^~ \/assets\/ \{/);
+  });
+
+  it("l'ancien nom `app2.` renvoie ses pages publiques, jamais un écran de l'application", () => {
+    // Le nom demandé, privé de son préfixe : aucun domaine n'est écrit.
+    const regle = /map \$host \$domaine_nu \{\s*default "";\s*"~([^"]+)" \$reste;\s*\}/.exec(sansCommentaires);
+    expect(regle, "la règle de l'ancien nom est introuvable").not.toBeNull();
+    const motif = new RegExp((regle as RegExpExecArray)[1]);
+    expect(motif.exec("app2.exemple.fr")?.groups?.reste).toBe("exemple.fr");
+    for (const autre of ["exemple.fr", "www.exemple.fr", "api2.exemple.fr", "monapp2.exemple.fr"]) {
+      expect(motif.test(autre), autre).toBe(false);
+    }
+    expect(sansCommentaires).not.toMatch(/evkha\.fr/);
+
+    const blocs = Array.from(nginx.matchAll(/location ([^{]+) \{([^}]*)\}/g), ([, nom, corps]) => ({
+      nom: nom.trim(),
+      corps,
+    }));
+    const avecRenvoi = blocs.filter(({ corps }) => corps.includes(MARQUE_DU_RENVOI)).map(({ nom }) => nom);
+    // Les pages publiques : le bloc général, les fiches, l'accueil.
+    expect(avecRenvoi).toEqual(["/", "~ ^/boutique/(?<etude>[-a-zA-Z0-9_]+)$", "= /"]);
+    // Le renvoi est la PREMIÈRE directive de chacun : rien n'est servi avant.
+    for (const { corps } of blocs.filter((bloc) => avecRenvoi.includes(bloc.nom))) {
+      expect(corps.trim().startsWith(MARQUE_DU_RENVOI)).toBe(true);
+    }
+    // Ni l'API, ni un écran de l'application, ni un retour de paiement : une
+    // session y est ouverte sous l'ancien nom.
+    expect(blocs.length).toBeGreaterThan(15);
+    for (const { nom, corps } of blocs) {
+      if (/api|admin|espace|retour|assets/.test(nom)) expect(corps, nom).not.toContain(MARQUE_DU_RENVOI);
+    }
   });
 
   it("(d) le plan des fiches est servi par Django, et robots.txt le déclare", () => {
