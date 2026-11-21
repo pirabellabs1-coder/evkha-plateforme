@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -380,6 +381,100 @@ def _signature(resolution: Resolution) -> str:
     )
 
 
+def lignes_au_meme_arrondi(lignes: Sequence[Sequence[str]]) -> list[list[str]]:
+    """Les montants d'un tableau du chapitre, au même nombre de décimales par unité.
+
+    Règle de la cliente du 30/09/2026 (« arrondi identique pour tous les
+    montants d'un même tableau »), déjà tenue par l'annexe et les replis
+    (`annexe_chiffres.meme_arrondi`), jamais par les tableaux que le modèle
+    écrit : business plan de test `29d59ae9` (19/11/2026), 8.3, « 22,60 € » à
+    côté de « 19 € » et « 39 € ». On COMPLÈTE par des zéros, on n'arrondit
+    jamais. Les cellules jugées sont celles du contrôle (`relecture.
+    mise_en_page`, règle 5) : un montant en tête, pas une phrase.
+    """
+    from ..relecture.mise_en_page import (  # noqa: PLC0415
+        _UNITES,
+        _cellule_de_valeur,
+        _decimales,
+        _montant_re,
+    )
+
+    motif = _montant_re()
+
+    def de_valeur(cellule: str) -> bool:
+        texte = " ".join(str(cellule).split())
+        premier = motif.search(texte)
+        return premier is not None and _cellule_de_valeur(texte, premier)
+
+    cibles: dict[str, int] = {}
+    for ligne in lignes:
+        for cellule in ligne:
+            if de_valeur(cellule):
+                for m in motif.finditer(str(cellule)):
+                    unite = _UNITES.get(m.group(2).lower())
+                    if unite:
+                        cibles[unite] = max(cibles.get(unite, 0), _decimales(m.group(1)))
+
+    def completer(m: re.Match[str]) -> str:
+        unite = _UNITES.get(m.group(2).lower())
+        cible = min(cibles.get(unite, 0), 2) if unite else 0
+        decimales = _decimales(m.group(1))
+        if cible <= decimales:
+            return m.group(0)
+        nombre = m.group(1).rstrip()
+        complete = f"{nombre}{'' if decimales else ','}{'0' * (cible - decimales)}"
+        return m.group(0).replace(nombre, complete, 1)
+
+    if not any(cibles.values()):
+        return [list(ligne) for ligne in lignes]
+    return [
+        [motif.sub(completer, str(c)) if de_valeur(c) else c for c in ligne]
+        for ligne in lignes
+    ]
+
+
+_NOMBRE_ECRIT = re.compile(r"\d[\d   ]*(?:,\d+)?")
+
+
+def nombres_ecrits(texte: str) -> set[str]:
+    """Les nombres d'un texte, sans espaces ni décimales nulles : « 23 335 € » → `23335`."""
+    return {
+        re.sub(r",0+$", "", re.sub(r"[   ]", "", m.group(0)))
+        for m in _NOMBRE_ECRIT.finditer(texte or "")
+    }
+
+
+def _deja_dans_un_tableau(repli: dict[str, Any], lignes_ecrites: Sequence[set[str]]) -> bool:
+    """Chaque valeur du repli figure-t-elle déjà dans un tableau du chapitre ?
+
+    Business plan de test `29d59ae9` (19/11/2026), 16.7 : la figure « Composition
+    de la CAF » refusée laissait un tableau « Donnée | Valeur | Unité | Année »
+    des trois résultats nets — ceux du compte de résultat, quinze lignes plus
+    haut dans le même chapitre. Le repli garde l'information d'une figure
+    perdue ; quand le lecteur l'a déjà sous les yeux, il ne garde rien.
+
+    `lignes_ecrites` : les nombres de chaque ligne de tableau du chapitre, avec
+    ceux des en-têtes (les exercices du compte de résultat y sont). Une valeur
+    n'est « déjà là » que si une MÊME ligne porte la valeur et son année : un
+    montant rond qui revient ailleurs avec un autre sens ne compte pas
+    (relecture du diff du 21/11/2026).
+    """
+    lignes = repli.get("lignes", [])
+    if not lignes or not lignes_ecrites:
+        return False
+    for ligne in lignes:
+        valeur = nombres_ecrits(str(ligne[1]))
+        # Trois chiffres au moins : « 35 » se retrouve par hasard dans n'importe
+        # quel tableau, « 23 335 » non.
+        if not valeur or any(len(re.sub(r"\D", "", n)) < 3 for n in valeur):
+            return False
+        annee = str(ligne[3]).strip() if len(ligne) > 3 else ""
+        attendus = valeur | ({annee} if re.fullmatch(r"(?:19|20)\d{2}", annee) else set())
+        if not any(attendus <= ecrits for ecrits in lignes_ecrites):
+            return False
+    return True
+
+
 def _poser_le_repli(
     repli: dict[str, Any], rapport: RapportAssemblage, blocs: list[dict[str, Any]],
 ) -> bool:
@@ -400,8 +495,13 @@ def _blocs_graphique(
     rapport: RapportAssemblage,
     reference: str,
     sujets: Sequence[str] = (),
+    lignes_ecrites: Sequence[set[str]] = (),
 ) -> list[dict[str, Any]]:
     """Les blocs d'une figure demandée : dessinée, réparée, en tableau, ou renvoyée.
+
+    `lignes_ecrites` : les nombres de chaque ligne des tableaux du chapitre.
+    Le tableau de repli d'une figure refusée n'est pas imprimé s'il ne ferait
+    que les répéter (`_deja_dans_un_tableau`).
 
     `sujets` dit de quoi parle la section qui la demande (son intitulé, les
     en-têtes de ses tableaux) : un renvoi vers une figure déjà posée ailleurs
@@ -509,7 +609,12 @@ def _blocs_graphique(
                 # il imprimerait la même promesse : le tableau paraît sans lui,
                 # comme ceux que les chapitres posent eux-mêmes.
                 repli["titre"] = ""
-            if repli is not None:
+            if repli is not None and _deja_dans_un_tableau(repli, lignes_ecrites):
+                rapport.graphiques_en_double.append(
+                    f"{reference} · {demande.titre} : ses données figurent déjà dans "
+                    "un tableau du chapitre"
+                )
+            elif repli is not None:
                 if _poser_le_repli(repli, rapport, blocs):
                     rapport.graphiques_en_tableau.append(
                         f"{reference} · {demande.titre} : {resolution.motif}"
@@ -644,11 +749,19 @@ def blocs_du_chapitre(
     # sujet. Sert à ne renvoyer qu'à une figure à propos (`_blocs_graphique`).
     sujets_par_bloc: list[list[str]] = []
     sujets_courants: list[str] = [payload.titre]
+    # Les nombres des tableaux du chapitre, avant ou après la figure : le
+    # lecteur les a sous les yeux (`_deja_dans_un_tableau`).
+    lignes_ecrites: list[set[str]] = []
     for bloc in payload.blocs:
         if isinstance(bloc, BlocSousTitre):
             sujets_courants = [bloc.intitule]
         elif isinstance(bloc, BlocTableau):
             sujets_courants.extend(bloc.tableau.entetes)
+            en_tetes = set().union(*(nombres_ecrits(str(e)) for e in bloc.tableau.entetes))
+            for ligne in bloc.tableau.lignes:
+                lignes_ecrites.append(
+                    en_tetes.union(*(nombres_ecrits(str(cellule)) for cellule in ligne))
+                )
         sujets_par_bloc.append(sujets_courants)
 
     for rang, bloc in enumerate(payload.blocs):
@@ -671,7 +784,7 @@ def blocs_du_chapitre(
             blocs.append({
                 "type": "tableau",
                 "entetes": bloc.tableau.entetes,
-                "lignes": bloc.tableau.lignes,
+                "lignes": lignes_au_meme_arrondi(bloc.tableau.lignes),
                 "source": bloc.tableau.source,
             })
         elif isinstance(bloc, BlocCanvas):
@@ -717,6 +830,7 @@ def blocs_du_chapitre(
                 socle, [bloc.graphique], profil, rapport,
                 reference=f"Chapitre {payload.chapitre}",
                 sujets=sujets_par_bloc[rang],
+                lignes_ecrites=lignes_ecrites,
             ))
 
     return blocs

@@ -138,8 +138,17 @@ SERIES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"(?i)exc[ée]dent brut|\bEBE\b"), "ebe", "€"),
     (
         re.compile(
-            r"(?i)r[ée]sultat net|r[ée]sultat de l.exercice|\br[ée]sultat\b(?!\s+(?:d.exploitation|"
-            r"courant|financier|exceptionnel|avant|brut|fiscal|op[ée]rationnel|d.exploitation))"
+            # « Impôt sur le résultat » nomme l'IMPÔT, pas le résultat. Business
+            # plan de test `29d59ae9` (19/11/2026), 16.2 : la ligne « Impôt sur
+            # le résultat · 2027 · 2 806 € » était lue « résultat net 2027 =
+            # 2 806 € », et accusée de contredire 1 954 € — trois fois.
+            # L'IMPÔT seul : « la CAF repose sur le résultat net : 1 954 € »
+            # nomme bien le résultat (relecture du diff, 21/11/2026).
+            r"(?i)(?<!imp[ôo]t sur le )(?<!imp[ôo]ts sur le )(?<!imp[ôo]t sur les )"
+            r"(?<!imp[ôo]ts sur les )(?<!imp[ôo]t sur le\xa0)"
+            r"(?:r[ée]sultat net|r[ée]sultat de l.exercice|"
+            r"\br[ée]sultat\b(?!\s+(?:d.exploitation|"
+            r"courant|financier|exceptionnel|avant|brut|fiscal|op[ée]rationnel|d.exploitation)))"
         ),
         "resultat_net", "€",
     ),
@@ -154,6 +163,22 @@ SERIES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"(?i)chiffre d.affaires"), "ca_previsionnel", "€"),
     (re.compile(r"(?i)charges fixes"), "charges_fixes", "€"),
     (re.compile(r"(?i)panier moyen"), "panier_moyen", "€"),
+    # La rémunération du dirigeant est une série du prévisionnel. Faute de la
+    # connaître, une phrase qui la chiffre en nommant une AUTRE série donnait
+    # ses montants à celle-ci. Business plan de test `29d59ae9` (19/11/2026) :
+    # « calculées sur sa rémunération brute, jamais sur le chiffre d'affaires :
+    # à 0 € en 2027 » lu « chiffre d'affaires 2027 = 0 € » (16.4) ; « nous
+    # versons 12 000 € en 2028 […] seuil de rentabilité » lu « seuil 2028 =
+    # 12 000 € ». Deux séries nommées : aucune valeur n'est attribuée.
+    # EN DERNIER : un libellé « Charges fixes (dont rémunération du gérant) »
+    # reste aux charges fixes (`serie_nommee` prend la première). Et une
+    # rémunération COMPRISE dans une autre grandeur (« le seuil, rémunération
+    # du dirigeant comprise, atteint… ») ne compte pas comme série nommée.
+    (re.compile(
+        r"(?i)(?<!dont )(?<!dont la )(?<!compris )(?<!compris la )(?<!hors )"
+        r"(?:r[ée]mun[ée]ration|salaire du (?:dirigeant|g[ée]rant|pr[ée]sident))"
+        r"(?![^,;.()]{0,40}\b(?:comprise?|incluse?|int[ée]gr[ée]e?)\b)"
+    ), "remuneration_dirigeant", "€"),
 )
 #: Ce qui fait d'un libellé autre chose que la série qu'il nomme : une marge
 #: d'EBE est un taux, un « CA si −10 % » un scénario.

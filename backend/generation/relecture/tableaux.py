@@ -598,11 +598,88 @@ def _series_datees(document: Document, reference: Reference) -> list[Constat]:
     return constats
 
 
+# ── Le point bas de la trésorerie ───────────────────────────────────────────
+
+_MOIS = re.compile(
+    r"(?i)^\s*(?:janvier|janv\.?|f[ée]vrier|f[ée]vr?\.?|mars|avril|avr\.?|mai|juin"
+    r"|juillet|juil\.?|ao[uû]t|septembre|sept\.?|octobre|oct\.?|novembre|nov\.?"
+    r"|d[ée]cembre|d[ée]c\.?|mois\s+\d{1,2}|M\d{1,2})(?!\w)"
+)
+#: « ne descend jamais sous », « jamais en dessous de », « reste toujours
+#: au-dessus de » : une phrase qui affirme un PLANCHER. « Le CA ne passe pas
+#: 150 000 € avant 2029 » n'en est pas un : il faut le « sous ».
+_SOUS = r"(?:en[\s-]dessous|au[\s-]dessous|sous)\b"
+_PLANCHER = re.compile(
+    rf"(?i)ne\s+(?:descend|tombe|passe|redescend)\s+(?:jamais|pas)\s+{_SOUS}|"
+    rf"jamais\s+{_SOUS}|"
+    r"reste\s+(?:toujours\s+)?(?:au[\s-]dessus|sup[ée]rieure?)\b"
+)
+
+
+def _points_bas(document: Document) -> list[Constat]:
+    """Un plancher affirmé que le tableau de trésorerie franchit.
+
+    Business plan de test `29d59ae9` (19/11/2026), 16.7 : le solde cumulé
+    tombe à 12 300 € en janvier, et la phrase suivante dit qu'il « ne descend
+    jamais en dessous de ce coussin » de 18 000 € — la conclusion du chapitre
+    le redit. Aucun contrôle ne le voyait.
+
+    Signal seulement (règle : un contrôle ne commande pas) : la prévention est
+    dans la consigne du chapitre 16 ; ce constat MESURE si elle a suffi.
+    """
+    constats: list[Constat] = []
+    for section in document.sections:
+        for tableau in section.tableaux:
+            # Le solde CUMULÉ (ou de fin de mois), pas le flux du mois : avec
+            # « Solde du mois | Solde cumulé », la première colonne jugeait le flux.
+            soldes_possibles = [
+                j for j, e in enumerate(tableau.entetes) if re.search(r"(?i)\bsolde", e)
+            ]
+            colonne = next(
+                (j for j in soldes_possibles
+                 if re.search(r"(?i)cumul|fin|tr[ée]sorerie", tableau.entetes[j])),
+                soldes_possibles[0] if len(soldes_possibles) == 1 else None,
+            )
+            if colonne is None:
+                continue
+            soldes = [
+                lu[1] for ligne in tableau.lignes
+                if ligne and _MOIS.match(ligne[0]) and colonne < len(ligne)
+                and (lu := _valeur_apres(ligne[colonne], 0))
+            ]
+            if len(soldes) < 6:
+                continue
+            point_bas = min(soldes)
+            for autre in document.sections:
+                if autre.chapitre != section.chapitre:
+                    continue
+                for phrase in phrases_de(autre):
+                    m = _PLANCHER.search(phrase)
+                    if m is None:
+                        continue
+                    montants = [n for n in nombres(phrase) if n.monetaire]
+                    apres = [n for n in montants if n.debut >= m.end()]
+                    avant = [n for n in montants if n.fin <= m.start()]
+                    plancher = apres[0] if apres else (avant[-1] if avant else None)
+                    if plancher is None or plancher.valeur <= point_bas + 1:
+                        continue
+                    constats.append(Constat(
+                        "tresorerie", autre.numero, phrase[:220],
+                        f"La phrase affirme un plancher de {plancher.ecriture}, mais le "
+                        f"tableau de trésorerie ({section.numero}) descend à "
+                        f"{_euros(point_bas)} : nomme le point bas tel qu'il figure au "
+                        "tableau, et ce qui le couvre.",
+                        grave=False,
+                    ))
+    return constats
+
+
 def controler(document: Document, reference: Reference) -> list[Constat]:
     return [
         *_comptes_de_resultat(document),
         *_superlatifs(document),
         *_series_datees(document, reference),
+        *_points_bas(document),
     ]
 
 

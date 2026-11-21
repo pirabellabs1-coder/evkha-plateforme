@@ -223,3 +223,125 @@ def test_en_prose_aussi_un_manque_annonce_n_est_pas_une_explication(
         "la phrase témoin doit être acceptée, sinon le test ne prouve rien "
         "sur le garde-fou : il prouverait seulement que le comptage échoue"
     )
+
+
+# ── Business plan de test `29d59ae9` (19/11/2026) : trois zéros dits ─────────
+
+
+def test_un_zero_ecrit_avec_une_insecable_se_retrouve_dans_sa_phrase() -> None:
+    """Le nombre lu « 0\xa0€ », son contexte « 0 € » : il n'était pas retrouvé."""
+    contexte = (
+        "u'il soit rémunéré ou non : en 2027, sa rémunération est de 0 €, ce qui "
+        "limite les cotisations sociales dues sur sa rémunér"
+    )
+    assert _zero_explique(_Mesure("0\u00a0€", contexte=contexte))
+
+
+def test_un_zero_qui_ouvre_une_serie_chiffree_est_dit() -> None:
+    contexte = (
+        "charges de personnel au prévisionnel : 0 €, 12 000 € et 18 000 € pour la "
+        "rémunération du dirigeant, 0"
+    )
+    assert _zero_explique(_Mesure("0 €", contexte=contexte))
+
+
+def test_une_serie_de_zeros_reste_nue() -> None:
+    """Contre-épreuve : « 0 €, 0 € et 0 € » ne dit rien de plus qu'un zéro."""
+    assert not _zero_explique(_Mesure("0 €", contexte="Charges : 0 €, 0 € et 0 € en tout."))
+
+
+def test_n_c_se_lit_comme_un_mot_pas_a_cheval_sur_deux_phrases() -> None:
+    from generation.socle.schema import DONNEE_MANQUANTE
+
+    assert not DONNEE_MANQUANTE.search("ne génère aucune cotisation. C'est l'un des effets")
+    assert DONNEE_MANQUANTE.search("Coût d'acquisition : n.c.")
+    assert DONNEE_MANQUANTE.search("Coût d'acquisition : NC")
+
+
+def test_des_zeros_qui_aboutissent_a_une_valeur_forment_une_serie() -> None:
+    contexte = "0 €, 0 € et 24 700 € pour la masse salariale."
+    assert _zero_explique(_Mesure("0 €", contexte=contexte))
+
+
+def test_une_ligne_de_tableau_qui_porte_d_autres_valeurs_dit_son_zero() -> None:
+    phrase = "2027 : Masse salariale chargée | 0 € | 0 € | 24 700 €"
+    assert _zero_explique(_Mesure("0 €", phrase=phrase, tableau=True))
+
+
+def test_une_ligne_de_zeros_reste_nue() -> None:
+    """Contre-épreuve : aucune autre cellule ne porte de valeur."""
+    phrase = "2027 : Coût d'acquisition | 0 € | 0 € | 0 €"
+    assert not _zero_explique(_Mesure("0 €", phrase=phrase, tableau=True))
+
+
+# ── Même dossier : une égalité écrite en toutes lettres ─────────────────────
+
+
+def _terme(phrase: str, texte: str, valeur: float) -> Mesure:
+    return Mesure(
+        valeur=valeur, unite="€", texte=texte, contexte=phrase, phrase=phrase,
+        debut_dans_la_phrase=phrase.index(texte),
+    )
+
+
+def test_le_terme_du_milieu_d_une_egalite_ecrite_se_refait() -> None:
+    from generation.verification.controles import _calculee_dans_sa_phrase
+
+    phrase = "En 2027 : 136 800 € moins 121 300 € égale 15 500 €."
+    socle = {136_800.0, 15_500.0}
+    assert _calculee_dans_sa_phrase(
+        _terme(phrase, "121 300 €", 121_300.0), lambda v: v in socle
+    )
+
+
+def test_deux_chiffres_inventes_ne_se_justifient_pas_par_une_egalite() -> None:
+    """Contre-épreuve : sans opérande vérifié, l'égalité ne justifie rien."""
+    from generation.verification.controles import _calculee_dans_sa_phrase
+
+    phrase = "En 2027 : 136 800 € moins 121 300 € égale 15 500 €."
+    assert not _calculee_dans_sa_phrase(
+        _terme(phrase, "121 300 €", 121_300.0), lambda _v: False
+    )
+
+
+# ── Corpus des business plans de test du 14 au 19/11/2026 ───────────────────
+
+
+def _zeros_signales(*mesures: Mesure) -> list[str]:
+    from pathlib import Path
+
+    from generation.verification.controles import controler_les_valeurs_nulles
+    from generation.verification.lecture import DocumentLu
+
+    lu = DocumentLu(chemin=Path("bp.docx"), mesures=list(mesures))
+    return [a.extrait for a in controler_les_valeurs_nulles(lu)]
+
+
+def test_une_remuneration_nulle_en_tableau_est_une_decision() -> None:
+    """`db3aa88d` et `9e38eb81`, chapitre 18 : deux réécritures payées."""
+    for phrase in (
+        "Rémunération annuelle nette : 2027 | 0 € | 0 €",
+        "Revenu annuel du dirigeant : 2027 | 0 € | 0 €",
+    ):
+        assert _zeros_signales(_Mesure("0 €", contexte=phrase, phrase=phrase, tableau=True)) == []
+
+
+def test_un_ecart_nul_en_prose_est_un_resultat() -> None:
+    """`ac010864`, chapitre 1."""
+    contexte = "77 700 €, intégralement couverts par ces trois ressources (0 € d'écart)."
+    assert _zero_explique(_Mesure("0 €", contexte=contexte))
+
+
+def test_donc_n_est_pas_n_c() -> None:
+    """`68b6ab61`, chapitre 13 : « donc » lu comme « n.c. » (non communiqué)."""
+    contexte = (
+        "En 2027, le président ne se verse aucune rémunération (0 €), donc aucune "
+        "cotisation sociale sur ce poste cette année-là."
+    )
+    assert _zeros_signales(_Mesure("0 €", contexte=contexte, phrase=contexte)) == []
+
+
+def test_un_cout_nul_sans_explication_reste_signale() -> None:
+    """Contre-épreuve : une colonne qui n'est pas une rémunération."""
+    phrase = "Coût d'acquisition client : 2027 | 0 € | 0 €"
+    assert _zeros_signales(_Mesure("0 €", contexte=phrase, phrase=phrase, tableau=True))

@@ -293,3 +293,26 @@ def test_ce_qui_suit_et_n_est_pas_toujours_une_population(phrase: str) -> None:
 
     cles = {o.valeur: o.cle for o in occurrences(_document((1, phrase)))}
     assert cles["40 %"] == "tpe"
+
+
+# ── Business plan `29d59ae9` (19/11/2026) : des mots qui ne comptent rien ──
+
+
+def test_une_date_un_nombre_de_fois_ou_un_verbe_ne_sont_pas_un_objet() -> None:
+    """Quatre des cinq « objets changés » de ce dossier ; « à 8 000 reprises » reste
+    signalé, « 3 500 reprises de PME » étant un vrai objet."""
+    details = _details(_document(
+        (1, "Nous visons 8 000 commandes livrées et 7 209 commandes de seuil."),
+        (11, "Le nombre de commandes livrées, visé à 8 000 fin 2027."),
+        (9, "Chaque commande au-delà de 7 209 contribue directement au résultat."),
+    ))
+    assert not [d for d in details if d.startswith("Objet changé")], details
+
+
+def test_deux_objets_reels_restent_un_objet_change() -> None:
+    """Contre-épreuve : « 8 000 commandes » puis « 8 000 clients »."""
+    details = _details(_document(
+        (1, "Nous visons 8 000 commandes livrées en 2027."),
+        (11, "Nous comptons 8 000 clients actifs en 2027."),
+    ))
+    assert [d for d in details if d.startswith("Objet changé")]

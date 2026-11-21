@@ -16,4 +16,4 @@ Liste les sources utilisées pour construire ce business plan, regroupees par th
 - Organisme — ce que la source étaye — adresse recopiée du bloc
 ## Réglementation
 - ...
-Pas plus de 4-6 sources par thématique. Ajoute un court paragraphe '## Méthodologie' (3-4 lignes) precisant la démarche (période des données, hypothèses financières assumées). Rester concis et structure.
+La liste reprend les sources du bloc « SOURCES CITÉES DANS L'ÉTUDE », toutes et rien qu'elles : n'y ajoute aucune source collectée que le texte ne cite pas, même pour étoffer une thématique — une thématique sans source citée n'apparaît pas. Une source citée dont le bloc des sources web ne donne pas l'adresse se nomme dans la méthodologie, comme repère, avec ce qu'elle étaye. Ajoute un court paragraphe '## Méthodologie' (3-4 lignes) precisant la démarche (période des données, hypothèses financières assumées). Rester concis et structure.

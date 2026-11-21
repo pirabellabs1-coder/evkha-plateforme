@@ -437,9 +437,14 @@ _ANNEE_NUE = re.compile(r"^(?:19|20)\d{2}$")
 #: qui tombent juste sont une coïncidence : « sur les 12 derniers mois, les 4
 #: leaders ont capté 48 % » ne calcule rien.
 _MARQUE_DE_CALCUL = re.compile(
-    r"\bsoit\b|=|divis|multipli|×|\bx\b|/|\brapport|calcul|\bdonne\b|\bsur\s+\d",
+    r"\bsoit\b|=|divis|multipli|×|\bx\b|/|\brapport|calcul|\bdonne\b|\bsur\s+\d"
+    r"|(?<!part )(?<!parts )\b[ée]ga(?:le|l|lent)\b",
     re.IGNORECASE,
 )
+
+#: Une égalité ÉCRITE : « = », « égale », « est égal à ». Elle pose le calcul
+#: entier, ses termes avant ET après le nombre jugé.
+_EGALITE_POSEE = re.compile(r"=|(?<!part )(?<!parts )\b[ée]ga(?:le|l|lent)\b", re.IGNORECASE)
 
 #: Une source NOMMÉE : « selon l'Insee », « d'après la Fédération », « Source :
 #: », ou une parenthèse qui nomme un organisme et une année. « selon le canal »
@@ -586,7 +591,11 @@ def _calculee_dans_sa_phrase(
             return not n.pourcentage
         return n.pourcentage
 
-    if mesure.est_un_pourcentage:
+    if mesure.est_un_pourcentage or _EGALITE_POSEE.search(mesure.phrase):
+        # Une ÉGALITÉ écrite porte tous ses termes, de part et d'autre : dans
+        # « 136 800 € moins 121 300 € égale 15 500 € » (business plan de test
+        # `29d59ae9`, 16.2), 121 300 € se refait par 136 800 − 15 500, et le
+        # second opérande SUIT le nombre jugé.
         candidats = nombres
     else:
         candidats = [n for n in nombres if n.position < position] + dans_la_parenthese
@@ -2064,6 +2073,25 @@ _EN_TETE_DE_RESULTAT = re.compile(
     r"(?i)^\s*(?:[ée]cart|diff[ée]rence|variation|[ée]volution|progression|solde|reste)\b"
 )
 
+#: La colonne d'une RÉMUNÉRATION du dirigeant : un zéro y est une décision du
+#: porteur, pas une donnée absente. « Rémunération annuelle nette : 2027 | 0 €
+#: | 0 € » (business plan de test `db3aa88d`, 16/11/2026), « Revenu annuel du
+#: dirigeant : 2027 | 0 € | 0 € » (`9e38eb81`, 18/11/2026) : deux réécritures
+#: payantes du chapitre 18 pour une première année sans salaire, choix courant
+#: et que le chapitre explique.
+_EN_TETE_DE_REMUNERATION = re.compile(
+    r"(?i)\br[ée]mun[ée]ration|\brevenu\b[^|]{0,25}\b(?:dirigeant|g[ée]rant|pr[ée]sident)"
+    r"|\bsalaire\b[^|]{0,25}\b(?:dirigeant|g[ée]rant|pr[ée]sident)|\bpr[ée]l[èe]vements?\b"
+)
+
+#: Juste après un zéro, ce qui en fait un RÉSULTAT : « (0 € d'écart) »
+#: (business plan de test `ac010864`, 16/11/2026, chapitre 1). En tableau, la
+#: colonne le dit (`_EN_TETE_DE_RESULTAT`) ; en prose, c'est le mot qui suit.
+_RESULTAT_APRES_LE_ZERO = re.compile(
+    r"(?i)^[\s  ]*(?:d['’][ée]cart|de\s+diff[ée]rence|de\s+variation"
+    r"|de\s+solde|de\s+reste|d['’]impasse|de\s+besoin\s+non\s+couvert)\b"
+)
+
 #: Ce qui, dans la cellule d'un zéro, ne fait que COMPLÉTER son unité :
 #: « 0 € par client », « 0 % du CA », « 0 € HT ». Pas un commentaire.
 _COMPLEMENT_D_UNITE = re.compile(
@@ -2152,6 +2180,32 @@ _MOT_QUI_EXPLIQUE = re.compile(r"[^\W\d_]{3,}")
 _MOTS_POUR_EXPLIQUER_UN_ZERO = 5
 
 
+#: Juste après un zéro, une autre valeur NON NULLE de même forme : « , 12 000 €
+#: et 18 000 € », « puis 4 % ». Le premier chiffre significatif n'est pas 0.
+_SEPARATEUR_DE_SERIE = r"[\s  ]*(?:,|;|et|puis|→|->)[\s  ]*"
+_SERIE_QUI_SUIT = re.compile(
+    # D'autres zéros d'abord, s'il y en a : « 0 €, 0 € et 24 700 € pour la
+    # masse salariale » (`29d59ae9`, 18.x) — la série aboutit à une valeur.
+    rf"^(?:{_SEPARATEUR_DE_SERIE}0(?:,0+)?[\s  ]*(?:€|k€|M€|%))*"
+    rf"{_SEPARATEUR_DE_SERIE}"
+    r"(?:0*[1-9][\d\s  ]*(?:,\d+)?|0,\d*[1-9]\d*)[\s  ]*(?:€|k€|M€|%)"
+)
+
+
+def _le_nombre_dans(texte: str, contexte: str) -> re.Match[str] | None:
+    """L'occurrence du nombre `texte` dans `contexte`, quelle que soit l'espace.
+
+    Business plan de test `29d59ae9` (19/11/2026), 13.3 : le nombre se lisait
+    « 0\\xa0€ » (insécable) et son contexte « 0 € » (espace ordinaire). Cherché
+    tel quel, il n'était pas retrouvé : rien ne suivait le zéro, et « sa
+    rémunération est de 0 €, ce qui limite les cotisations sociales » passait
+    pour un zéro que rien n'explique.
+    """
+    morceaux = re.split(r"[\s  ]+", texte.strip())
+    motif = r"[\s  ]*".join(map(re.escape, morceaux))
+    return re.search(r"(?<![\d,.])" + motif, contexte or "")
+
+
 def _zero_explique(mesure: Mesure) -> bool:
     """Quelque chose est-il DIT de ce zéro, ou n'est-il qu'étiqueté ?
 
@@ -2191,9 +2245,7 @@ def _zero_explique(mesure: Mesure) -> bool:
     if mesure.dans_un_tableau:
         a_compter = entiere
     else:
-        trouve = re.search(
-            r"(?<![\d,.])" + re.escape(mesure.texte), mesure.contexte or ""
-        )
+        trouve = _le_nombre_dans(mesure.texte, mesure.contexte or "")
         a_compter = (mesure.contexte or "")[trouve.end():] if trouve else ""
     # « Je ne sais pas » n'explique pas un zéro : c'est le défaut lui-même.
     # Sans cette ligne, « Coût | 0 € (non chiffré) | Statut » était ACCEPTÉ —
@@ -2208,6 +2260,36 @@ def _zero_explique(mesure: Mesure) -> bool:
     lue = _sans_les_mots_de_l_annexe(entiere)
     if _DONNEE_MANQUANTE.search(lue) or _MANQUE_DANS_LA_CELLULE.search(lue):
         return False
+    if mesure.dans_un_tableau:
+        # La même trajectoire en tableau : « Masse salariale chargée | 0 € |
+        # 0 € | 24 700 € » (`29d59ae9`, 12.x). Une autre cellule de la LIGNE
+        # porte une valeur non nulle de même unité : ce zéro est celui d'un
+        # exercice, pas une donnée absente.
+        _, _, ligne = (mesure.phrase or "").partition(" : ")
+        # Un montant ou un taux seulement : un « 0 » nu n'a pas d'unité à
+        # retrouver, et « 120 » ailleurs dans la ligne ne dirait rien de lui.
+        dernier = mesure.texte.strip()[-1:]
+        unite = re.escape(dernier) if dernier in ("€", "%") else ""
+        # Une cellule qui n'est QU'UNE valeur — la colonne d'un autre exercice.
+        # « Conversion, objectif 40 % » est un commentaire, pas une trajectoire :
+        # son 40 % ne dit rien du 0 % voisin
+        # (`test_une_cellule_se_lit_avec_son_en_tete`).
+        valeur_seule = re.compile(
+            r"^[\s\u00a0\u202f]*(?:0*[1-9][\d\s\u00a0\u202f]*(?:,\d+)?|0,\d*[1-9]\d*)"
+            rf"[\s\u00a0\u202f]*{unite}[\s\u00a0\u202f]*$"
+        ) if unite else None
+        if valeur_seule is not None and any(
+            valeur_seule.match(case) for case in ligne.split("|")
+        ):
+            return True
+    if not mesure.dans_un_tableau and _RESULTAT_APRES_LE_ZERO.match(a_compter):
+        return True
+    if not mesure.dans_un_tableau and _SERIE_QUI_SUIT.match(a_compter):
+        # « 0 €, 12 000 € et 18 000 € pour la rémunération du dirigeant »
+        # (`29d59ae9`, 18.x) : le zéro ouvre une trajectoire chiffrée de la
+        # même unité, nommée une fois pour toutes ses valeurs. Une série de
+        # zéros, elle, reste nue : la valeur qui suit doit être non nulle.
+        return True
     reste = _COMPLEMENT_D_UNITE.sub(" ", a_compter.replace(mesure.texte, " "))
     return len(_MOT_QUI_EXPLIQUE.findall(reste)) >= _MOTS_POUR_EXPLIQUER_UN_ZERO
 
@@ -2247,13 +2329,13 @@ def controler_les_valeurs_nulles(document: DocumentLu) -> list[Anomalie]:
             en_tete, _, ligne = mesure.phrase.partition(" : ")
             if _EN_TETE_DE_RESULTAT.search(en_tete) or _EN_TETE_DE_RESULTAT.search(ligne):
                 continue
+            if _EN_TETE_DE_REMUNERATION.search(en_tete):
+                continue
             if _zero_commente_dans_sa_cellule(mesure):
                 continue
         # L'occurrence CHERCHÉE, pas la première : « 0 % » se trouve aussi à
         # l'intérieur de « -20 % », et le texte d'avant devenait « Entre -2 ».
-        trouve = re.search(
-            r"(?<![\d,.])" + re.escape(mesure.texte), mesure.contexte
-        )
+        trouve = _le_nombre_dans(mesure.texte, mesure.contexte)
         avant = mesure.contexte[: trouve.start()] if trouve else ""
         if _BORNE_D_INTERVALLE.search(avant):
             continue

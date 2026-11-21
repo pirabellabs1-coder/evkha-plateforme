@@ -147,6 +147,10 @@ _INTERNE = re.compile(
     r"(?i)donn[ée]es? du (?:projet|socle|dossier)|\bprojet\b|\bdossier\b|\bporteu[rs]e?\b"
     r"|\bclient(?:e)?\b|\bbrief\b|pr[ée]visionnel|\bcalcul|\bestimation|\bhypoth[èe]se"
     r"|grille de notation|sites? (?:officiels?|internet|web)|\bsocle\b|recoupement"
+    # La base des concurrents relevés et notés par l'étude elle-même : business
+    # plan de test `29d59ae9` (19/11/2026), « Source : Base consolidée
+    # concurrents, notation EVKHA » (5.1, 7.3) demandée au chapitre des sources.
+    r"|base consolid[ée]e|\bEVKHA\b"
 )
 
 #: Mots qui font d'un nom une INSTITUTION, même en un seul mot.

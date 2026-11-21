@@ -339,8 +339,20 @@ class Zone(BaseModel):
 #: nulles du livrable (`verification.controles`) l'importe d'ici.
 DONNEE_MANQUANTE = re.compile(
     r"(?i)[àa]\s+pr[ée]ciser|[àa]\s+d[ée]finir|[àa]\s+confirmer|non\s+mesur|"
-    r"non\s+disponible|non\s+renseign|non\s+communiqu|inconnu|n\.?\s?c\.?\b"
+    # « n.c. » est un MOT : sans `\b` devant, « aucune cotisation. C'est »
+    # se lisait « n. C » — business plan de test `29d59ae9` (19/11/2026),
+    # 18.x, un zéro pourtant dit « nul » accusé d'être une donnée manquante.
+    r"non\s+disponible|non\s+renseign|non\s+communiqu|inconnu|\bn\.?\s?c\.?\b"
 )
+
+
+#: « — révisé depuis l'étude précédente, qui retenait X », « — repris à
+#: l'identique » : la note qui clôt un libellé. Un tiret encadré d'espaces la
+#: sépare du nom ; « mi-temps » ou « e-commerce » n'en sont pas.
+_MENTION_DE_REVISION = re.compile(
+    r"(?i)\s+[—–-]\s+((?:r[ée]vis[ée]e?s?|repris(?:e|es)?|reprise)\b.*)$", re.DOTALL
+)
+_REPRIS_A_L_IDENTIQUE = re.compile(r"(?i)[àa] l['’]identique|sans changement|inchang[ée]")
 
 
 class DonneeSocle(BaseModel):
@@ -402,6 +414,41 @@ class DonneeSocle(BaseModel):
         except (TypeError, ValueError):
             return valeurs
         valeurs["unite"] = "unite"
+        return valeurs
+
+    @model_validator(mode="before")
+    @classmethod
+    def _la_revision_se_dit_dans_la_source(cls, valeurs: Any) -> Any:
+        """Une mention de révision quitte le libellé ; reprise à l'identique, elle sort.
+
+        Business plan de test `29d59ae9` (19/11/2026) : le libellé d'une donnée
+        héritée, imprimé tel quel à l'annexe des chiffres et dans un tableau,
+        finissait par « — révisé depuis le livrable business_plan déjà
+        produit, repris à l'identique ». Une note de travail, contradictoire
+        (« révisé », « à l'identique »), qui portait le code interne du
+        livrable. Le libellé dit ce que le chiffre mesure ; l'écart à une étude
+        précédente se dit dans la source (`heritage._bloc`).
+
+        Réparation déterministe, à la lecture : elle vaut aussi pour les socles
+        déjà enregistrés, que chaque rendu relit par ce modèle.
+        """
+        if not isinstance(valeurs, dict):
+            return valeurs
+        libelle = str(valeurs.get("libelle", ""))
+        trouve = _MENTION_DE_REVISION.search(libelle)
+        if trouve is None or trouve.start() == 0:
+            return valeurs
+        mention = trouve.group(1).strip(" .;")
+        source = str(valeurs.get("source") or "").strip()
+        if _REPRIS_A_L_IDENTIQUE.search(mention):
+            valeurs["libelle"] = libelle[: trouve.start()].rstrip(" ,;")
+        elif source:
+            # Jamais dans une source VIDE : une note de révision n'est pas une
+            # source, et une donnée observée sans source doit rester refusée
+            # (`_controler_source`, relecture du diff du 21/11/2026).
+            mention = re.sub(r"\b(?:le |du )?livrable \w+_\w+", "l'étude précédente", mention)
+            valeurs["libelle"] = libelle[: trouve.start()].rstrip(" ,;")
+            valeurs["source"] = f"{source} ; {mention}"
         return valeurs
 
     @model_validator(mode="after")

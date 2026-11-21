@@ -136,11 +136,15 @@ def _bloc(precedent: Any) -> str:
     lignes = _lignes(getattr(socle, "contenu", None) or {})
     if not lignes:
         return ""
+    from ..rendu_word.services import TITRES  # noqa: PLC0415 — règle 5
     quand = getattr(precedent, "completed_at", None)
     date = quand.date().isoformat() if quand else "date inconnue"
+    # Le NOM du document, jamais son code : business plan de test `29d59ae9`
+    # (19/11/2026), un libellé imprimé à l'annexe portait « révisé depuis le
+    # livrable business_plan déjà produit » — le code recopié tel quel.
+    nom = TITRES.get(str(precedent.deliverable_type), "document précédent")
     return (
-        "CHIFFRES DÉJÀ POSÉS POUR CE CLIENT — livrable « "
-        f"{precedent.deliverable_type} » terminé le {date}.\n"
+        f"CHIFFRES DÉJÀ POSÉS POUR CE CLIENT — {nom} terminé le {date}.\n"
         "Ce client a déjà reçu un document qui porte ces chiffres. Il les a "
         "lus.\n"
         + "\n".join(lignes)
@@ -149,9 +153,11 @@ def _bloc(precedent: Any) -> str:
         "deux totaux pour le même marché se discréditent l'un l'autre, et le "
         "client ne sait plus lequel appliquer.\n"
         "Si une donnée plus récente ou mieux sourcée impose de s'écarter de "
-        "l'une d'elles, garde la tienne et NOMME l'écart dans sa source : "
-        "« révisé depuis l'étude précédente, qui retenait X ». Ce qui est "
-        "interdit, c'est de changer un chiffre en silence."
+        "l'une d'elles, garde la tienne et NOMME l'écart dans sa SOURCE — "
+        "jamais dans son libellé, qui ne dit que ce que le chiffre mesure : "
+        "« révisé depuis l'étude précédente, qui retenait X ». Un chiffre "
+        "repris à l'identique ne porte aucune mention. Ce qui est interdit, "
+        "c'est de changer un chiffre en silence."
     )
 
 

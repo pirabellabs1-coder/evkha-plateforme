@@ -132,6 +132,13 @@ _PAS_UN_OBJET = frozenset({
     # Verbes qui suivent un effectif repris dans un calcul : « 2 000 divisé
     # par », « s'écarte de 3 000 doit déclencher » (corpus du 29/10/2026).
     "divise", "multiplie", "doit", "peut", "est", "sont",
+    # Business plan de test `29d59ae9` (19/11/2026), cinq « objets changés »
+    # sans objet : « visé à 8 000 FIN 2027 » (un repère de date), « à 8 000
+    # REPRISES » (« à 8 000 fois » — laissé : « 3 500 reprises de PME » est un
+    # objet), « au-delà de 7 209 CONTRIBUE » (un verbe dont le nombre est le
+    # complément).
+    "fin", "debut", "mi",
+    "contribue", "contribuent", "suffit", "suffisent", "depasse", "depassent",
 })
 
 #: Participes passés : « 2 400 REVENDIQUÉS », « 1 800 RETENUS », « 10 000

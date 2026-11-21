@@ -37,11 +37,12 @@ Objectif : présenter le prévisionnel financier du projet de façon qu'un banqu
 Ouvre le chapitre sur les hypothèses clés : prix, volumes, fréquence, taux de remplissage, charges fixes et charges variables. Le lecteur doit pouvoir vérifier que volume × prix = chiffre d'affaires, année par année. Le chiffre d'affaires s'entend hors taxes.
 
 3. Le compte de résultat, ligne par ligne, sur TOUS les exercices du dossier.
-Un bloc `tableau`, une colonne par exercice — au moins trois ; quatre ou cinq si le client les a donnés, sans en retirer aucun. Les lignes, dans cet ordre : chiffre d'affaires, charges variables, marge brute, charges fixes, excédent brut d'exploitation (EBE), dotations aux amortissements, impôts sur le résultat, résultat net, capacité d'autofinancement (CAF).
+Un bloc `tableau`, une colonne par exercice — au moins trois ; quatre ou cinq si le client les a donnés, sans en retirer aucun. Les lignes, dans cet ordre : chiffre d'affaires, charges variables, marge brute, charges fixes, excédent brut d'exploitation (EBE), dotations aux amortissements, charges financières (intérêts des emprunts), impôts sur le résultat, résultat net, capacité d'autofinancement (CAF).
 Les identités que chaque colonne respecte, écrites aussi en toutes lettres sous le tableau, pour que le lecteur les vérifie :
 - chiffre d'affaires − charges (variables et fixes) = EBE ;
-- EBE − dotations aux amortissements − impôts = résultat net ;
+- EBE − dotations aux amortissements − charges financières − impôts = résultat net ;
 - CAF = résultat net + dotations aux amortissements.
+Une ligne porte le nom de ce qu'elle contient, et rien d'autre. Si le dossier ne sépare pas les intérêts de l'impôt, l'écart entre l'EBE diminué des dotations et le résultat net s'écrit sur UNE ligne « Charges financières et impôt sur les bénéfices », jamais sous le seul nom d'impôt : un emprunt porte des intérêts, et un impôt se calcule sur le résultat avant impôt, pas sur ce qui manque pour retomber sur le résultat net.
 Avant de rendre le tableau, refais chaque soustraction de chaque colonne. Une colonne qui ne boucle pas est une erreur que le lecteur verra en premier.
 
 4. Résultat net et CAF ne se confondent JAMAIS.
@@ -63,6 +64,9 @@ Le compte de résultat ci-dessus est le {{ scenario_reference }}. Ajoute une ana
 
 8. La trésorerie.
 Un bloc `tableau` de trésorerie de la première année, mois par mois — encaissements, décaissements, solde cumulé — construit sur les mêmes hypothèses, avec son point bas nommé et ce qui le couvre (apport, trésorerie de sécurité). Aucun bilan inventé : un bilan ne se présente que si le client en a fourni les postes.
+- Encaissements et décaissements se chiffrent en euros, chaque mois : un mot (« peu de commandes ») n'est pas un encaissement.
+- Le solde cumulé part de la trésorerie de départ et finit sur la trésorerie de fin d'exercice du dossier ; chaque mois, solde du mois précédent + encaissements − décaissements = solde du mois.
+- Le point bas est le PLUS PETIT solde du tableau : nomme son mois et son montant tels qu'ils y figurent. Une trésorerie qui passe sous son niveau de départ n'a rien d'anormal — c'est à cela que sert la trésorerie de départ : dis de combien elle baisse et ce qui reste. N'écris jamais qu'elle « ne descend pas sous » un montant que le tableau franchit, ici ou dans la conclusion du chapitre.
 
 9. Une figure, prise dans la liste des figures réalisables : l'évolution du chiffre d'affaires d'un exercice à l'autre, si elle y figure.
 

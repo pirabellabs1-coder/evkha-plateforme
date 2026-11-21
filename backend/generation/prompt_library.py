@@ -1538,7 +1538,7 @@ COMPETITOR_STUDY_PROMPTS: dict[str, str] = {
         "de ce bloc. Format simple :\n"
         "## Concurrents identifies\n- Nom - URL si disponible\n"
         "## Données de marche\n- ...\n"
-        "Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe "
+        "Liste les sources citees, toutes et rien qu elles. Ajoute un court paragraphe "
         "'## Methodologie' (3-4 lignes) expliquant la démarche de benchmark "
         "(perimetre, critère de selection des concurrents, période des avis). "
         "Rester concis et structure."
@@ -1839,7 +1839,7 @@ BUSINESS_PLAN_PROMPTS: dict[str, str] = {
         "n'invente aucune URL absente de ce bloc. Format simple :\n"
         "## Données sectorielles\n- Nom - URL si disponible\n"
         "## Reglementation\n- ...\n"
-        "Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe "
+        "Liste les sources citees, toutes et rien qu elles. Ajoute un court paragraphe "
         "'## Methodologie' (3-4 lignes) precisant la démarche (période des "
         "données, hypotheses financieres assumees). Rester concis et structure."
     ),
@@ -3073,7 +3073,7 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
         "de ce bloc. Format simple :\n"
         "## Données marche\n- Nom - URL si disponible\n"
         "## Benchmarks sectoriels\n- ...\n"
-        "Pas plus de 4-6 sources par thematique. Ajoute un court paragraphe "
+        "Liste les sources citees, toutes et rien qu elles. Ajoute un court paragraphe "
         "'## Methodologie' (3-4 lignes) precisant la démarche (croisement "
         "diagnostic / arbitrages / feuille de route). Rester concis et structure."
     ),

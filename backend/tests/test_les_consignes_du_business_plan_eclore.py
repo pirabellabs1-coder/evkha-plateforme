@@ -74,7 +74,17 @@ def test_le_previsionnel_a_une_vraie_consigne() -> None:
     assert "Ne pas utiliser ce prompt" not in texte
     # Les identités du compte de résultat, écrites en toutes lettres.
     assert "chiffre d'affaires − charges (variables et fixes) = EBE" in texte
-    assert "EBE − dotations aux amortissements − impôts = résultat net" in texte
+    assert (
+        "EBE − dotations aux amortissements − charges financières − impôts = résultat net"
+        in texte
+    )
+    # `29d59ae9` (19/11/2026) : sans ligne pour les intérêts, l'écart était
+    # écrit « Impôt sur le résultat » (2 806 € sur 4 760 € de résultat).
+    assert "jamais sous le seul nom d'impôt" in texte
+    # Même dossier : « ne descend jamais sous 18 000 € » sous un tableau à
+    # 12 300 € en janvier.
+    assert "Le point bas est le PLUS PETIT solde du tableau" in texte
+    assert "N'écris jamais qu'elle « ne descend pas sous »" in texte
     assert "CAF = résultat net + dotations aux amortissements" in texte
     assert "Résultat net et CAF ne se confondent JAMAIS" in texte
     # Le revenu du dirigeant, défini selon le statut.
