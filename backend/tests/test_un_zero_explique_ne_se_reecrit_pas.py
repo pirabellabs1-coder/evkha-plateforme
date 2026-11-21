@@ -354,3 +354,34 @@ def test_la_remuneration_des_salaries_n_est_pas_une_decision_du_dirigeant() -> N
         "Prélèvements sociaux : 2027 | 0 € | 0 €",
     ):
         assert _zeros_signales(_Mesure("0 €", contexte=phrase, phrase=phrase, tableau=True))
+
+
+# ── Mesure en production après 566c638 (21/11/2026) : trois zéros encore dits ─
+
+
+def test_ne_se_verser_rien_assume_le_zero() -> None:
+    """`68b6ab61`, chapitre 16."""
+    contexte = (
+        "Le président ne se verse rien en 2027 (0 €), pour préserver la trésorerie "
+        "de démarrage. Il se verse 12"
+    )
+    assert _zeros_signales(_Mesure("0 €", contexte=contexte, phrase=contexte)) == []
+
+
+def test_un_revenu_mensuel_nul_en_tableau_est_une_decision() -> None:
+    """`9e38eb81`, chapitre 18."""
+    phrase = "Revenu mensuel moyen : 2027 | 0 € | 0 €"
+    assert _zeros_signales(_Mesure("0 €", contexte=phrase, phrase=phrase, tableau=True)) == []
+
+
+def test_un_zero_compare_a_une_valeur_ecrite_avant_est_dit() -> None:
+    """`ac010864`, chapitre 12."""
+    contexte = (
+        "avec 1 salarié pour une masse salariale de 24 700 €, contre 0 € en 2027 et 0 € en 2028."
+    )
+    assert _zero_explique(_Mesure("0 €", contexte=contexte))
+
+
+def test_un_zero_compare_a_rien_reste_nu() -> None:
+    """Contre-épreuve : « contre 0 € » sans valeur écrite avant."""
+    assert not _zero_explique(_Mesure("0 €", contexte="Budget : contre 0 €."))

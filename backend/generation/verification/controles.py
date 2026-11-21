@@ -2053,7 +2053,8 @@ def controler_les_calculs_annonces(document: DocumentLu) -> list[Anomalie]:
 #: alors un calcul non fait, une donnée manquante rendue en « 0 € », et le
 #: lecteur croit lire une valeur.
 _ZERO_ASSUME = re.compile(
-    r"(?i)aucun|aucune|nul|nulle|z[ée]ro|pas d[e’']|ni\b|sans\b|"
+    # « ne se verse rien en 2027 (0 €) » (`68b6ab61`, 16.x, mesuré le 21/11/2026).
+    r"(?i)aucun|aucune|nul|nulle|z[ée]ro|pas d[e’']|ni\b|sans\b|\brien\b|"
     r"n[e’']a (?:pas|aucun)|absen(?:ces?|te?s?)\b|"
     # Un financement ou une ligne ÉCARTÉS par décision : « Emprunt bancaire |
     # 0 € | 0 % | Non priorisé dans le scénario central » (corpus du 14/09/2026).
@@ -2080,8 +2081,18 @@ _EN_TETE_DE_RESULTAT = re.compile(
 #: payantes du chapitre 18 pour une première année sans salaire, choix courant
 #: et que le chapitre explique.
 _EN_TETE_DE_REMUNERATION = re.compile(
-    r"(?i)\br[ée]mun[ée]ration|\brevenu\b[^|]{0,25}\b(?:dirigeant|g[ée]rant|pr[ée]sident)"
+    # « Revenu mensuel moyen : 2027 | 0 € | 0 € » (`9e38eb81`, 18.x) : le revenu
+    # mensuel ou annuel d'un business plan est celui du dirigeant.
+    r"(?i)\br[ée]mun[ée]ration|\brevenu\s+(?:mensuel|annuel)"
+    r"|\brevenu\b[^|]{0,25}\b(?:dirigeant|g[ée]rant|pr[ée]sident)"
     r"|\bsalaire\b[^|]{0,25}\b(?:dirigeant|g[ée]rant|pr[ée]sident)|\bpr[ée]l[èe]vements?\b"
+)
+
+#: Juste avant un zéro, le mot qui le COMPARE à la valeur écrite plus tôt dans
+#: la phrase : « 24 700 €, contre 0 € », « … puis 0 € », « et 0 € en 2028 ».
+_COMPARAISON_AVANT_LE_ZERO = re.compile(
+    r"(?i)(?:\bcontre|\bpuis|\bet|\bau\s+lieu\s+de|\bface\s+[àa]|\bapr[èe]s|\bavant)"
+    r"[\s  ]*$"
 )
 
 #: Ce qui fait d'une « rémunération » ou de « prélèvements » autre chose que le
@@ -2250,6 +2261,7 @@ def _zero_explique(mesure: Mesure) -> bool:
     de 0 €. » a huit mots devant lui et n'explique rien.
     """
     entiere = (mesure.phrase if mesure.dans_un_tableau else mesure.contexte) or ""
+    trouve: re.Match[str] | None = None
     if mesure.dans_un_tableau:
         a_compter = entiere
     else:
@@ -2288,6 +2300,17 @@ def _zero_explique(mesure: Mesure) -> bool:
         ) if unite else None
         if valeur_seule is not None and any(
             valeur_seule.match(case) for case in ligne.split("|")
+        ):
+            return True
+    if not mesure.dans_un_tableau and trouve is not None:
+        # Le zéro COMPARÉ à une valeur écrite juste avant : « masse salariale
+        # de 24 700 €, contre 0 € en 2027 et 0 € en 2028 » (`ac010864`, 12.x).
+        avant = (mesure.contexte or "")[: trouve.start()]
+        dernier = mesure.texte.strip()[-1:]
+        if dernier in ("€", "%") and _COMPARAISON_AVANT_LE_ZERO.search(avant) and re.search(
+            r"(?<![\d,])(?:0*[1-9][\d\s  ]*(?:,\d+)?|0,\d*[1-9]\d*)"
+            rf"[\s  ]*{re.escape(dernier)}",
+            avant,
         ):
             return True
     if not mesure.dans_un_tableau and _RESULTAT_APRES_LE_ZERO.match(a_compter):
