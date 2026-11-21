@@ -2107,9 +2107,22 @@ _PAS_LE_DIRIGEANT = re.compile(
 #: (business plan de test `ac010864`, 16/11/2026, chapitre 1). En tableau, la
 #: colonne le dit (`_EN_TETE_DE_RESULTAT`) ; en prose, c'est le mot qui suit.
 _RESULTAT_APRES_LE_ZERO = re.compile(
-    r"(?i)^[\s  ]*(?:d['’][ée]cart|de\s+diff[ée]rence|de\s+variation"
-    r"|de\s+solde|de\s+reste|d['’]impasse|de\s+besoin\s+non\s+couvert)\b"
+    r"(?i)^[\s\u00a0\u202f]*(?:d['’][ée]cart|de\s+diff[ée]rence|de\s+variation"
+    r"|de\s+solde|de\s+reste|d['’]impasse|de\s+besoin\s+non\s+couvert"
+    # Une case de chiffre clé : « 0 € » puis, à la ligne, « Écart entre
+    # ressources et besoins » (`ac010864`, 19.x).
+    r"|[ée]cart\b|solde\b|diff[ée]rence\b)"
 )
+#: Juste avant un zéro, le résultat qu'il chiffre : « soit un écart de 0 € »
+#: (`68b6ab61`, 19.x).
+_RESULTAT_AVANT_LE_ZERO = re.compile(
+    r"(?i)\b(?:[ée]cart|diff[ée]rence|solde|reste|impasse)"
+    r"(?:\s+(?:de|du|est\s+de|:))?[\s\u00a0\u202f]*$"
+)
+#: Une colonne de masse salariale, et une case qui compte ZÉRO salarié sur la
+#: même ligne : « Masse salariale annuelle : 2027 | 0 | 0 € | 0 € »
+#: (`68b6ab61` 12.x, `9e38eb81` 18.x). Pas de salarié, pas de salaire.
+_EN_TETE_DE_MASSE_SALARIALE = re.compile(r"(?i)masse\s+salariale|salaires?\s+bruts?")
 
 #: Ce qui, dans la cellule d'un zéro, ne fait que COMPLÉTER son unité :
 #: « 0 € par client », « 0 % du CA », « 0 € HT ». Pas un commentaire.
@@ -2201,13 +2214,20 @@ _MOTS_POUR_EXPLIQUER_UN_ZERO = 5
 
 #: Juste après un zéro, une autre valeur NON NULLE de même forme : « , 12 000 €
 #: et 18 000 € », « puis 4 % ». Le premier chiffre significatif n'est pas 0.
-_SEPARATEUR_DE_SERIE = r"[\s  ]*(?:,|;|et|puis|→|->)[\s  ]*"
+_ESP = r"[\s\u00a0\u202f]"
+#: Une année qui suit une valeur de la série : « 0 € en 2028, 24 700 € en 2029 ».
+_ANNEE_DE_LA_VALEUR = rf"(?:{_ESP}*(?:en|pour)?{_ESP}*\(?(?:19|20)\d{{2}}\)?)?"
+_SEPARATEUR_DE_SERIE = rf"{_ESP}*(?:,|;|et|puis|→|->|[àa]){_ESP}*"
 _SERIE_QUI_SUIT = re.compile(
     # D'autres zéros d'abord, s'il y en a : « 0 €, 0 € et 24 700 € pour la
     # masse salariale » (`29d59ae9`, 18.x) — la série aboutit à une valeur.
-    rf"^(?:{_SEPARATEUR_DE_SERIE}0(?:,0+)?[\s  ]*(?:€|k€|M€|%))*"
+    # Chaque valeur peut porter son année : « (0 € en 2028, 24 700 € en
+    # 2029) » (`68b6ab61`, 18.x) ; « le passage de 0 € en 2027 à 12 000 € »
+    # (`8ead345f`, 18.x) — « à » sépare aussi les deux bornes d'un passage.
+    rf"^{_ANNEE_DE_LA_VALEUR}"
+    rf"(?:{_SEPARATEUR_DE_SERIE}0(?:,0+)?{_ESP}*(?:€|k€|M€|%){_ANNEE_DE_LA_VALEUR})*"
     rf"{_SEPARATEUR_DE_SERIE}"
-    r"(?:0*[1-9][\d\s  ]*(?:,\d+)?|0,\d*[1-9]\d*)[\s  ]*(?:€|k€|M€|%)"
+    rf"(?:0*[1-9][\d\s\u00a0\u202f]*(?:,\d+)?|0,\d*[1-9]\d*){_ESP}*(?:€|k€|M€|%)"
 )
 
 
@@ -2285,7 +2305,11 @@ def _zero_explique(mesure: Mesure) -> bool:
         # 0 € | 24 700 € » (`29d59ae9`, 12.x). Une autre cellule de la LIGNE
         # porte une valeur non nulle de même unité : ce zéro est celui d'un
         # exercice, pas une donnée absente.
-        _, _, ligne = (mesure.phrase or "").partition(" : ")
+        # Sans en-tête (« 0 €\nÉcart entre… », une case de chiffre clé), la
+        # ligne est la case entière.
+        _, separateur, ligne = (mesure.phrase or "").partition(" : ")
+        if not separateur:
+            ligne = mesure.phrase or ""
         # Un montant ou un taux seulement : un « 0 » nu n'a pas d'unité à
         # retrouver, et « 120 » ailleurs dans la ligne ne dirait rien de lui.
         dernier = mesure.texte.strip()[-1:]
@@ -2302,10 +2326,20 @@ def _zero_explique(mesure: Mesure) -> bool:
             valeur_seule.match(case) for case in ligne.split("|")
         ):
             return True
+        cases = [case.strip() for case in ligne.split("|")]
+        if _EN_TETE_DE_MASSE_SALARIALE.search(mesure.phrase or "") and "0" in cases:
+            return True
+        dans_la_case = _le_nombre_dans(mesure.texte, ligne)
+        if dans_la_case is not None and _RESULTAT_APRES_LE_ZERO.match(
+            ligne[dans_la_case.end():]
+        ):
+            return True
     if not mesure.dans_un_tableau and trouve is not None:
         # Le zéro COMPARÉ à une valeur écrite juste avant : « masse salariale
         # de 24 700 €, contre 0 € en 2027 et 0 € en 2028 » (`ac010864`, 12.x).
         avant = (mesure.contexte or "")[: trouve.start()]
+        if _RESULTAT_AVANT_LE_ZERO.search(avant):
+            return True
         dernier = mesure.texte.strip()[-1:]
         if dernier in ("€", "%") and _COMPARAISON_AVANT_LE_ZERO.search(avant) and re.search(
             r"(?<![\d,])(?:0*[1-9][\d\s  ]*(?:,\d+)?|0,\d*[1-9]\d*)"

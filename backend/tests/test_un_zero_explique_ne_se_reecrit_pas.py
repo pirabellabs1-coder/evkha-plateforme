@@ -385,3 +385,36 @@ def test_un_zero_compare_a_une_valeur_ecrite_avant_est_dit() -> None:
 def test_un_zero_compare_a_rien_reste_nu() -> None:
     """Contre-épreuve : « contre 0 € » sans valeur écrite avant."""
     assert not _zero_explique(_Mesure("0 €", contexte="Budget : contre 0 €."))
+
+
+# ── Sept business plans de test relus en entier (21/11/2026) ────────────────
+
+
+@pytest.mark.parametrize("contexte", [
+    "la masse salariale des éventuels salariés (0 € en 2028, 24 700 € en 2029).",
+    "Le passage de 0 € en 2027 à 12 000 € en 2028 marque le premier relèvement",
+    "Le passage de 0 € à 12 000 € représente le premier relèvement de la rémunération",
+    "t bancaire et 20 000 € de prêts d'honneur, soit un écart de 0 €.",
+])
+def test_un_zero_dit_en_prose(contexte: str) -> None:
+    assert _zero_explique(_Mesure("0 €", contexte=contexte))
+
+
+@pytest.mark.parametrize("phrase", [
+    "Masse salariale annuelle : 2027 | 0 | 0\u00a0€ | 0\u00a0€",
+    "Masse salariale totale : 2027 | 0 | — | — | 0\u00a0€",
+    "0\u00a0€\nÉcart entre ressources et besoins de financement du démarrage",
+])
+def test_un_zero_dit_en_tableau(phrase: str) -> None:
+    assert _zeros_signales(_Mesure("0\u00a0€", contexte=phrase, phrase=phrase, tableau=True)) == []
+
+
+def test_une_masse_salariale_nulle_avec_des_salaries_reste_signalee() -> None:
+    """Contre-épreuve : deux salariés, et pourtant 0 €."""
+    phrase = "Masse salariale annuelle : 2027 | 2 | 0\u00a0€ | 0\u00a0€"
+    assert _zeros_signales(_Mesure("0\u00a0€", contexte=phrase, phrase=phrase, tableau=True))
+
+
+def test_un_passage_vers_zero_reste_nu() -> None:
+    """Contre-épreuve : « de 0 € à 0 € » n'aboutit à aucune valeur."""
+    assert not _zero_explique(_Mesure("0 €", contexte="Le budget passe de 0 € à 0 €."))
