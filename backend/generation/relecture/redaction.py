@@ -24,11 +24,10 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections import Counter
 
 from ..orthographe import MOT, graphies_suspectes
 from .constat import Constat, Reference
-from .document import Document, Section
+from .document import Document
 from .fuites import textes_de_la_section
 from .valeurs import nombres, phrases_de
 
@@ -250,50 +249,26 @@ def _reprise_voulue(mots: list[str], premier: int, second: int, taille: int) -> 
     return chiffre_voisin(premier) and chiffre_voisin(second)
 
 
-#: À partir de ce nombre d'emplois HORS du passage, la suite est un terme du
-#: document, pas une redite. Business plan `29d59ae9` (21/11/2026), mesuré sur
-#: le document entier : « marché accessible » 35 fois, « place de marché » 29,
-#: « mise en conformité » 17 — trois des quatre redites signalées ; la seule
-#: vraie, « montée en puissance », n'y figure que dans la phrase fautive.
-#: Le nom de l'indicateur que le projet définit ne se remplace pas par un
-#: synonyme sans devenir vague (voir `_reprise_voulue`).
-_EMPLOIS_D_UN_TERME = 5
-
-
-def _unites(section: Section) -> list[str]:
-    # Un paragraphe, ou UNE cellule prise seule : la redite se lit à
-    # l'intérieur d'un même texte. Une ligne de tableau recollée par « · »
-    # ferait passer pour une redite un terme qui revient d'une colonne à
-    # l'autre (« 182 € TTC (donnée du projet) · 224 € TTC (donnée… »), ce
-    # qui est la forme normale d'un tableau, pas une faute (revue du
-    # 30/09/2026).
-    unites = list(section.paragraphes)
-    for tableau in section.tableaux:
-        unites += [cellule for ligne in tableau.lignes for cellule in ligne]
-    return unites
-
-
-def _fenetres(texte: str, taille: int) -> list[tuple[str, ...]]:
-    radicaux = [_radical(m) for m in texte.split()]
-    return [tuple(radicaux[i : i + taille]) for i in range(len(radicaux) - taille + 1)]
-
-
 def _repetitions(document: Document) -> list[Constat]:
     constats: list[Constat] = []
-    taille = _MOTS_MIN_SIGNAL
-    emplois: Counter[tuple[str, ...]] = Counter()
     for section in document.sections:
-        for texte in _unites(section):
-            emplois.update(_fenetres(texte, taille))
-    for section in document.sections:
-        for texte in _unites(section):
+        # Un paragraphe, ou UNE cellule prise seule : la redite se lit à
+        # l'intérieur d'un même texte. Une ligne de tableau recollée par « · »
+        # ferait passer pour une redite un terme qui revient d'une colonne à
+        # l'autre (« 182 € TTC (donnée du projet) · 224 € TTC (donnée… »), ce
+        # qui est la forme normale d'un tableau, pas une faute (revue du
+        # 30/09/2026).
+        unites = list(section.paragraphes)
+        for tableau in section.tableaux:
+            unites += [cellule for ligne in tableau.lignes for cellule in ligne]
+        for texte in unites:
             if _LIGNE_DE_SOURCE.search(texte):
                 continue
             mots = texte.split()
             if len(mots) < _MOTS_MIN_SIGNAL * 2:
                 continue
             radicaux = [_radical(m) for m in mots]
-            ici = Counter(_fenetres(texte, taille))
+            taille = _MOTS_MIN_SIGNAL
             vus: dict[tuple[str, ...], int] = {}
             for i in range(len(radicaux) - taille + 1):
                 fenetre = tuple(radicaux[i : i + taille])
@@ -302,8 +277,7 @@ def _repetitions(document: Document) -> list[Constat]:
                 if sum(1 for m in mots[i : i + taille] if _est_plein(m)) < 2:
                     continue
                 if fenetre in vus and i - vus[fenetre] >= taille:
-                    terme = emplois[fenetre] - ici[fenetre] >= _EMPLOIS_D_UN_TERME
-                    if terme or _reprise_voulue(mots, vus[fenetre], i, taille):
+                    if _reprise_voulue(mots, vus[fenetre], i, taille):
                         vus[fenetre] = i
                         continue
                     fragment = " ".join(mots[i : i + taille])

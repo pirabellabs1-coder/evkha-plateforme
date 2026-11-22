@@ -797,7 +797,7 @@ def _juger_une_annonce(
         if lignes > compte_annonce:
             # La phrase NOMME-t-elle ses familles ? Alors le lecteur range
             # lui-même chaque ligne : le constat demandait ce qui est écrit.
-            if _chaque_ligne_dans_un_groupe_nomme(apres, colonne.tableau, compte_annonce):
+            if _chaque_ligne_dans_un_groupe_nomme(apres, annonce, colonne, compte_annonce):
                 return None
             # Le tableau range-t-il ses lignes en autant de familles ? Une
             # colonne à N valeurs distinctes dit lesquelles vont ensemble.
@@ -822,29 +822,34 @@ def _juger_une_annonce(
 def _groupes_enumeres(apres: str) -> list[str]:
     """Les groupes que la même phrase énumère après ses deux-points.
 
-    Les virgules séparent les groupes ; un « et » ne sépare que dans le dernier
-    morceau, et seulement s'il n'y suit pas déjà une virgule — « à un marché
-    et à des prestataires » reste UN groupe au milieu de la liste.
+    Les virgules séparent les groupes, sauf entre deux chiffres (« 0,7 % ») et
+    dans une parenthèse ; un « et », un « ou », un « ainsi que » ne séparent que
+    dans le dernier morceau — « à un marché et à des prestataires » reste UN
+    groupe au milieu de la liste. Une forme mal découpée donne un compte qui ne
+    tombe pas juste : le signal reste, l'erreur va du côté prudent.
     """
     fin = re.search(r"[.!?](?:\s|$)", apres)
     phrase = apres[: fin.start()] if fin else apres
+    phrase = re.sub(r"\([^)]*\)", "", phrase)
     if ":" not in phrase:
         return []
     liste = phrase.split(":", 1)[1].strip()
-    morceaux = [m.strip() for m in re.split(r"\s*[,;]\s*", liste) if m.strip()]
+    morceaux = [m.strip() for m in re.split(r"\s*(?<!\d)[,;](?!\d)\s*", liste) if m.strip()]
     if not morceaux:
         return []
     dernier = morceaux[-1]
-    entete = re.match(r"(?i)(?:et|ou)\s+", dernier)
+    liaison = r"(?:et|ou|ainsi\s+que)"
+    entete = re.match(rf"(?i){liaison}\s+", dernier)
     if entete:
         morceaux[-1] = dernier[entete.end():]
     else:
-        coupe = re.split(r"\s+(?:et|ou)\s+", dernier, maxsplit=1)
-        morceaux[-1:] = coupe
+        morceaux[-1:] = re.split(rf"(?i)\s+{liaison}\s+", dernier, maxsplit=1)
     return morceaux
 
 
-def _chaque_ligne_dans_un_groupe_nomme(apres: str, tableau: Tableau, compte: int) -> bool:
+def _chaque_ligne_dans_un_groupe_nomme(
+    apres: str, annonce: str, colonne: _Colonne, compte: int,
+) -> bool:
     """La phrase NOMME ses familles, et chaque ligne du tableau en porte une.
 
     Business plan `29d59ae9` (21/11/2026), 17.1 : « Quatre familles de risques
@@ -857,15 +862,34 @@ def _chaque_ligne_dans_un_groupe_nomme(apres: str, tableau: Tableau, compte: int
 
     Nommer ne suffit pas : « deux familles : intervenants et lieux » au-dessus
     d'animatrices, de coachs, de gîtes et de salles laisse le lecteur ranger
-    seul. Le mot de la famille doit se lire dans la ligne.
+    seul. Trois garde-fous, chacun tiré d'une forme qui passait sans eux
+    (revue du 22/11/2026) :
+
+    - un mot que deux groupes partagent, ou que l'annonce porte elle-même, ne
+      range rien (« les risques de marché, les risques opérationnels… » ;
+      « les intervenants du séjour et les lieux du séjour ») ;
+    - seule la cellule de la colonne comptée se lit, pas la ligne entière ;
+    - chaque famille reçoit au moins une ligne : six lignes qui disent toutes
+      « chinois » ne se rangent pas en quatre familles.
     """
     groupes = [racines(g) for g in _groupes_enumeres(apres)]
-    if len(groupes) != compte or not all(groupes):
+    if len(groupes) != compte:
         return False
-    return all(
-        any(groupe & racines(" ".join(texte_lisible(c) for c in ligne)) for groupe in groupes)
-        for ligne in tableau.lignes
-    )
+    communes = {
+        r for i, g in enumerate(groupes) for r in g
+        if any(r in h for j, h in enumerate(groupes) if j != i)
+    } | racines(annonce)
+    groupes = [g - communes for g in groupes]
+    if not all(groupes):
+        return False
+    touches: set[int] = set()
+    for valeur in colonne.valeurs:
+        mots = racines(valeur)
+        ici = {i for i, g in enumerate(groupes) if g & mots}
+        if not ici:
+            return False
+        touches |= ici
+    return len(touches) == compte
 
 
 def _constat_d_annonce(

@@ -312,6 +312,74 @@ def test_des_familles_nommees_dans_la_phrase_et_lues_dans_chaque_ligne_passent()
     assert _constats(sections, classe="comptage")
 
 
+def test_les_familles_nommees_passent_aussi_par_le_chapitre_structure() -> None:
+    """En production, la relecture lit le chapitre structuré, pas le PDF
+    (`runner`, `document_du_chapitre`) : la phrase et son tableau y tombent
+    dans la même section (revue du 22/11/2026)."""
+    lignes = [["Dépendance au marché chinois", "Élevée"], ["Dépendance au transitaire", "Moyenne"],
+              ["Entrée d'un concurrent", "Moyenne"], ["Durcissement réglementaire", "Moyenne"],
+              ["Saisonnalité du calendrier", "Élevée"]]
+    payload = {"chapitre": 17, "titre": "Risques", "blocs": [
+        {"type": "titre_sous_section", "numero": "17.1", "intitule": "Panorama"},
+        {"type": "paragraphe", "texte": (
+            "Quatre familles de risques structurent notre lecture : la dépendance, la "
+            "concurrence, la réglementation, et la saisonnalité.")},
+        {"type": "tableau", "tableau": {"entetes": ["Risque", "Probabilité"], "lignes": lignes}},
+    ]}
+    constats = comptages.controler(document_du_chapitre(payload), _reference())
+    assert [c for c in constats if c.classe == "comptage"] == []
+
+
+def _signale(phrase: str, tableau: Tableau) -> bool:
+    return bool(_constats([_section("17.1", "Panorama", phrase, tableaux=[tableau])],
+                          classe="comptage"))
+
+
+@pytest.mark.parametrize(("phrase", "lignes"), [
+    # Un mot que les groupes partagent ne range rien.
+    ("Deux familles de fournisseurs portent la qualité : les intervenants du séjour et "
+     "les lieux du séjour.",
+     ("Animatrices du séjour", "Coachs du séjour", "Gîtes du séjour", "Salles du séjour")),
+    # Le mot de l'annonce ne range rien non plus.
+    ("Trois familles de risques pèsent : les risques de marché, les risques "
+     "opérationnels et les risques réglementaires.",
+     ("Risque de change", "Risque de taux", "Risque client", "Risque de stock",
+      "Risque informatique")),
+    # Six lignes qui disent toutes « chinois » ne font pas quatre familles.
+    ("Quatre familles de risques structurent notre lecture : la dépendance à un marché "
+     "et à des prestataires, la concurrence, la réglementation, et la saisonnalité "
+     "commerciale chinoise.",
+     ("Change du yuan chinois", "Incendie de l'entrepôt chinois", "Grève portuaire chinoise",
+      "Panne du paiement chinois", "Fraude au compte chinois", "Typhon sur le littoral chinois")),
+    # Toutes les lignes sous une seule des quatre familles.
+    ("Quatre familles de risques structurent notre lecture : la dépendance, la "
+     "concurrence, la réglementation et la saisonnalité.",
+     ("Dépendance au marché", "Dépendance au transitaire", "Dépendance à WeChat",
+      "Dépendance au banquier", "Dépendance à l'entrepôt")),
+])
+def test_contre_epreuve_des_familles_nommees_que_les_lignes_ne_portent_pas(
+    phrase: str, lignes: tuple[str, ...],
+) -> None:
+    """Revue du 22/11/2026 : chacune de ces formes passait avec la première version."""
+    entete = "Fournisseur" if "fournisseurs" in phrase else "Risque"
+    tableau = Tableau(entetes=(entete, "Probabilité"),
+                      lignes=tuple((ligne, "Moyenne") for ligne in lignes))
+    assert _signale(phrase, tableau)
+
+
+@pytest.mark.parametrize(("suite", "attendu"), [
+    (" pèsent : le marché (prix, change), l'exploitation et la loi.", 3),
+    (" pèsent (voir annexe : grille 2026) : le marché, l'exploitation et la loi.", 3),
+    (" pèsent : le marché à 0,7 %, l'exploitation ainsi que la loi.", 3),
+    (" pèsent : le marché ; l'exploitation ; ou la loi.", 3),
+    (" pèsent sur le projet.", 0),
+])
+def test_les_groupes_enumeres_se_comptent_sans_couper_les_parentheses(
+    suite: str, attendu: int,
+) -> None:
+    assert len(comptages._groupes_enumeres(suite)) == attendu
+
+
 def test_un_tableau_coupe_par_la_page_se_compte_en_entier() -> None:
     """Le PDF répète l'en-tête : 3 lignes puis 2, c'est un tableau de cinq."""
     haut = Tableau(entetes=_formats().entetes, lignes=_formats().lignes[:3])
