@@ -548,6 +548,47 @@ GRAVES disparaissent. Aucun motif, dans ce document, ne justifie une reprise.
 un chiffre juste, une analyse qui tient, une réponse à sa question — rien de
 cela ne se lit dans un compteur (règle 7). Le dossier n'a été envoyé à personne.
 
+## 22/11/2026 — reprise du business plan `29d59ae9` → `b63ae351` — **blocked**
+
+Reprise à l'identique (même brief, socle neuf), **sans envoi**, sur `328a3d5`.
+But : éprouver la consigne de longueur du BP (`9e17f7c`), la consigne
+anti-redite (`6202d42`) et les consignes trésorerie, impôt et sources.
+
+| | `29d59ae9` (19/11) | `b63ae351` (22/11) |
+|---|---|---|
+| coût | 4,91 € | 4,44 € (plafond 8 €) |
+| qa_status | blocked (CHECK INITIAL : « 395 000 000 » non sourcé) | blocked (fourchette, ch. 18) |
+| prose, médiane par paragraphe | 34 mots | **52 mots** (Findrax : 69) |
+| phrases par paragraphe, médiane | 1 | **2** |
+| relecture : chapitres réécrits | 8 | 1 |
+| chiffres hors socle (`mesure/`) | 9 | 23, dont 22 au ch. 16 |
+| objet des chiffres (`mesure/`) | 2 | 7 |
+
+Mesuré au même instrument des deux côtés (`lire_livrable` sur le docx livré).
+
+**Ce qui a marché.** La consigne de longueur du BP a agi : la prose double de
+volume par paragraphe, sans mur de texte (aucun constat de densité). Le
+tableau de trésorerie mensuelle se construit à vue — solde précédent, plus
+encaissements, moins décaissements, avec un exemple chiffré et la mention
+« estimation » ; ses 22 montants « hors socle » sont des montants dérivés que
+le contrôle ne refait pas, pas des chiffres inventés.
+
+**Ce qui bloque, à corriger avant toute nouvelle reprise.**
+
+- Ch. 18 : « charges […] de l'ordre de 75 à 80 % du net selon les barèmes
+  URSSAF ». Une plage interdite en BP ET un ratio réglementaire avancé sans
+  source. Le ch. 18 a été réécrit une fois par la relecture finale, la plage
+  est restée.
+- Ch. 16 : une ligne « Charges financières et impôt sur les bénéfices »
+  fusionne deux postes (2 806 / 6 195 / 5 498 €) — le défaut d'impôt du
+  19/11 revient sous un libellé honnête mais mélangé.
+- « 395 000 000 » compte tour à tour des « personnes », des « acheteurs » et
+  des « classes moyennes ».
+- « ramp commercial » : un anglicisme passé malgré la consigne de langage
+  simple.
+
+Non envoyé, non lu par la cliente.
+
 ## Règles de tenue du journal
 
 - On ajoute une ligne au tableau **à chaque génération réelle**, immédiatement après le rapport gate.
