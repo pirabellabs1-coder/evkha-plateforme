@@ -188,6 +188,18 @@ def test_contre_epreuve_les_noms_de_marque_et_le_pipeline_passent() -> None:
     assert jargon("Amazon Marketplace domine le segment.") == []
 
 
+@pytest.mark.parametrize("phrase", [
+    "La RSE est au cœur du projet.",
+    "Notre RSE progresse chaque année.",
+    "Le Benchmark montre l'écart de prix.",
+    "Une marketplace généraliste domine.",
+])
+def test_contre_epreuve_un_article_en_tete_de_phrase_n_est_pas_une_marque(phrase: str) -> None:
+    """Porte finale du 22/11/2026 : la protection des marques taisait « La RSE… »,
+    l'un des six termes de la cliente."""
+    assert jargon(phrase), phrase
+
+
 def test_contre_epreuve_une_adresse_et_un_mot_francais_passent() -> None:
     assert jargon("https://www.up2china.com/the-future-of-cross-border-e-commerce") == []
     assert jargon("La rampe d'accès du dépôt est livrée en mars.") == []
