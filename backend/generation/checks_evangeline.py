@@ -1821,7 +1821,8 @@ _E = r"\s"
 _CANAL = (
     r"\b(?:canal|canaux|leviers?|r[ée]seaux?|plateformes?|publicit[ée]s?"
     r"|publicitaires?|ads|campagnes?|flyers?|prospection|salons?|e-?mailing"
-    r"|affichage|presse|radio|annuaires?|marketplaces?|facebook|instagram"
+    r"|affichage|presse|radio|annuaires?|marketplaces?|places?\s+de\s+march[ée]"
+    r"|facebook|instagram"
     r"|linkedin|tiktok|youtube|pinterest|snapchat|google|meta)\b"
 )
 

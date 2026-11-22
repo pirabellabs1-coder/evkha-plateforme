@@ -172,6 +172,21 @@ class Occurrence:
     ponctuation : `10 000 porteurs de projet` — pas `10 000 porteurs`. C'est
     ce que lit un rédacteur à qui l'on demande de reprendre l'objet mot pour
     mot ; la COMPARAISON, elle, reste sur `cle`."""
+    definition: str = ""
+    """Ce que la phrase dit de l'objet après deux-points, jusqu'à sa fin :
+    « 395 000 000 personnes : les classes moyennes urbaines… ». Vide sinon."""
+
+
+#: « 395 000 000 personnes : les classes moyennes… » — la définition qui suit
+#: l'objet, jusqu'à la fin de la phrase.
+_DEFINITION = re.compile(
+    r"[ \t\u00a0\u202f]*:[ \t\u00a0\u202f]+(.+?)(?:[.!?](?:\s|$)|$)", re.DOTALL
+)
+
+
+def _definition(texte: str, fin: int) -> str:
+    m = _DEFINITION.match(texte, fin)
+    return m.group(1) if m else ""
 
 
 def _sans_accents(texte: str) -> str:
@@ -299,6 +314,7 @@ def occurrences(document: DocumentLu) -> list[Occurrence]:
                     valeur=valeur, objet=objet, cle=cle, chapitre=chapitre,
                     extrait=_extrait(texte, m.start(), m.end()),
                     forme=_forme(texte, m.start(), m.end()),
+                    definition=_definition(texte, m.end()),
                 ))
     return trouvees
 
@@ -322,20 +338,24 @@ def _radicaux(texte: str) -> set[str]:
 
 
 def _decrits_l_un_par_l_autre(modele: Occurrence, ecart: Occurrence) -> bool:
-    """Le nom de chaque forme se lit autour du nombre dans l'autre.
+    """L'une des formes DÉFINIT la population, et l'autre la nomme d'un de ses mots.
 
     Business plan `b63ae351` (22/11/2026) : « 395 000 000 personnes : les
     classes moyennes urbaines chinoises de 20 à 45 ans, acheteuses en ligne »,
     puis « 395 000 000 classes moyennes urbaines » et « 395 000 000 acheteurs
-    en ligne ». Une seule population, nommée par trois de ses mots ; le
-    contrôle en faisait deux « objets changés » (règle 2). « 8 000 commandes »
-    et « 8 000 reprises » ne partagent aucun mot de contexte : ils restent
-    signalés.
+    en ligne ». Une seule population ; le contrôle en faisait deux « objets
+    changés » (règle 2).
+
+    Seule la définition posée après deux-points compte, pas le voisinage :
+    « 10 000 porteurs de projet préparent la création de leur entreprise »
+    ne définit pas les « 10 000 entreprises » d'ailleurs, et reste signalé —
+    une fenêtre de soixante caractères le faisait passer (revue du 22/11/2026).
     """
-    return bool(
-        _radicaux(ecart.objet) <= _radicaux(modele.extrait)
-        or _radicaux(modele.objet) <= _radicaux(ecart.extrait)
-    ) and bool(_radicaux(ecart.objet)) and bool(_radicaux(modele.objet))
+    def definit(source: Occurrence, autre: Occurrence) -> bool:
+        mots = _radicaux(autre.objet)
+        return bool(mots) and bool(source.definition) and mots <= _radicaux(source.definition)
+
+    return definit(modele, ecart) or definit(ecart, modele)
 
 
 def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:

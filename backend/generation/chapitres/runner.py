@@ -550,11 +550,12 @@ COHERENCE_DES_CHIFFRES = (
     # Business plan `b63ae351` (22/11/2026), ch. 18 : « de l'ordre de 75 à 80 %
     # du net selon les barèmes URSSAF ». Aucun taux de charges dans le socle :
     # le modèle n'avait rien pour trancher, et la réécriture a gardé la plage.
-    "Une valeur que personne ne t'a donnée — ni le socle, ni le client, ni une "
-    "source citée — ne se remplace pas non plus par deux bornes : retiens UNE "
-    "valeur, dite comme hypothèse avec ce qui la fonde, ou, faute de base, "
-    "ne l'écris pas en chiffres — nomme le poste, où il est compté et qui le "
-    "confirmera.\n"
+    # Dans les TROIS origines de la règle 1 : aucune « hypothèse » de mémoire
+    # (revue du 22/11/2026), et un taux réglementaire suit la règle des
+    # sources officielles.
+    "Dans ce même cas, une valeur qu'aucune de ces trois origines ne te donne "
+    "ne se remplace pas non plus par deux bornes : ne l'écris pas en chiffres "
+    "— nomme le poste et la ligne du prévisionnel où il est compté.\n"
     "\n"
     "8. LES ORDRES DE GRANDEUR S'EMBOÎTENT. Une part ne dépasse pas son tout, "
     "un résultat net ne dépasse pas le chiffre d'affaires, une somme de parts "

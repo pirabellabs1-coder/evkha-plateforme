@@ -591,13 +591,22 @@ Deux lectures de cette entrée étaient fausses, rectifiées le même jour :
 - « 395 000 000 » en « objet changé » : une seule population, nommée par
   trois de ses mots — un faux reproche du contrôle.
 
-Réponse en code (`test_les_defauts_de_b63ae351.py`) : une valeur que personne
-n'a donnée se retient comme hypothèse unique ou ne s'écrit pas (consigne ET
-motif de réparation) ; une série nommée par son seul signe (« un résultat net
-positif ») ne porte plus le montant voisin ; un « objet changé » dont chaque
-forme se lit dans le contexte de l'autre n'est plus signalé (15 → 7 sur les
-huit BP, les 9 retirés relus un par un) ; six anglicismes mesurés sur le
-corpus rejoignent `JARGON`, pluriel compris.
+Réponse en code (`test_les_defauts_de_b63ae351.py`), reprise après une revue
+qui a trouvé un défaut bloquant dans la première version :
+
+- une valeur qu'aucune des trois origines de la règle 1 ne donne ne s'écrit
+  pas en chiffres (consigne ET motif de réparation) — pas d'« hypothèse »,
+  qui rouvrait la quatrième origine ;
+- une série nommée comme condition (« à un résultat net positif ») reste
+  comptée parmi les séries de la phrase mais ne reçoit jamais le montant :
+  l'écarter avant le compte donnait « la CAF 2027 vaut 0 € », grave ;
+- un « objet changé » n'est plus signalé quand l'une des formes DÉFINIT la
+  population après deux-points et que l'autre la nomme d'un de ses mots :
+  15 → 13 sur les huit BP, les deux « 395 000 000 » de `b63ae351` ;
+- anglicismes mesurés sur le corpus ajoutés à `JARGON` (marketplace,
+  cross-border, low-cost, ramp, ramp-up), pluriel et graphie sans trait
+  d'union compris, noms de marque épargnés ; « pipeline » écarté (mot de
+  métier).
 
 Non envoyé, non lu par la cliente.
 

@@ -787,10 +787,13 @@ JARGON: dict[str, str] = {
     # prose et les cellules (titres de sources et adresses exclus) : la classe
     # que la cliente nomme — « des termes très analytiques » — au-delà de ses
     # six exemples. « ramp commercial » (`b63ae351`, ch. 16) l'a révélée.
+    # « pipeline » n'y est pas : un pipeline commercial est un mot de métier
+    # (`schema._VOCABULAIRE_INTERNE`), un oléoduc aussi (revue du 22/11).
     "marketplace": "la place de marché",
     "cross-border": "transfrontalier, ou à l'export",
-    "pipeline": "la réserve, ou la liste de candidats à venir",
+    "cross border": "transfrontalier, ou à l'export",
     "low-cost": "à bas prix",
+    "low cost": "à bas prix",
     "ramp-up": "la montée en charge",
     "ramp": "la montée en charge",
 }
@@ -897,6 +900,22 @@ _JARGON_PAR_CLE: dict[str, str] = {
 }
 
 
+#: « Amazon Marketplace », « Facebook Marketplace » : un mot à majuscule juste
+#: avant le terme en fait un nom de marque — en tête de phrase aussi quand le
+#: terme porte lui-même sa majuscule (revue du 22/11/2026). Le nom d'un acteur
+#: se cite tel quel.
+def _dans_un_nom_de_marque(texte: str, debut: int) -> bool:
+    avant = texte[max(0, debut - 40):debut]
+    m = re.search(r"([A-ZÀ-Ý][\w'’-]*)[^\S\r\n]+$", avant)
+    if m is None:
+        return False
+    if texte[debut:debut + 1].isupper():
+        return True
+    precedent = avant[: m.start()].rstrip()
+    # En tête de phrase, la majuscule du mot d'avant ne dit rien.
+    return bool(precedent) and precedent[-1] not in ".!?:;«\"("
+
+
 def jargon(texte: str) -> list[MotAnglais]:
     """Les termes de jargon restés dans la prose. Source unique (règle 5).
 
@@ -917,6 +936,8 @@ def jargon(texte: str) -> list[MotAnglais]:
         if _entre_guillemets(texte, m.start(), m.end()):
             continue
         if _dans_une_phrase_anglaise(texte, m.start(), m.end()):
+            continue
+        if _dans_un_nom_de_marque(texte, m.start()):
             continue
         trouves.append(MotAnglais(terme, m.start(), m.end(), _JARGON_PAR_CLE[bas]))
     return trouves

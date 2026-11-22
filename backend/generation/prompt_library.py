@@ -847,7 +847,7 @@ MARKET_STUDY_PROMPTS: dict[str, str] = {
         "- Cohérence avec le cycle de vente identifie au ch. 10 (rapide vs "
         "long, saisonnalite).\n"
         "- Alignement avec le modele économique declare (vente directe, "
-        "abonnement, marketplace, mixte).\n"
+        "abonnement, place de marché, mixte).\n"
         "Aucune projection financiere chiffree : le previsionnel appartient "
         "au business plan, pas a l'étude de marche."
     ),
@@ -2704,7 +2704,7 @@ BUSINESS_STRATEGY_PROMPTS: dict[str, str] = {
             "client pour tenir ce rythme.\n"
             "\n"
             "Le planning s'adapte au projet, toujours : une entreprise B2B, un "
-            "commerce physique, une marketplace et une activité e-commerce ne "
+            "commerce physique, une place de marché et une activité e-commerce ne "
             "recoivent pas la même stratégie, ni les mêmes canaux, ni la même "
             "cadence. Un planning générique est un planning inutile.\n"
             "\n"

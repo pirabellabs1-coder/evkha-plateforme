@@ -241,17 +241,17 @@ _CHECK_LABELS = {
     ),
     "fourchette_interdite": (
         "Deux bornes à la place d'une valeur — écrire la seule valeur retenue "
-        "et la raison de ce niveau. Si ni le socle, ni le client, ni une source "
-        "citée ne donne cette valeur : une seule valeur, dite comme hypothèse "
-        "avec ce qui la fonde, ou, faute de base, aucun chiffre — nommer le "
-        "poste et dire où il est compté. En étude concurrentielle seulement, pour un "
+        "et la raison de ce niveau. En étude concurrentielle seulement, pour un "
         "chiffre d'affaires ou une part ESTIMÉS : borne basse, borne haute et "
         "valeur retenue en trois colonnes distinctes d'un tableau. Pour les "
         "PRIX DE CONCURRENTS (décision de la cliente, 27/09/2026), ne rien "
         "trancher : la grille d'un concurrent s'écrit formule par formule, "
         "chaque prix avec sa source ; l'étendue des prix d'un panel s'écrit "
         "en trois valeurs séparées — le prix le plus bas et le prix le plus "
-        "haut (concurrent, prix, source) et le prix médian du panel"
+        "haut (concurrent, prix, source) et le prix médian du panel. Hors de "
+        "ces exceptions, une valeur que ni les données de référence, ni le "
+        "client, ni un calcul posé ne donnent ne s'écrit pas en chiffres : "
+        "nommer le poste et la ligne du prévisionnel où il est compté"
     ),
 }
 
