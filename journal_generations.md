@@ -579,13 +579,25 @@ le contrôle ne refait pas, pas des chiffres inventés.
   URSSAF ». Une plage interdite en BP ET un ratio réglementaire avancé sans
   source. Le ch. 18 a été réécrit une fois par la relecture finale, la plage
   est restée.
-- Ch. 16 : une ligne « Charges financières et impôt sur les bénéfices »
-  fusionne deux postes (2 806 / 6 195 / 5 498 €) — le défaut d'impôt du
-  19/11 revient sous un libellé honnête mais mélangé.
-- « 395 000 000 » compte tour à tour des « personnes », des « acheteurs » et
-  des « classes moyennes ».
 - « ramp commercial » : un anglicisme passé malgré la consigne de langage
   simple.
+
+Deux lectures de cette entrée étaient fausses, rectifiées le même jour :
+
+- la ligne « Charges financières et impôt sur les bénéfices » (2 806 / 6 195
+  / 5 498 €) n'est PAS un défaut : c'est le repli que la consigne du 21/11
+  (`e626ce7`) prescrit quand les données ne séparent pas les intérêts de
+  l'impôt ;
+- « 395 000 000 » en « objet changé » : une seule population, nommée par
+  trois de ses mots — un faux reproche du contrôle.
+
+Réponse en code (`test_les_defauts_de_b63ae351.py`) : une valeur que personne
+n'a donnée se retient comme hypothèse unique ou ne s'écrit pas (consigne ET
+motif de réparation) ; une série nommée par son seul signe (« un résultat net
+positif ») ne porte plus le montant voisin ; un « objet changé » dont chaque
+forme se lit dans le contexte de l'autre n'est plus signalé (15 → 7 sur les
+huit BP, les 9 retirés relus un par un) ; six anglicismes mesurés sur le
+corpus rejoignent `JARGON`, pluriel compris.
 
 Non envoyé, non lu par la cliente.
 

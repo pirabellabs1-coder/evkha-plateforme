@@ -303,6 +303,41 @@ def occurrences(document: DocumentLu) -> list[Occurrence]:
     return trouvees
 
 
+def _radicaux(texte: str) -> set[str]:
+    """Les mots ENTIERS, sans accent, au singulier et au masculin.
+
+    « acheteurs » et « acheteuses » se rejoignent ; « visites » et
+    « visiteurs », « e-commerçants » et « e-commerces » restent distincts —
+    une coupe à six lettres les confondait (tests du 29/10/2026).
+    """
+    mots = set()
+    for mot in re.findall(r"[a-z][a-z-]*", _sans_accents(texte).lower()):
+        if len(mot) < 4:
+            continue
+        if mot.endswith(("s", "x")) and not mot.endswith("ss"):
+            mot = mot[:-1]
+        mot = re.sub(r"euse$", "eur", re.sub(r"trice$", "teur", mot))
+        mots.add(mot)
+    return mots
+
+
+def _decrits_l_un_par_l_autre(modele: Occurrence, ecart: Occurrence) -> bool:
+    """Le nom de chaque forme se lit autour du nombre dans l'autre.
+
+    Business plan `b63ae351` (22/11/2026) : « 395 000 000 personnes : les
+    classes moyennes urbaines chinoises de 20 à 45 ans, acheteuses en ligne »,
+    puis « 395 000 000 classes moyennes urbaines » et « 395 000 000 acheteurs
+    en ligne ». Une seule population, nommée par trois de ses mots ; le
+    contrôle en faisait deux « objets changés » (règle 2). « 8 000 commandes »
+    et « 8 000 reprises » ne partagent aucun mot de contexte : ils restent
+    signalés.
+    """
+    return bool(
+        _radicaux(ecart.objet) <= _radicaux(modele.extrait)
+        or _radicaux(modele.objet) <= _radicaux(ecart.extrait)
+    ) and bool(_radicaux(ecart.objet)) and bool(_radicaux(modele.objet))
+
+
 def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:
     """Glissements d'objet, objets changés et répétitions — sans jamais bloquer."""
     par_valeur: dict[str, list[Occurrence]] = defaultdict(list)
@@ -336,7 +371,7 @@ def controler_objet_des_chiffres(document: DocumentLu) -> list[Anomalie]:
                     "retire le chiffre de cette phrase.",
                     chapitre=ecart.chapitre, extrait=ecart.extrait,
                 ))
-            else:
+            elif not _decrits_l_un_par_l_autre(modele, ecart):
                 anomalies.append(Anomalie(
                     CONTROLE, Gravite.INFORMATION,
                     f"Objet changé : « {valeur} » compte « {modele.objet} » ailleurs "

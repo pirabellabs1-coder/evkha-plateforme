@@ -346,6 +346,36 @@ def _valeurs_d_un_tableau(tableau: Tableau, section: Section) -> Iterator[Valeur
 _REPRISE = re.compile(r"(?i)^(elle|celle-ci|celui-ci|cette marge|ce seuil|ce r[ée]sultat)\b")
 
 
+#: « un résultat net positif », « une CAF négative » : la série n'est nommée que
+#: par son SIGNE, comme une condition. Elle ne porte aucun montant.
+_SIGNE = re.compile(
+    r"\s+(?:reste\s+|soit\s+|devient\s+)?(?:positi(?:f|ve)s?|n[ée]gati(?:f|ve)s?|"
+    r"b[ée]n[ée]ficiaires?|d[ée]ficitaires?)\b",
+    re.IGNORECASE,
+)
+
+
+_MONTANT_QUI_SUIT = re.compile(r"\s*(?:de|d['’]|à|:|,|\()?\s*-?\d", re.IGNORECASE)
+
+
+def _nommee_par_son_signe(phrase: str, serie: str) -> bool:
+    """Chaque mention de la série est suivie de son signe, jamais d'un montant.
+
+    Business plan `b63ae351` (22/11/2026), 18.7 : « nous fixons le calendrier
+    0 € en 2027, 12 000 € en 2028, […] chaque palier conditionné à un résultat
+    net positif ». La seule série nommée étant le résultat net, « 0 € en 2027 »
+    lui était attribué — « le résultat net 2027 vaut 0 € ici et 1 954 €
+    ailleurs », pour une rémunération du dirigeant (règle 2).
+    """
+    def par_son_signe(fin: int) -> bool:
+        signe = _SIGNE.match(phrase, fin)
+        # « un résultat net positif DE 1 954 € » porte bien son montant.
+        return signe is not None and not _MONTANT_QUI_SUIT.match(phrase, signe.end())
+
+    mentions = [m for motif, s, _ in SERIES if s == serie for m in motif.finditer(phrase)]
+    return bool(mentions) and all(par_son_signe(m.end()) for m in mentions)
+
+
 def _valeurs_d_une_phrase(
     phrase: str, section: Section, heritees: list[tuple[str, str]] | None = None,
 ) -> Iterator[ValeurDatee]:
@@ -357,7 +387,7 @@ def _valeurs_d_une_phrase(
     """
     if BAISSE.search(phrase) or _SCENARIO.search(phrase) or re.search(r"(?i)\bsi le ", phrase):
         return  # un scénario, pas le prévisionnel central
-    series = series_nommees(phrase)
+    series = [(s, u) for s, u in series_nommees(phrase) if not _nommee_par_son_signe(phrase, s)]
     if _AUTRE_QUE_LE_PROJET.search(phrase):
         series = [(s, u) for s, u in series if s != "ca_previsionnel"]
     reprise = bool(heritees) and bool(_REPRISE.search(phrase))

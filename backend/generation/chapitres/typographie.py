@@ -783,6 +783,16 @@ JARGON: dict[str, str] = {
     "omnicanal": "présent en boutique, en ligne et par les revendeurs",
     "cannibalisation": "le report des ventes d'une offre sur une autre",
     "RSE": "la responsabilité sociale et environnementale, écrite en entier",
+    # Mesurés le 22/11/2026 sur les huit business plans du 14 au 22/11, dans la
+    # prose et les cellules (titres de sources et adresses exclus) : la classe
+    # que la cliente nomme — « des termes très analytiques » — au-delà de ses
+    # six exemples. « ramp commercial » (`b63ae351`, ch. 16) l'a révélée.
+    "marketplace": "la place de marché",
+    "cross-border": "transfrontalier, ou à l'export",
+    "pipeline": "la réserve, ou la liste de candidats à venir",
+    "low-cost": "à bas prix",
+    "ramp-up": "la montée en charge",
+    "ramp": "la montée en charge",
 }
 
 #: Capitalisés, ces mots ne sont visés qu'en tête de phrase et suivis d'une
@@ -875,7 +885,8 @@ def mots_anglais(texte: str) -> list[MotAnglais]:
 _JARGON_RE = re.compile(
     r"(?<![\w/@.'’-])("
     + "|".join(sorted((re.escape(t) for t in JARGON), key=len, reverse=True))
-    + r")(?![\w/@'’-])(?!\.\w)",
+    # Le pluriel compte : « des marketplaces étrangères » (corpus du 22/11).
+    + r")s?(?![\w/@'’-])(?!\.\w)",
     re.IGNORECASE,
 )
 #: La recherche est insensible à la casse, la table ne l'est pas : « RSE » y
