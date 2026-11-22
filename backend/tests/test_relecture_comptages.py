@@ -274,6 +274,44 @@ def test_contre_epreuve_des_familles_rangees_dans_le_tableau_passent() -> None:
     assert _constats(sections, classe="comptage") == []
 
 
+def test_des_familles_nommees_dans_la_phrase_et_lues_dans_chaque_ligne_passent() -> None:
+    """Échoue sur le code d'avant : business plan `29d59ae9`, 17.1, mot pour mot.
+
+    La phrase nomme ses quatre familles ; les six lignes s'y rangent d'elles-mêmes
+    (trois dépendances, puis concurrent, réglementaire, saisonnalité)."""
+    risques = Tableau(
+        entetes=("Risque", "Nature", "Probabilité"),
+        lignes=(
+            ("Dépendance au seul marché chinois en 2027", "Concentration géographique", "Élevée"),
+            ("Dépendance à l'opérateur d'entrepôt sous douane", "Dépendance fournisseur",
+             "Moyenne"),
+            ("Dépendance à WeChat et aux plateformes chinoises", "Dépendance technologique",
+             "Moyenne"),
+            ("Entrée d'un concurrent déjà installé", "Concurrence directe", "Moyenne"),
+            ("Durcissement réglementaire chinois", "Réglementaire", "Moyenne"),
+            ("Saisonnalité du calendrier commercial chinois", "Saisonnalité des ventes",
+             "Élevée"),
+        ),
+    )
+    phrase = (
+        "Quatre familles de risques structurent notre lecture : la dépendance à un marché "
+        "et à des prestataires, la concurrence, la réglementation, et la saisonnalité "
+        "commerciale chinoise."
+    )
+    sections = [_section("17.1", "Panorama des risques retenus", phrase, tableaux=[risques])]
+    assert _constats(sections, classe="comptage") == []
+    # Contre-épreuve : la même phrase sans sa liste laisse le lecteur ranger seul.
+    sans_liste = "Quatre familles de risques structurent notre lecture."
+    sections = [_section("17.1", "Panorama", sans_liste, tableaux=[risques])]
+    assert [c.extrait for c in _constats(sections, classe="comptage")] == [
+        "Quatre familles de risques"]
+    # Contre-épreuve : une liste de trois sous « quatre familles » ne range rien.
+    trois = ("Quatre familles de risques structurent notre lecture : la dépendance, "
+             "la concurrence et la réglementation.")
+    sections = [_section("17.1", "Panorama", trois, tableaux=[risques])]
+    assert _constats(sections, classe="comptage")
+
+
 def test_un_tableau_coupe_par_la_page_se_compte_en_entier() -> None:
     """Le PDF répète l'en-tête : 3 lignes puis 2, c'est un tableau de cinq."""
     haut = Tableau(entetes=_formats().entetes, lignes=_formats().lignes[:3])

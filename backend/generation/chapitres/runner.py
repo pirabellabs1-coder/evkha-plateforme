@@ -216,6 +216,12 @@ _SYSTEME = (
     "opportunités et menaces » avant tout sigle.\n"
     "- Une phrase que le lecteur doit relire pour la comprendre est une "
     "phrase à réécrire.\n"
+    # Business plan `29d59ae9` (21/11/2026) : une même tournure deux fois dans
+    # la phrase, que la relecture relève (`redaction._repetitions`) sans
+    # pouvoir la réparer. On dit la CLASSE, on ne montre pas la faute.
+    "- Une même tournure ne revient pas deux fois dans une phrase : la seconde "
+    "fois, un pronom ou un autre mot. Seul le nom d'un indicateur, d'un "
+    "acteur ou de l'offre se répète tel quel, partout.\n"
     "\n"
     # Le gate refuse ces locutions (`detecter_ton_publicitaire`). La consigne
     # ne les nommait pas (« incontournable » corrigé en cours de route sur

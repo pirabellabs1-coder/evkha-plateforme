@@ -795,6 +795,10 @@ def _juger_une_annonce(
             return None
         lignes = len(colonne.valeurs)
         if lignes > compte_annonce:
+            # La phrase NOMME-t-elle ses familles ? Alors le lecteur range
+            # lui-même chaque ligne : le constat demandait ce qui est écrit.
+            if _chaque_ligne_dans_un_groupe_nomme(apres, colonne.tableau, compte_annonce):
+                return None
             # Le tableau range-t-il ses lignes en autant de familles ? Une
             # colonne à N valeurs distinctes dit lesquelles vont ensemble.
             for autre in _colonnes_du_tableau(colonne):
@@ -813,6 +817,55 @@ def _juger_une_annonce(
     if compte_annonce > lignes or (entier and compte_annonce != lignes):
         return _constat_d_annonce(section, annonce, colonne, compte_annonce, grave=True)
     return None
+
+
+def _groupes_enumeres(apres: str) -> list[str]:
+    """Les groupes que la même phrase énumère après ses deux-points.
+
+    Les virgules séparent les groupes ; un « et » ne sépare que dans le dernier
+    morceau, et seulement s'il n'y suit pas déjà une virgule — « à un marché
+    et à des prestataires » reste UN groupe au milieu de la liste.
+    """
+    fin = re.search(r"[.!?](?:\s|$)", apres)
+    phrase = apres[: fin.start()] if fin else apres
+    if ":" not in phrase:
+        return []
+    liste = phrase.split(":", 1)[1].strip()
+    morceaux = [m.strip() for m in re.split(r"\s*[,;]\s*", liste) if m.strip()]
+    if not morceaux:
+        return []
+    dernier = morceaux[-1]
+    entete = re.match(r"(?i)(?:et|ou)\s+", dernier)
+    if entete:
+        morceaux[-1] = dernier[entete.end():]
+    else:
+        coupe = re.split(r"\s+(?:et|ou)\s+", dernier, maxsplit=1)
+        morceaux[-1:] = coupe
+    return morceaux
+
+
+def _chaque_ligne_dans_un_groupe_nomme(apres: str, tableau: Tableau, compte: int) -> bool:
+    """La phrase NOMME ses familles, et chaque ligne du tableau en porte une.
+
+    Business plan `29d59ae9` (21/11/2026), 17.1 : « Quatre familles de risques
+    structurent notre lecture : la dépendance à un marché et à des
+    prestataires, la concurrence, la réglementation, et la saisonnalité
+    commerciale chinoise. » Six lignes suivent : trois « Dépendance… », puis
+    « Entrée d'un concurrent », « Durcissement réglementaire », « Saisonnalité
+    du calendrier ». Le constat reprochait de ne pas dire « lesquelles forment
+    les 4 groupes » : la phrase les nomme, et chaque ligne dit le sien (règle 2).
+
+    Nommer ne suffit pas : « deux familles : intervenants et lieux » au-dessus
+    d'animatrices, de coachs, de gîtes et de salles laisse le lecteur ranger
+    seul. Le mot de la famille doit se lire dans la ligne.
+    """
+    groupes = [racines(g) for g in _groupes_enumeres(apres)]
+    if len(groupes) != compte or not all(groupes):
+        return False
+    return all(
+        any(groupe & racines(" ".join(texte_lisible(c) for c in ligne)) for groupe in groupes)
+        for ligne in tableau.lignes
+    )
 
 
 def _constat_d_annonce(

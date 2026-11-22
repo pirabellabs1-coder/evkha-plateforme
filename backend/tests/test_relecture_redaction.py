@@ -138,6 +138,54 @@ def test_une_ligne_de_source_n_est_pas_une_redite() -> None:
     assert "repetition" not in _classes(controler(doc, Reference()))
 
 
+#: Business plan `29d59ae9`, 1.2 : « marché accessible » est le nom d'un
+#: indicateur que le document emploie 35 fois.
+_PHRASE_DU_TERME = (
+    "Ce chiffre d'affaires représente une part très modeste du marché accessible en "
+    "Chine continentale : le volume de ventes visé correspond à 0,7 % du marché "
+    "accessible chinois."
+)
+
+
+def _emplois_ailleurs(n: int) -> list[Section]:
+    return [_sec(f"{2 + i}.1", f"Le calcul repose sur la taille du marché accessible, "
+                               f"hypothèse numéro {i}.")
+            for i in range(n)]
+
+
+def test_le_nom_d_un_indicateur_employe_partout_n_est_pas_une_redite() -> None:
+    """Échoue sur le code d'avant : trois des quatre redites de `29d59ae9` étaient
+    des termes du document (35, 29 et 17 emplois)."""
+    doc = _doc(_sec("1.2", _PHRASE_DU_TERME), *_emplois_ailleurs(6))
+    assert "repetition" not in _classes(controler(doc, Reference()))
+
+
+def test_contre_epreuve_la_meme_phrase_sans_le_terme_ailleurs_reste_signalee() -> None:
+    """Le terme n'est pas pardonné en soi : seul ce que le document répète partout
+    devient son vocabulaire."""
+    doc = _doc(_sec("1.2", _PHRASE_DU_TERME), *_emplois_ailleurs(2))
+    assert "repetition" in _classes(controler(doc, Reference()))
+
+
+def test_contre_epreuve_une_vraie_redite_reste_signalee_dans_un_long_document() -> None:
+    """« montée en puissance », deux fois dans la phrase et nulle part ailleurs."""
+    doc = _doc(_sec(
+        "6.3",
+        "La première est la montée en puissance des plateformes transfrontalières : "
+        "80 % des dirigeants anticipent la montée en puissance des places de marché.",
+    ), *_emplois_ailleurs(8))
+    assert [c.section for c in controler(doc, Reference()) if c.classe == "repetition"] == ["6.3"]
+
+
+def test_la_consigne_de_redaction_previent_la_redite_sans_la_montrer() -> None:
+    """La relecture la relève sans pouvoir la réparer : c'est la consigne qui la
+    prévient — par sa classe, sans écrire la tournure fautive (règle du 15/09)."""
+    from generation.chapitres.runner import _SYSTEME  # noqa: PLC0415
+
+    assert "Une même tournure ne revient pas deux fois dans une phrase" in _SYSTEME
+    assert "montée en puissance" not in _SYSTEME
+
+
 def test_une_phrase_sans_redite_passe() -> None:
     doc = _doc(_sec("1.1", "Le projet ouvre en 2027 et vise la rentabilité en 2029."))
     assert controler(doc, Reference()) == []
