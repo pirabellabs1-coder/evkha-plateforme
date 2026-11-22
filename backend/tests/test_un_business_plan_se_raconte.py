@@ -35,9 +35,13 @@ par défaut et les seuils de l'étude de marché.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from catalog.models import DeliverableType
 from generation.chapitres.runner import _bloc_forme
+from generation.verification import controles
 from generation.verification.controles import seuils_de_densite
+from generation.verification.lecture import DocumentLu
 
 BP = DeliverableType.BUSINESS_PLAN
 
@@ -68,6 +72,64 @@ def test_le_business_plan_validee_passe_nos_seuils() -> None:
         f"contrôle en tolère {seuils.part_paragraphes_longs_max:.0%}"
     )
     assert FINDRAX_MEDIANE_MOTS <= seuils.mediane_paragraphe_max
+
+
+#: Remesuré le 22/11/2026 par `lire_livrable` sur « FINDRAX BP FINAL OK.docx »
+#: et sur les sept business plans livrés du 14 au 21/11. Sa médiane de 17
+#: comptait ses titres : sa prose seule est à 69 mots, la nôtre à 31-40.
+FINDRAX_MEDIANE_PROSE = 69
+NOS_MEDIANES_TOUTES_LIGNES = (28, 28, 32, 28, 28, 28, 27)
+
+
+def _document(longueurs: list[int], tableau_mots: int = 2_000) -> DocumentLu:
+    paragraphes = [" ".join(["mot"] * n) + "." for n in longueurs]
+    return DocumentLu(
+        chemin=Path("bp.docx"),
+        paragraphes=paragraphes,
+        cellules=[" ".join(["case"] * tableau_mots)],
+        chapitre_du_paragraphe=[1 + i % 3 for i in range(len(paragraphes))],
+    )
+
+
+def test_nos_business_plans_ne_sont_plus_refuses_pour_densite() -> None:
+    """Échoue sur le code d'avant : plafond 25, les sept BP étaient refusés et
+    trois chapitres par dossier partaient en réécriture payante."""
+    assert all(m <= seuils_de_densite(BP).mediane_paragraphe_max
+               for m in NOS_MEDIANES_TOUTES_LIGNES)
+    # Une forme courante : des titres courts, une prose d'une ou deux phrases.
+    document = _document([6, 9, 28, 31, 34, 27, 40, 8, 30, 33, 29, 45] * 8)
+    assert controles.controler_densite(document, str(BP)) == []
+
+
+def test_un_vrai_mur_de_texte_reste_signale() -> None:
+    """Contre-épreuve : des paragraphes tous au-delà de soixante-dix mots."""
+    document = _document([75, 80, 90, 72, 85] * 10)
+    anomalies = controles.controler_densite(document, str(BP))
+    assert any("médian" in a.detail for a in anomalies)
+    par_chapitre = [a for a in anomalies if a.chapitre]
+    assert par_chapitre
+    # Ce texte part au modèle qui réécrit : plus la forme de l'étude de marché.
+    assert not any("prose courte" in a.detail for a in par_chapitre)
+
+
+def test_la_consigne_de_longueur_ne_renvoie_pas_au_tableau() -> None:
+    """Échoue sur le code d'avant : la phrase de l'étude de marché partait au BP."""
+    forme = _bloc_forme(BP)
+    assert "Un bloc `paragraphe` tient en 60 mots au plus" in forme
+    assert "il annonce ou commente un tableau" not in forme
+    assert "il annonce ou commente un tableau" in _bloc_forme(DeliverableType.MARKET_STUDY)
+
+
+def test_une_prose_developpee_sans_titres_passe() -> None:
+    """Le haut de la plage visée : paragraphes de 50 à 58 mots, aucun titre."""
+    document = _document([50, 54, 58, 52, 56, 55] * 10)
+    assert controles.controler_densite(document, str(BP)) == []
+
+
+def test_la_prose_validee_n_est_pas_un_mur_de_texte() -> None:
+    """Sa prose (69 mots) dépasse ce seuil : il ne vaut que parce que la médiane
+    compte aussi les titres. Le baisser sous 60 referait l'erreur du 18/11."""
+    assert 60 <= seuils_de_densite(BP).mediane_paragraphe_max < FINDRAX_MEDIANE_PROSE
 
 
 def test_un_business_plan_sans_aucun_tableau_echoue_toujours() -> None:

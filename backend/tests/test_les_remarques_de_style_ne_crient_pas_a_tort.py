@@ -178,10 +178,13 @@ def test_le_seuil_d_un_exercice_reserve_au_client_prime_quelle_que_soit_sa_fiabi
 # ── Le rythme des paragraphes du business plan ──────────────────────────────
 
 
-def test_le_business_plan_alterne_paragraphes_courts_et_developpes() -> None:
+def test_le_business_plan_mene_chaque_idee_au_bout() -> None:
+    """La puce du 18/11 demandait des paragraphes d'une ou deux phrases, sur la
+    foi d'une médiane qui comptait les titres de Findrax (remesurée le
+    22/11/2026 : sa prose a un paragraphe médian de 69 mots)."""
     dosage = _DOSAGE_PAR_LIVRABLE[str(BP)]
 
-    assert "Le rythme ALTERNE" in dosage
-    assert "la plupart des paragraphes sont courts" in dosage
+    assert "deux ou trois phrases simples" in dosage
+    assert "la plupart des paragraphes sont courts" not in dosage
     # L'ancienne puce, que le modèle retenait seule.
     assert "Un paragraphe peut être développé" not in dosage

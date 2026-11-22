@@ -1912,12 +1912,27 @@ def _longueur_des_paragraphes(code_livrable: str) -> str:
     from ..verification.controles import seuils_de_densite  # noqa: PLC0415
 
     plafond = seuils_de_densite(code_livrable).mediane_paragraphe_max
+    if code_livrable in _LIVRABLES_RACONTES:
+        # « il annonce ou commente un tableau » est la forme de l'étude de
+        # marché : envoyée au business plan, elle contredisait son dosage
+        # (« un raisonnement ne se met pas en grille ») — relecture du 22/11.
+        return (
+            f"- Un bloc `paragraphe` tient en {plafond} mots au plus pour la "
+            "plupart d'entre eux. Un point qui en demande davantage se resserre "
+            "ou se coupe en deux paragraphes ; il ne passe pas dans un tableau."
+        )
     return (
         f"- Un bloc `paragraphe` tient en {plafond} mots au plus pour la plupart "
         "d'entre eux : il annonce ou commente un tableau, il ne le remplace pas. "
         "Une idée qui demande davantage se découpe en plusieurs paragraphes, ou "
         "passe dans le tableau."
     )
+
+
+#: Les livrables qui se RACONTENT : leur prose porte le raisonnement, au lieu
+#: d'annoncer un tableau. Même seuil de médiane au contrôle
+#: (`MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN`).
+_LIVRABLES_RACONTES = frozenset({"business_plan", "business_strategy"})
 
 
 #: Le dosage prose / tableaux, mesuré PAR LIVRABLE.
@@ -1971,17 +1986,20 @@ _DOSAGE_PAR_LIVRABLE: dict[str, str] = {
         "prévisionnel, le plan de financement, les investissements, la "
         "trajectoire par exercice. Un raisonnement, une hypothèse, un "
         "arbitrage ne se mettent pas en grille.\n"
-        # Les quatre business plans de test du 14 au 18/11/2026 : paragraphe
-        # médian de 27 à 32 mots, pour 17 dans le document validé (Findrax v3)
-        # et un plafond de 25 au contrôle. Cette puce disait seulement « un
-        # paragraphe peut être développé », la suivante « 25 mots au plus pour
-        # la plupart » : le modèle retenait la première. La référence alterne —
-        # une majorité de paragraphes courts, quatre sur dix développés.
-        "- Le rythme ALTERNE, comme dans un document rédigé à la main : la "
-        "plupart des paragraphes sont courts — une idée, une ou deux phrases — "
-        "et un sur trois environ est développé, quand une décision demande "
-        "d'être menée au bout. Une suite de paragraphes tous longs se lit "
-        "comme un bloc : coupe-la."
+        # Cette puce demandait, depuis le 18/11/2026, « la plupart des
+        # paragraphes courts — une ou deux phrases », sur la foi d'une médiane
+        # de 17 mots chez Findrax. Remesurée le 22/11/2026, cette médiane
+        # comptait ses TITRES : sa prose seule a un paragraphe médian de 69
+        # mots, deux phrases, et 55 % de ses paragraphes dépassent 60 mots
+        # (voir `MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN`). Nos sept business
+        # plans du 14 au 21/11 écrivaient une phrase par paragraphe : la
+        # consigne poussait à l'opposé de la référence. Les phrases, elles,
+        # restent simples — le retour de la cliente du 29/10/2026.
+        "- Un paragraphe mène un seul point au bout : ce que le porteur décide, "
+        "d'où vient le chiffre, ce qu'il suppose, ce qui le ferait bouger — "
+        "en deux ou trois phrases simples. Une phrase seule ne fait pas un "
+        "paragraphe, sauf pour annoncer un tableau ; un paragraphe qui passe "
+        "à un deuxième point se coupe en deux."
     ),
     "competitor_study": (
         "- L'analyse est RÉDIGÉE. Chaque sous-section développe en plusieurs "

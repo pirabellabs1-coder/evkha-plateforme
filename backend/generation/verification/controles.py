@@ -139,10 +139,34 @@ PART_TABLEAUX_MIN_CONCURRENCE = 0.15
 #:   financement et un prévisionnel sont des tableaux, pas de la prose ;
 #: - 50 % de paragraphes longs, au-dessus de ses 41 % : la « patte narrative »
 #:   que le cahier des charges exige produit des paragraphes développés ;
-#: - la médiane reste à 25 mots : la sienne est à 17, elle n'a jamais été le
-#:   problème. C'est la PART de paragraphes longs qui liait les mains.
+#: - la médiane restait à 25 mots : « la sienne est à 17 ». C'était faux, voir
+#:   plus bas.
+#:
+#: ## La médiane, remesurée le 22/11/2026 : ses « paragraphes courts » sont ses TITRES
+#:
+#: Le 17 de Findrax (et le 10 que rend `lire_livrable` sur sa version Word)
+#: compte comme paragraphes « Vision globale du projet », « Viabilité
+#: financière », « Objectifs commerciaux chiffrés » : 56 % de ses lignes font
+#: douze mots ou moins, et ce sont presque toutes des titres. Sa PROSE, seule —
+#: une ligne qui finit une phrase, titres numérotés et sources exclus des deux
+#: côtés —, dit l'inverse de ce qu'on en avait tiré :
+#:
+#:     Findrax validé : paragraphe de prose médian 69 mots | 55 % au-delà de 60
+#:                      phrase médiane 33 mots
+#:     sept BP EVKHA  : paragraphe de prose médian 31 à 40 | 4 à 12 % au-delà
+#:     (14-21/11)       phrase médiane 25 à 30 mots
+#:
+#: Nos plans d'affaires écrivent déjà PLUS COURT que celui qu'elle a validé, et
+#: le plafond de 25 les refusait tous les sept (médiane 27 à 32) — puis envoyait
+#: trois chapitres par dossier se faire réécrire, à nos frais, pour raccourcir
+#: ce que sa référence écrit deux fois plus long. La règle 9 l'avait écrit :
+#: dépouillez les deux côtés, ou vous mesurez votre propre balisage.
+#:
+#: La médiane prend donc le seuil de la stratégie, l'autre livrable qui se
+#: raconte : soixante mots, le vrai mur de texte, et rien en deçà.
 PART_TABLEAUX_MIN_BUSINESS_PLAN = 0.05
 PART_PARAGRAPHES_LONGS_MAX_BUSINESS_PLAN = 0.50
+MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN = 60
 
 #: L'ÉTUDE DE MARCHÉ, après le retour de la cliente du 29/10/2026 : « beaucoup
 #: de tableaux, mais pas beaucoup de textes ». Le modèle pose désormais un
@@ -166,10 +190,12 @@ _SEUILS_PAR_LIVRABLE: dict[str, SeuilsDeDensite] = {
         MEDIANE_PARAGRAPHE_MAX_ETUDE_DE_MARCHE,
         PART_PARAGRAPHES_LONGS_MAX,
     ),
-    "business_strategy": SeuilsDeDensite(PART_TABLEAUX_MIN, 60, 0.60),
+    "business_strategy": SeuilsDeDensite(
+        PART_TABLEAUX_MIN, MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN, 0.60,
+    ),
     "business_plan": SeuilsDeDensite(
         PART_TABLEAUX_MIN_BUSINESS_PLAN,
-        MEDIANE_PARAGRAPHE_MAX,
+        MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN,
         PART_PARAGRAPHES_LONGS_MAX_BUSINESS_PLAN,
     ),
     "competitor_study": SeuilsDeDensite(
@@ -1879,8 +1905,12 @@ def _chapitres_les_plus_denses(
         Anomalie(
             "densite", Gravite.AVERTISSEMENT,
             f"Chapitre {numero} : paragraphe médian de {mediane:.0f} mots "
-            f"(plafond {mediane_max}). Le livrable doit rester des "
-            "tableaux reliés par de la prose courte, pas un texte suivi.",
+            # Ce texte part au modèle qui réécrit le chapitre. Il disait « le
+            # livrable doit rester des tableaux reliés par de la prose
+            # courte » — la forme de l'étude de marché, envoyée aussi au
+            # business plan, qui se RACONTE (`_DOSAGE_PAR_LIVRABLE`).
+            f"(plafond {mediane_max}). Coupe chaque paragraphe qui enchaîne "
+            "plusieurs idées ; ce qui se lit en colonnes passe dans un tableau.",
             chapitre=numero,
         )
         for numero, mediane in denses[:_CHAPITRES_DENSES_MAX]
