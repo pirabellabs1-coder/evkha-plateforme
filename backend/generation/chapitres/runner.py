@@ -1929,10 +1929,11 @@ def _longueur_des_paragraphes(code_livrable: str) -> str:
     )
 
 
-#: Les livrables qui se RACONTENT : leur prose porte le raisonnement, au lieu
-#: d'annoncer un tableau. Même seuil de médiane au contrôle
-#: (`MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN`).
-_LIVRABLES_RACONTES = frozenset({"business_plan", "business_strategy"})
+#: Les livrables dont le DOSAGE dit que la prose porte le raisonnement, au lieu
+#: d'annoncer un tableau. La stratégie n'y est pas : elle reçoit le dosage par
+#: défaut (« l'information vit dans les TABLEAUX »), et cette phrase l'aurait
+#: contredit (porte de qualité du 22/11/2026).
+_LIVRABLES_RACONTES = frozenset({"business_plan"})
 
 
 #: Le dosage prose / tableaux, mesuré PAR LIVRABLE.

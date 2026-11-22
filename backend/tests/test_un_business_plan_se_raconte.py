@@ -120,6 +120,14 @@ def test_la_consigne_de_longueur_ne_renvoie_pas_au_tableau() -> None:
     assert "il annonce ou commente un tableau" in _bloc_forme(DeliverableType.MARKET_STUDY)
 
 
+def test_la_consigne_de_la_strategie_ne_se_contredit_pas() -> None:
+    """Contre-épreuve : la stratégie reçoit le dosage tableaux par défaut ; la
+    phrase « il ne passe pas dans un tableau » l'aurait contredit."""
+    forme = _bloc_forme(DeliverableType.BUSINESS_STRATEGY)
+    assert "vit dans les TABLEAUX" in forme
+    assert "il ne passe pas dans un tableau" not in forme
+
+
 def test_une_prose_developpee_sans_titres_passe() -> None:
     """Le haut de la plage visée : paragraphes de 50 à 58 mots, aucun titre."""
     document = _document([50, 54, 58, 52, 56, 55] * 10)

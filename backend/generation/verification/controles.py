@@ -162,8 +162,8 @@ PART_TABLEAUX_MIN_CONCURRENCE = 0.15
 #: ce que sa référence écrit deux fois plus long. La règle 9 l'avait écrit :
 #: dépouillez les deux côtés, ou vous mesurez votre propre balisage.
 #:
-#: La médiane prend donc le seuil de la stratégie, l'autre livrable qui se
-#: raconte : soixante mots, le vrai mur de texte, et rien en deçà.
+#: La médiane prend donc le seuil que la stratégie a déjà au contrôle :
+#: soixante mots, le vrai mur de texte, et rien en deçà.
 PART_TABLEAUX_MIN_BUSINESS_PLAN = 0.05
 PART_PARAGRAPHES_LONGS_MAX_BUSINESS_PLAN = 0.50
 MEDIANE_PARAGRAPHE_MAX_BUSINESS_PLAN = 60
