@@ -73,24 +73,6 @@
   font-weight: 600;
 }
 
-/* « Réalisé par Evangeline elle-même » : ce qui distingue un pack d'une étude
-   de la plateforme, dit dès l'ouverture. Un filet d'or, pas une carte de
-   plus. */
-.pak-realise {
-  display: grid;
-  gap: 4px;
-  max-width: 34em;
-  margin-top: 24px;
-  padding: 4px 0 4px 18px;
-  border-left: 4px solid var(--acc-or);
-  font-size: 0.96rem;
-}
-
-.pak-realise strong {
-  color: var(--acc-encre);
-  font-weight: 800;
-}
-
 .pak-appels {
   display: flex;
   flex-wrap: wrap;

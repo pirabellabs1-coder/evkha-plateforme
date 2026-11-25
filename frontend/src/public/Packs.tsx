@@ -43,8 +43,8 @@
  * ## Une page n'affiche pas un nombre qu'elle contredit
  *
  * Trois accords, faits à l'affichage par les fonctions de `contenuPacks.ts`
- * (le texte relevé n'est pas touché) : l'ancienneté s'écrit « plus de 15
- * ans » ; le nombre d'étapes annoncé est celui des étapes affichées ; le
+ * (le texte relevé n'est pas touché) : l'ancienneté s'écrit « plus de 16
+ * ans » (cliente, 24/11/2026) ; le nombre d'étapes annoncé est celui des étapes affichées ; le
  * nombre de livrables du Premium, que la page compte de trois façons, n'est
  * pas affiché.
  *
@@ -293,17 +293,6 @@ function Ruban({ mots, pause }: { mots: string[]; pause: Pause }) {
         <BoutonPause fige={pause.fige} basculer={pause.basculer} />
       </p>
     </>
-  );
-}
-
-/** La mention « réalisé par Evangeline elle-même », en haut de chaque page :
- *  c'est ce qui distingue un pack d'une étude produite par la plateforme. */
-function RealisePar({ rang }: { rang: number }) {
-  return (
-    <p className="pak-realise acc-entre" style={variables({ "--i": rang })}>
-      <strong>{COMMUN_PACKS.realisePar}</strong>
-      <span>{COMMUN_PACKS.realiseCorps}</span>
-    </p>
   );
 }
 
@@ -656,7 +645,6 @@ export function Packs() {
                 ))}
               </div>
               <div>
-                <RealisePar rang={2} />
                 <div className="pak-appels acc-entre" style={variables({ "--i": 3 })}>
                   <Bouton
                     lien={`#${ENSEMBLE_PACKS.idDesPacks}`}
@@ -832,7 +820,6 @@ function PageDePack({
                 <p className="pak-promesse acc-entre" style={variables({ "--i": 1 })}>
                   {dire(c.ouverture.corps)}
                 </p>
-                <RealisePar rang={2} />
                 <div className="pak-appels acc-entre" style={variables({ "--i": 3 })}>
                   <Bouton
                     lien={articulation.commande.lien}

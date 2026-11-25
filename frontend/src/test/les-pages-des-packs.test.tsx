@@ -26,7 +26,7 @@
  *    vers `/etudes` sans un prix ;
  * 10. aucune adresse du CDN de l'ancien site dans `Packs.tsx` ni `Packs.css`,
  *     ni dans le DOM ;
- * 11. la formation P.O.P offerte avec le Premium : sa « valeur » et sa durée
+ * 11. la formation P.O.P IA offerte avec le Premium : sa « valeur » et sa durée
  *     sont celles que le SERVEUR rend pour `methode-pop`
  *     (`GET /api/public/formations/`), servies ici à des valeurs inhabituelles
  *     (913 €, 11 h). Tant que la réponse n'est pas arrivée, si l'appel échoue,
@@ -86,7 +86,7 @@ import { server } from "./server";
 // L'adresse que `donnees.ts` construit réellement : l'origine de jsdom.
 const FORMATIONS_API = `${window.location.origin}/api/public/formations/`;
 
-/** Une formation telle que le serveur la rend. Par défaut : la Méthode P.O.P,
+/** Une formation telle que le serveur la rend. Par défaut : la Méthode P.O.P IA,
  *  à un prix et une durée que personne n'écrirait de mémoire. */
 function formation(surcharges: Partial<FormationPublique> = {}): FormationPublique {
   return {
@@ -218,7 +218,7 @@ function estUnSigne(phrase: string): boolean {
 }
 
 /** Les phrases du contenu que la page n'affiche pas mot pour mot — une fois
- *  les chiffres de la formation P.O.P posés (ou retirés) dans celles qui en
+ *  les chiffres de la formation P.O.P IA posés (ou retirés) dans celles qui en
  *  citent. Une phrase que son chiffre manquant a vidée n'est pas attendue. */
 function absentes(contenu: unknown, chiffres: Chiffres = EN_LIGNE): string[] {
   const page = texte();
@@ -274,7 +274,7 @@ function liensDePaiement(): HTMLAnchorElement[] {
 }
 
 describe("les pages des packs", () => {
-  // Par défaut, la Méthode P.O.P est en ligne ; un test qui veut un autre
+  // Par défaut, la Méthode P.O.P IA est en ligne ; un test qui veut un autre
   // état le sert lui-même.
   beforeEach(() => servir(lesFormations([UNE_AUTRE, POP_EN_LIGNE])));
   afterEach(() => {
@@ -351,13 +351,11 @@ describe("les pages des packs", () => {
       expect(texte()).not.toMatch(/\b(?:null|undefined|NaN)\b/);
     });
 
-    it(`${nom} : « réalisé par Evangeline » dès l'ouverture, et une passerelle vers les études sans un prix`, () => {
+    it(`${nom} : plus de « réalisé par Evangeline » (cliente, 24/11/2026), et une passerelle vers les études sans un prix`, () => {
       rendre(nom);
 
-      const ouverture = document.querySelector(".pak-ouverture");
-      expect(texteDe(ouverture)).toContain(COMMUN_PACKS.realisePar);
-      expect(texteDe(ouverture)).toContain(COMMUN_PACKS.realiseCorps);
-      expect(texteDe(ouverture)).toMatch(/Evangeline/);
+      expect(texte()).not.toContain("Réalisé par Evangeline Khaili elle-même");
+      expect(texte()).not.toContain("Un pack n'est pas produit par la plateforme");
 
       const passerelle = document.getElementById("autrement") as HTMLElement;
       expect(passerelle).not.toBeNull();
@@ -377,7 +375,7 @@ describe("les pages des packs", () => {
 
     it(`${nom} : l'ancienneté ne s'écrit jamais sans « plus de »`, () => {
       rendre(nom);
-      expect(texte()).toContain("plus de 15 ans");
+      expect(texte()).toContain("plus de 16 ans");
       expect(texte()).not.toMatch(ANCIENNETE_NUE);
     });
 
@@ -481,10 +479,10 @@ describe("les pages des packs", () => {
     expect(Object.keys(TARIFS_PACKS)).toEqual(["essentiel", "premium"]);
   });
 
-  // ── La formation P.O.P offerte : sa valeur et sa durée viennent du serveur ─
+  // ── La formation P.O.P IA offerte : sa valeur et sa durée viennent du serveur ─
 
   for (const fichier of ["contenuPacks.ts", "Packs.tsx"]) {
-    it(`${fichier} n'écrit ni le prix ni la durée de la formation P.O.P`, () => {
+    it(`${fichier} n'écrit ni le prix ni la durée de la formation P.O.P IA`, () => {
       const code = sansCommentaires(source(fichier));
       expect(code.length, fichier).toBeGreaterThan(5000);
       // Ni par ses chiffres — en euros comme en centimes —, ni par une durée,
@@ -525,12 +523,12 @@ describe("les pages des packs", () => {
     const page = texte();
     // Écrites ici à la main, telles que la page doit les dire.
     for (const phrase of [
-      "Formation P.O.P incluse (valeur 913 €)",
-      "BONUS : Formation P.O.P incluse (913 €)",
-      "L'accès complet à la formation Méthode P.O.P d'EVKHA : 11h de formation pour structurer votre activité",
-      "D'une valeur de 913 €, la formation P.O.P est habituellement vendue séparément.",
+      "Formation P.O.P IA incluse (valeur 913 €)",
+      "BONUS : Formation P.O.P IA incluse (913 €)",
+      "L'accès complet à la formation Méthode P.O.P IA d'EVKHA : 11h de formation pour structurer votre activité",
+      "D'une valeur de 913 €, la formation P.O.P IA est habituellement vendue séparément.",
       "11h de formation digitale à votre rythme",
-      "ET la formation P.O.P (valeur 913 €). Si vous visez un financement important",
+      "ET la formation P.O.P IA (valeur 913 €). Si vous visez un financement important",
     ]) {
       expect(page, phrase).toContain(phrase);
     }
@@ -539,7 +537,7 @@ describe("les pages des packs", () => {
     expect(page.split("11h de formation").length - 1).toBeGreaterThanOrEqual(3);
     // La case du comparatif : l'étoile, sa lecture, puis la valeur.
     const ligne = Array.from(document.querySelectorAll("#comparatif tbody tr")).find(
-      (rang) => rang.querySelector("th")?.textContent === "Formation P.O.P incluse",
+      (rang) => rang.querySelector("th")?.textContent === "Formation P.O.P IA incluse",
     );
     expect(texteDe(ligne?.querySelectorAll("td")[1] ?? null)).toBe("★Bonus, Valeur 913 €");
     // Ni le prix ni la durée d'avant, ni le prix d'une AUTRE formation.
@@ -559,8 +557,8 @@ describe("les pages des packs", () => {
     cleanup();
 
     await rendreLue("essentiel");
-    expect(texte()).toContain("ET la formation P.O.P incluse (valeur 913 €). Si vous visez un financement important");
-    expect(texte()).toContain("et la formation P.O.P incluse (valeur 913 €). Pour les projets ambitieux");
+    expect(texte()).toContain("ET la formation P.O.P IA incluse (valeur 913 €). Si vous visez un financement important");
+    expect(texte()).toContain("et la formation P.O.P IA incluse (valeur 913 €). Pour les projets ambitieux");
     expect(texte()).not.toMatch(/850|1 237/);
   });
 
@@ -589,9 +587,9 @@ describe("les pages des packs", () => {
       const page = texte();
       // Écrites ici à la main : chaque phrase, sans sa mention.
       for (const phrase of [
-        "L'accès complet à la formation Méthode P.O.P d'EVKHA pour structurer votre activité, organiser votre temps",
-        "La formation P.O.P est habituellement vendue séparément. Elle est intégralement offerte",
-        "ET la formation P.O.P. Si vous visez un financement important",
+        "L'accès complet à la formation Méthode P.O.P IA d'EVKHA pour structurer votre activité, organiser votre temps",
+        "La formation P.O.P IA est habituellement vendue séparément. Elle est intégralement offerte",
+        "ET la formation P.O.P IA. Si vous visez un financement important",
         "Formation digitale à votre rythme",
       ]) {
         expect(page, phrase).toContain(phrase);
@@ -599,11 +597,11 @@ describe("les pages des packs", () => {
       // Le titre du livrable, la ligne de l'encart, la case du comparatif :
       // exactement ce qu'il reste, pas un mot de plus.
       const livrables = Array.from(document.querySelectorAll("#contenu .pak-livrables > li > h3")).map(texteDe);
-      expect(livrables[livrables.length - 1]).toBe("Formation P.O.P incluse");
+      expect(livrables[livrables.length - 1]).toBe("Formation P.O.P IA incluse");
       const encart = Array.from(document.querySelectorAll(".pak-encart-points li")).map(texteDe);
-      expect(encart[encart.length - 1]).toBe("★BONUS : Formation P.O.P incluse");
+      expect(encart[encart.length - 1]).toBe("★BONUS : Formation P.O.P IA incluse");
       const ligne = Array.from(document.querySelectorAll("#comparatif tbody tr")).find(
-        (rang) => rang.querySelector("th")?.textContent === "Formation P.O.P incluse",
+        (rang) => rang.querySelector("th")?.textContent === "Formation P.O.P IA incluse",
       );
       expect(texteDe(ligne?.querySelectorAll("td")[1] ?? null)).toBe("★Bonus");
       expect(Array.from(document.querySelectorAll("#contenu .pak-etoiles li")).map(texteDe)).toContain("Formation digitale");
@@ -625,7 +623,6 @@ describe("les pages des packs", () => {
         p.contenuDuPack.titre,
         p.processus.titre,
         p.processus.etapes[4].corps,
-        p.experte.corps,
         p.appelFinal.corps,
       ]);
       expect(texteDe(document.querySelector(".pak-encart .pak-prix"))).toContain(PRIX_PREMIUM);
@@ -648,8 +645,8 @@ describe("les pages des packs", () => {
 
       if (lu === null) rendre("essentiel");
       else await rendreLue("essentiel", lu);
-      expect(texte()).toContain("ET la formation P.O.P incluse. Si vous visez un financement important");
-      expect(texte()).toContain("et la formation P.O.P incluse. Pour les projets ambitieux");
+      expect(texte()).toContain("ET la formation P.O.P IA incluse. Si vous visez un financement important");
+      expect(texte()).toContain("et la formation P.O.P IA incluse. Pour les projets ambitieux");
       expect(texte()).not.toMatch(PHRASE_AMPUTEE);
       expect(texte()).not.toMatch(/913|850|1 237/);
       expect(screen.queryByRole("alert")).toBeNull();
@@ -670,7 +667,7 @@ describe("les pages des packs", () => {
     for (const faute of ["une expertise de 15 ans", "depuis 16 ans,"]) {
       expect(faute, faute).toMatch(ANCIENNETE_NUE);
     }
-    for (const juste of ["plus de 15 ans de terrain", "prévisionnel sur 3 ans", "sous 15 jours"]) {
+    for (const juste of ["plus de 16 ans de terrain", "prévisionnel sur 3 ans", "sous 15 jours"]) {
       expect(juste, juste).not.toMatch(ANCIENNETE_NUE);
     }
 
@@ -749,10 +746,12 @@ describe("les pages des packs", () => {
 
     expect(phrases(PAGE_PACKS, HORS_PHRASES).length).toBeGreaterThan(30);
     expect(absentes(PAGE_PACKS)).toEqual([PAGE_PACKS.ouverture.corps[1]]);
-    expect(texte()).toContain("une expertise de plus de 15 ans à vos côtés !");
+    expect(texte()).toContain("une expertise de plus de 16 ans à vos côtés !");
     // Le rappel de l'experte, pris à la page de l'Essentiel.
     expect(texte()).toContain(PAGE_PACK_ESSENTIEL.experte.titre);
-    expect(texte()).toContain("plus de 500 créateurs d'entreprise depuis plus de 15 ans");
+    // L'encart de la cliente du 24/11/2026.
+    expect(texte()).toContain("Une seule interlocutrice, du début à la fin");
+    expect(texte()).toContain("J'ai vu ce qui convainc une banque, les questions qu'elle pose et ce qui peut la freiner.");
   });
 
   it("/packs/essentiel : chaque phrase du contenu est dans la page, sauf quatre anciennetés accordées", async () => {
@@ -764,14 +763,13 @@ describe("les pages des packs", () => {
     expect(absentes(p)).toEqual([
       p.seulOuAccompagne.avecLePack.points[5],
       p.aQuoiSertLePack.benefices[2].corps,
-      p.experte.corps,
       p.appelFinal.corps,
     ]);
     const page = texte();
-    expect(page).toContain("L'accompagnement d'une experte avec plus de 15 ans de terrain");
-    expect(page).toContain("Bénéficier de plus de 15 ans d'expérience");
-    expect(page).toContain("depuis plus de 15 ans, qui connaît les questions que va poser le banquier");
-    expect(page).toContain("et l'expertise de plus de 15 ans à votre service. Tout est inclus.");
+    expect(page).toContain("L'accompagnement d'une experte avec plus de 16 ans de terrain");
+    expect(page).toContain("Bénéficier de plus de 16 ans d'expérience");
+    expect(page).toContain("En plus de 16 ans, j'ai créé des entreprises en France et en Espagne");
+    expect(page).toContain("et l'expertise de plus de 16 ans à votre service. Tout est inclus.");
     // Le compte de livrables de l'Essentiel tient : il reste affiché.
     expect(page).toContain("3 livrables stratégiques + accompagnement personnalisé");
     expect(page).toContain("3 livrables professionnels, 2 appels personnalisés");
@@ -786,14 +784,13 @@ describe("les pages des packs", () => {
       p.contenuDuPack.titre,
       p.processus.titre,
       p.processus.etapes[4].corps,
-      p.experte.corps,
       p.appelFinal.corps,
     ]);
     const page = texte();
     expect(page).toContain("Livrables stratégiques + accompagnement renforcé");
     expect(page).toContain(`Un parcours en ${p.processus.etapes.length} étapes sur 3 semaines`);
     expect(page).toContain("Remise des livrables : étude premium, prévisionnel");
-    expect(page).toContain("Avec plus de 15 ans d'accompagnement de créateurs d'entreprise");
+    expect(page).toContain("En plus de 16 ans, j'ai créé des entreprises en France et en Espagne");
     expect(page).toContain("Livrables stratégiques, 3 appels d'1h, 6 semaines de support");
   });
 
@@ -849,10 +846,10 @@ describe("les pages des packs", () => {
   });
 
   it("contre-épreuve : les accords ne retouchent que ce qu'ils visent", () => {
-    expect(ancienneteSure("une expertise de 15 ans à vos côtés")).toBe("une expertise de plus de 15 ans à vos côtés");
-    expect(ancienneteSure("créateurs depuis 16 ans, qui")).toBe("créateurs depuis plus de 15 ans, qui");
-    expect(ancienneteSure(`avec 16${INSECABLE}ans de terrain`)).toBe(`avec plus de 15${INSECABLE}ans de terrain`);
-    for (const intact of ["plus de 15 ans de terrain", "Prévisionnel financier sur 3 ans", "1 à 2 semaines", "216 ans", "15 answers"]) {
+    expect(ancienneteSure("une expertise de 15 ans à vos côtés")).toBe("une expertise de plus de 16 ans à vos côtés");
+    expect(ancienneteSure("créateurs depuis 16 ans, qui")).toBe("créateurs depuis plus de 16 ans, qui");
+    expect(ancienneteSure(`avec 16${INSECABLE}ans de terrain`)).toBe(`avec plus de 16${INSECABLE}ans de terrain`);
+    for (const intact of ["plus de 16 ans de terrain", "Prévisionnel financier sur 3 ans", "1 à 2 semaines", "216 ans", "15 answers"]) {
       expect(ancienneteSure(intact), intact).toBe(intact);
     }
 
@@ -865,7 +862,7 @@ describe("les pages des packs", () => {
     expect(sansCompte("validation des livrables intermédiaires", "livrables")).toBe("validation des livrables intermédiaires");
     expect(sansCompte("livrables et 3 appels", "livrables")).toBe("livrables et 3 appels");
 
-    expect(pointDeListe("★ BONUS : Formation P.O.P incluse")).toEqual({ texte: "BONUS : Formation P.O.P incluse", vedette: true });
+    expect(pointDeListe("★ BONUS : Formation P.O.P IA incluse")).toEqual({ texte: "BONUS : Formation P.O.P IA incluse", vedette: true });
     expect(pointDeListe("BONUS EXCEPTIONNEL : ACCÈS")).toEqual({ texte: "BONUS EXCEPTIONNEL : ACCÈS", vedette: true });
     expect(pointDeListe("2 appels de 45 minutes")).toEqual({ texte: "2 appels de 45 minutes", vedette: false });
     expect(sansFleche(`Découvrir le Premium${INSECABLE}→`)).toBe("Découvrir le Premium");
@@ -1001,7 +998,6 @@ describe("les pages des packs", () => {
       PAGE_PACKS.ouverture.titre,
       PAGE_PACK_ESSENTIEL.ouverture.titre,
       PAGE_PACK_PREMIUM.experte.titre,
-      COMMUN_PACKS.realisePar,
       COMMUN_PACKS.appelGratuit,
     ]) {
       expect(code, phrase).not.toContain(phrase);

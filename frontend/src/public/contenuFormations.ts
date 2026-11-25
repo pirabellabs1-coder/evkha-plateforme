@@ -846,8 +846,8 @@ export const CARTE_MICRO: CarteDeFormation = {
 
 export const CARTE_POP: CarteDeFormation = {
   cle: "pop",
-  titre: "Formation P.O.P",
-  sousTitre: "Gestion-Productivité",
+  titre: "Formation P.O.P IA",
+  sousTitre: "Gestion-Productivité · Pour les entrepreneurs",
   accroche: "Planifiez. Organisez. Produisez !",
   modalites: [
     "[[Durée : {heures}h 00]]",
@@ -859,7 +859,7 @@ export const CARTE_POP: CarteDeFormation = {
   ],
   titreDesAcquis: "Ce que vous allez maîtriser :",
   acquis: [
-    "La méthode P.O.P appliquée à votre activité réelle",
+    "La méthode P.O.P IA appliquée à votre activité réelle",
     "Organiser et atteindre vos objectifs professionnels",
     "Définir des objectifs alignés avec vos vraies priorités",
     "Les outils IA et d'automatisation pour gagner du temps",
@@ -868,7 +868,7 @@ export const CARTE_POP: CarteDeFormation = {
     "Un système de pilotage avec KPI simples et exploitables.",
   ],
   bouton: {
-    libelle: "Je découvre la Méthode P.O.P\u00a0→",
+    libelle: "Je découvre la Méthode P.O.P IA\u00a0→",
     lien: LIENS_FORMATIONS.decouvrirPop,
   },
 };
@@ -880,7 +880,7 @@ export const PAGE_CATALOGUE = {
     titre:
       "Formations en création d’entreprise & gestion productivité – EVKHA",
     description:
-      "Des formations concrètes pour créer, structurer et booster son entreprise. Méthode P.O.P, micro-entreprise – 100 % action.",
+      "Des formations concrètes pour créer, structurer et booster son entreprise. Méthode P.O.P IA, micro-entreprise – 100 % action.",
     aReecrire: false,
   } as Onglet,
 
@@ -892,14 +892,13 @@ export const PAGE_CATALOGUE = {
     preuve: "Plus de 500 entrepreneurs formés et accompagnés avec succès",
   },
 
-  /** « Plus de 15 ans » ici ; l'accueil du même site écrit « 16 ans », et le
-   *  tunnel de la P.O.P « 15 ans d'expérience ». Non tranché par la cliente
-   *  (point 4 des questions ouvertes du plan de refonte). */
+  /** « Plus de 16 ans » : tranché par la cliente le 24/11/2026 (« préciser
+   *  depuis plus de 16 ans »). */
   pourquoi: {
     titre: "Pourquoi choisir nos formations ?",
     paragraphes: [
       "Parce que créer une entreprise, ça ne s'apprend pas dans un PDF. Ça se construit avec une méthode, des outils, de l'expérience terrain et quelqu'un qui sait où il met les pieds.",
-      "Depuis plus de 15 ans, j'accompagne des créateurs d'entreprise. J'ai formé plus de 500 entrepreneurs, suivi de nombreuses formations et certifications et ainsi j'ai pu accompagner des dizaines de projets de l'idée au lancement.",
+      "Depuis plus de 16 ans, j'accompagne des créateurs d'entreprise. J'ai formé plus de 500 entrepreneurs, suivi de nombreuses formations et certifications et ainsi j'ai pu accompagner des dizaines de projets de l'idée au lancement.",
       "Je sais clairement ce qui fait passer de l'envie à l'action.",
       "C'est tout ce vécu qui est condensé dans nos formations en ligne.",
     ],
@@ -1495,7 +1494,7 @@ const ARGUMENTAIRE_POP: Argumentaire = {
     ],
   },
   promesse: {
-    titre: "Avec la Méthode P.O.P, vous allez :",
+    titre: "Avec la Méthode P.O.P IA, vous allez :",
     points: [
       "Reprendre la main sur vos priorités et votre planning",
       "Identifier ce qui génère vraiment du chiffre dans votre activité",
@@ -1524,7 +1523,7 @@ export const PAGE_POP = {
       "Vous avez l’impression que vos journées vous échappent ou que vos priorités ne sont jamais atteintes ?",
     promesse:
       "Vous voulez reprendre le contrôle, mieux gérer votre temps et atteindre vos objectifs avec clarté et sérénité.",
-    titreDesApprentissages: "La méthode P.O.P vous apprendra à :",
+    titreDesApprentissages: "La méthode P.O.P IA vous apprendra à :",
     apprentissages: [
       "Structurer vos priorités grâce à des techniques éprouvées (Matrice Eisenhower, Loi de Pareto).",
       "Planifier efficacement vos tâches avec le Pomodoro, le Time Blocking, et des outils modernes.",
@@ -1542,7 +1541,7 @@ export const PAGE_POP = {
       "Agent IA dédié",
     ],
     titre:
-      "Planifiez, Organisez, Produisez : Boostez votre productivité avec la méthode P.O.P",
+      "Planifiez, Organisez, Produisez : Boostez votre productivité avec la méthode P.O.P IA",
     sousTitre:
       "Transformez votre quotidien grâce à une méthode pragmatique, simple et efficace.",
   },
@@ -1555,9 +1554,9 @@ export const PAGE_POP = {
     argumentaire: ARGUMENTAIRE_POP,
     /** La seule phrase écrite qui nomme le public (tunnel de paiement). */
     public:
-      "La formation P.O.P[[ en {heures} heures]] est une expérience immersive et concrète, conçue pour les porteurs de projet, entrepreneurs et indépendants qui veulent enfin maîtriser leur temps, leurs priorités et leurs résultats.",
-    /** « 15 ans d'expérience » : voir la remarque sur l'ancienneté dans
-     *  `PAGE_CATALOGUE.pourquoi`. */
+      "La formation P.O.P IA[[ en {heures} heures]] est une expérience immersive et concrète, conçue pour les porteurs de projet, entrepreneurs et indépendants qui veulent enfin maîtriser leur temps, leurs priorités et leurs résultats.",
+    /** « 15 ans d'expérience » est le RELEVÉ : la page affiche « plus de 16
+     *  ans » (`PROMESSE_POP_AFFICHEE`, plus bas). */
     promesse:
       "Pas de blabla, pas de théorie inutile : vous repartez avec des outils pratiques et une méthode éprouvée (15 ans d'expérience) pour booster votre efficacité au quotidien !",
   },
@@ -1654,7 +1653,7 @@ export const PAGE_POP = {
    *  deux mots. « Accès illimité à la plateforme » ici, « Accès à vie » plus
    *  haut. */
   modalites: {
-    titre: "La Méthode P.O.P",
+    titre: "La Méthode P.O.P IA",
     format: CARTE_POP.modalites,
     contenu: [
       "Planifiez. Organisez. Produisez.",
@@ -1680,16 +1679,16 @@ export const PAGE_POP = {
     /** Bouton de `/achat-formationpop`, vers le tunnel. Sans adresse : sur la
      *  plateforme, il ouvre le paiement. */
     bouton: {
-      libelle: "JE REJOINS LA MÉTHODE P.O.P",
+      libelle: "JE REJOINS LA MÉTHODE P.O.P IA",
       lien: null,
     } as Bouton,
   },
 
   commande: {
     titre:
-      "Plus qu'une étape avant de structurer votre activité avec la Méthode P.O.P !",
+      "Plus qu'une étape avant de structurer votre activité avec la Méthode P.O.P IA !",
     ...COMMANDE_D_UNE_FORMATION,
-    bouton: "Je choisis la formation P.O.P",
+    bouton: "Je choisis la formation P.O.P IA",
   },
 };
 
@@ -2002,7 +2001,7 @@ export const TITRES_MICRO = {
 };
 
 export const TITRES_POP = {
-  ouverture: enDeuxTemps(PAGE_POP.ouverture.titre, "avec la méthode P.O.P"),
+  ouverture: enDeuxTemps(PAGE_POP.ouverture.titre, "avec la méthode P.O.P IA"),
   objectifs: enDeuxTemps(PAGE_POP.objectifs.titre, "à la fin de la formation"),
   methode: enDeuxTemps(PAGE_POP.methode.titre, "un système complet"),
   inclus: enDeuxTemps(PAGE_POP.inclus.titre, "passer à l'action"),
@@ -2033,7 +2032,7 @@ export const ONGLETS_DES_PAGES = {
     description: CARTE_MICRO.corps.join(" "),
   },
   pop: {
-    titre: "Formation Méthode P.O.P : planifiez, organisez, produisez – EVKHA",
+    titre: "Formation Méthode P.O.P IA : planifiez, organisez, produisez – EVKHA",
     description: PAGE_POP.ouverture.sousTitre,
   },
 };
@@ -2104,13 +2103,12 @@ export const INCLUS_AFFICHE: Record<CleDeFormation, CarteTitreCorps[]> = {
 
 // ── Ancienneté ──────────────────────────────────────────────────────────────
 
-/** La promesse de la Méthode P.O.P, avec l'ancienneté RETENUE pour la refonte :
- *  « plus de 15 ans », comme le catalogue (le tunnel écrit « 15 ans
- *  d'expérience », l'accueil de l'ancien site « 16 ans »).
+/** La promesse de la Méthode P.O.P IA, avec l'ancienneté tranchée par la cliente le 24/11/2026 : « 16 ans de terrain (ou plus de 16 ans) »
+ *  — le tunnel écrivait « 15 ans d'expérience ».
  *
  *  Par `site.ancienneteSure`, LA fonction que les packs utilisent aussi
- *  (règle 5) : une seule règle décide de ce qui s'affiche à la place d'une
- *  ancienneté non tranchée. Si elle ne trouve plus rien à retoucher dans la
+ *  (règle 5) : une seule règle décide de ce qui s'affiche à la place de
+ *  l'ancienneté relevée. Si elle ne trouve plus rien à retoucher dans la
  *  promesse, le module lève une erreur — la retouche n'a pas eu lieu
  *  (règle 1). */
 export const PROMESSE_POP_AFFICHEE = ancienneteSure(PAGE_POP.pourQui.promesse);

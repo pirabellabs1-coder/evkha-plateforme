@@ -26,8 +26,8 @@
  * CE QUI N'A PAS ÉTÉ CORRIGÉ, volontairement (style ou doute, pas coquille
  * de frappe) : « Vous donnez un accompagnement », « Vous faire Gagner »,
  * « qui coûtent chères », « votre famille d'investisseurs », « PRÉMIUM » avec
- * accent, et l'alternance « 15 ans » / « 16 ans » d'expérience — la cliente
- * n'a pas tranché (point 4 des questions ouvertes du plan de refonte).
+ * accent, et l'alternance « 15 ans » / « 16 ans » d'expérience — tranchée par la cliente le 24/11/2026 : « 16 ans de terrain (ou plus de 16 ans) »
+ * (voir `site.ancienneteSure`).
  *
  * COMPLÉTÉ LE 19/11/2026 par un second relevé fait sur le site : les
  * QUESTIONS des deux FAQ, les douze LIGNES du comparatif Essentiel / Premium,
@@ -593,10 +593,11 @@ export const PAGE_PACK_ESSENTIEL = {
     ] as ApercuDeDocument[],
   },
 
+  /** Texte de la cliente du 24/11/2026, le même sur les deux packs. */
   experte: {
-    titre: "Une experte, pas un junior dans une agence",
+    titre: "Une seule interlocutrice, du début à la fin",
     corps:
-      "Quand vous commandez un pack EVKHA, c'est moi qui m'en occupe, de A à Z. Pas de sous-traitance, pas de junior en télétravail à qui on aurait délégué votre projet. Vous avez en face de vous une experte qui a accompagné plus de 500 créateurs d'entreprise depuis 16 ans, qui connaît les questions que va poser le banquier, et qui sait construire un dossier qui tient la route.",
+      "Derrière chaque dossier EVKHA, il y a quelqu'un qui connaît le terrain. En plus de 16 ans, j'ai créé des entreprises en France et en Espagne, accompagné plus de 500 porteurs de projet et travaillé avec de grandes structures d'accompagnement. J'ai vu ce qui convainc une banque, les questions qu'elle pose et ce qui peut la freiner. Je mets cette expérience au service de votre projet, avec un suivi direct et sans intermédiaire.",
   },
 
   /** Huit questions et leurs réponses, dans l'ordre de la page — voir
@@ -622,7 +623,7 @@ export const PAGE_PACK_ESSENTIEL = {
       {
         question: "Quelle est la différence avec le Pack Premium ?",
         reponse:
-          "Le Pack Essentiel couvre les 3 livrables fondamentaux et l'accompagnement de base. Le Pack Premium est plus complet : appels d'1 heure (au lieu de 45 min), business plan de 40 pages, étude de marché premium, pitch animé, plan stratégique année 1, tableaux de bord ET la formation P.O.P incluse[[ (valeur {valeurPop})]]. Si vous visez un financement important ou avez un projet ambitieux, le Premium fait sens.",
+          "Le Pack Essentiel couvre les 3 livrables fondamentaux et l'accompagnement de base. Le Pack Premium est plus complet : appels d'1 heure (au lieu de 45 min), business plan de 40 pages, étude de marché premium, pitch animé, plan stratégique année 1, tableaux de bord ET la formation P.O.P IA incluse[[ (valeur {valeurPop})]]. Si vous visez un financement important ou avez un projet ambitieux, le Premium fait sens.",
       },
       {
         question: "Quels types de projets sont compatibles ?",
@@ -652,7 +653,7 @@ export const PAGE_PACK_ESSENTIEL = {
   versLePremium: {
     titre: "Le Pack Premium va plus loin",
     corps:
-      "Business plan de 40 pages, pitch animé, plan stratégique année 1, tableaux de bord… et la formation P.O.P incluse[[ (valeur {valeurPop})]]. Pour les projets ambitieux qui veulent maximiser leurs chances.",
+      "Business plan de 40 pages, pitch animé, plan stratégique année 1, tableaux de bord… et la formation P.O.P IA incluse[[ (valeur {valeurPop})]]. Pour les projets ambitieux qui veulent maximiser leurs chances.",
     bouton: {
       libelle: "Découvrir le Premium\u00a0→",
       lien: LIENS_PACKS.decouvrirPremium,
@@ -705,7 +706,7 @@ export const PAGE_PACK_PREMIUM = {
       "Pitch impactant et animé",
       "Outils et tableaux de bord",
       "6 semaines de support mail / WhatsApp",
-      "★ BONUS : Formation P.O.P incluse[[ ({valeurPop})]]",
+      "★ BONUS : Formation P.O.P IA incluse[[ ({valeurPop})]]",
     ],
   },
 
@@ -746,7 +747,7 @@ export const PAGE_PACK_PREMIUM = {
   cePlusDuPremium: {
     titre: "Le pack qui va au bout des choses",
     corps:
-      "Là où l'Essentiel fournit les fondamentaux, le Premium ajoute la profondeur stratégique, le pitch animé, le plan d'action première année et l'accès à la formation P.O.P.",
+      "Là où l'Essentiel fournit les fondamentaux, le Premium ajoute la profondeur stratégique, le pitch animé, le plan d'action première année et l'accès à la formation P.O.P IA.",
     cartes: [
       {
         chiffre: null,
@@ -764,7 +765,7 @@ export const PAGE_PACK_PREMIUM = {
         chiffre: null,
         titre: "De bonus offerts",
         corps:
-          "La formation P.O.P incluse pour piloter votre activité avec méthode dès votre première année.",
+          "La formation P.O.P IA incluse pour piloter votre activité avec méthode dès votre première année.",
       },
     ] as { chiffre: string | null; titre: string; corps: string }[],
   },
@@ -865,12 +866,12 @@ export const PAGE_PACK_PREMIUM = {
         ],
       },
       {
-        titre: "Formation P.O.P incluse[[ (valeur {valeurPop})]]",
+        titre: "Formation P.O.P IA incluse[[ (valeur {valeurPop})]]",
         corps:
-          "L'accès complet à la formation Méthode P.O.P d'EVKHA[[ : {heuresPop}h de formation]] pour structurer votre activité, organiser votre temps et gagner en rentabilité dès votre première année.",
+          "L'accès complet à la formation Méthode P.O.P IA d'EVKHA[[ : {heuresPop}h de formation]] pour structurer votre activité, organiser votre temps et gagner en rentabilité dès votre première année.",
         points: [
           "[[{heuresPop}h de ]]formation digitale",
-          "Méthode P.O.P : Planifiez, Organisez, Produisez",
+          "Méthode P.O.P IA : Planifiez, Organisez, Produisez",
           "Accès à un agent IA dédié",
           "Templates et tableaux de bord",
           "Accès à vie à la plateforme",
@@ -880,16 +881,16 @@ export const PAGE_PACK_PREMIUM = {
   },
 
   formationOfferte: {
-    titre: "La formation P.O.P offerte avec votre pack",
+    titre: "La formation P.O.P IA offerte avec votre pack",
     corps:
-      "[[D'une valeur de {valeurPop}, ]]la formation P.O.P est habituellement vendue séparément. Elle est intégralement offerte aux clients du Pack Premium. Parce qu'avoir un bon dossier, c'est bien — mais piloter son activité dans la durée, c'est ce qui fait la différence entre les projets qui durent et ceux qui s'essoufflent.",
+      "[[D'une valeur de {valeurPop}, ]]la formation P.O.P IA est habituellement vendue séparément. Elle est intégralement offerte aux clients du Pack Premium. Parce qu'avoir un bon dossier, c'est bien — mais piloter son activité dans la durée, c'est ce qui fait la différence entre les projets qui durent et ceux qui s'essoufflent.",
     carte: {
       titre: "Planifiez. Organisez. Produisez.",
       corps:
         "Le système EVKHA pour structurer votre activité, reprendre le contrôle de votre temps et gagner en rentabilité dès votre première année d'activité.",
       points: [
         "[[{heuresPop}h de ]]formation digitale à votre rythme",
-        "La méthode P.O.P appliquée à votre activité",
+        "La méthode P.O.P IA appliquée à votre activité",
         "Outils, templates et tableaux de bord",
         "Accès à un agent IA dédié à vos objectifs",
         "Accès à vie à la plateforme",
@@ -902,12 +903,12 @@ export const PAGE_PACK_PREMIUM = {
   processus: {
     titre: "Un parcours en 5 étapes sur 3 semaines",
     corps:
-      "Un processus stratégique, balisé, qui vous emmène du cadrage de votre idée jusqu'à la livraison de votre kit complet et de votre formation P.O.P.",
+      "Un processus stratégique, balisé, qui vous emmène du cadrage de votre idée jusqu'à la livraison de votre kit complet et de votre formation P.O.P IA.",
     etapes: [
       {
         titre: "Vous commandez votre pack Premium",
         corps:
-          "Validation de la commande, accès immédiat à la formation P.O.P, envoi du questionnaire de cadrage et lien pour réserver votre premier appel.",
+          "Validation de la commande, accès immédiat à la formation P.O.P IA, envoi du questionnaire de cadrage et lien pour réserver votre premier appel.",
       },
       {
         titre: "Appel 1 : cadrage stratégique (1h)",
@@ -972,7 +973,7 @@ export const PAGE_PACK_PREMIUM = {
         premium: "3 × 1 heure",
       },
       {
-        critere: "Formation P.O.P incluse",
+        critere: "Formation P.O.P IA incluse",
         essentiel: "—",
         premium: "★[[ Valeur {valeurPop}]]",
       },
@@ -990,10 +991,11 @@ export const PAGE_PACK_PREMIUM = {
     ] as LigneDeComparatif[],
   },
 
+  /** Texte de la cliente du 24/11/2026, le même sur les deux packs. */
   experte: {
-    titre: "Une experte stratégique, pas un prestataire interchangeable",
+    titre: "Une seule interlocutrice, du début à la fin",
     corps:
-      "Le Pack Premium, c'est aussi le pack où la dimension humaine compte le plus. 3 heures d'appels en visio, 6 semaines de suivi rapproché, et la garantie qu'à chaque échange, c'est moi qui suis en face de vous. Avec 16 ans d'accompagnement de créateurs d'entreprise et plus de 500 projets à mon actif, je ne fais pas du remplissage de documents : je vous apporte une vraie expertise stratégique pour faire les bons choix.",
+      "Derrière chaque dossier EVKHA, il y a quelqu'un qui connaît le terrain. En plus de 16 ans, j'ai créé des entreprises en France et en Espagne, accompagné plus de 500 porteurs de projet et travaillé avec de grandes structures d'accompagnement. J'ai vu ce qui convainc une banque, les questions qu'elle pose et ce qui peut la freiner. Je mets cette expérience au service de votre projet, avec un suivi direct et sans intermédiaire.",
   },
 
   /** Neuf questions et leurs réponses, dans l'ordre de la page — voir
@@ -1004,13 +1006,13 @@ export const PAGE_PACK_PREMIUM = {
       {
         question: "Quelle est la vraie différence avec le Pack Essentiel ?",
         reponse:
-          "Le Premium est nettement plus complet : 3 appels d'1h au lieu de 2 de 45 min, business plan de 40 pages au lieu de 30, étude de marché premium, cadrage stratégique en amont, plan stratégique année 1, pitch animé, tableaux de bord, ET la formation P.O.P[[ (valeur {valeurPop})]]. Si vous visez un financement important, un pitch devant des investisseurs ou un projet ambitieux, le Premium est fait pour vous.",
+          "Le Premium est nettement plus complet : 3 appels d'1h au lieu de 2 de 45 min, business plan de 40 pages au lieu de 30, étude de marché premium, cadrage stratégique en amont, plan stratégique année 1, pitch animé, tableaux de bord, ET la formation P.O.P IA[[ (valeur {valeurPop})]]. Si vous visez un financement important, un pitch devant des investisseurs ou un projet ambitieux, le Premium est fait pour vous.",
       },
       {
         question:
-          "Quand est-ce que je commence à avoir accès à la formation P.O.P ?",
+          "Quand est-ce que je commence à avoir accès à la formation P.O.P IA ?",
         reponse:
-          "Dès la validation de votre commande, vous recevez vos accès à la formation P.O.P. Vous pouvez la commencer immédiatement, en parallèle du travail sur les livrables. La plupart des clients la suivent pendant les 3 semaines de réalisation du pack pour être opérationnel dès la livraison.",
+          "Dès la validation de votre commande, vous recevez vos accès à la formation P.O.P IA. Vous pouvez la commencer immédiatement, en parallèle du travail sur les livrables. La plupart des clients la suivent pendant les 3 semaines de réalisation du pack pour être opérationnel dès la livraison.",
       },
       {
         question: "Le pitch animé, c'est quoi exactement ?",
@@ -1046,7 +1048,7 @@ export const PAGE_PACK_PREMIUM = {
       {
         question: "Comment se passe le suivi de 6 semaines après la livraison ?",
         reponse:
-          "Pendant 6 semaines après la livraison complète, vous bénéficiez d'un accès exclusif à un canal mail/WhatsApp pour toute question : ajustement d'un chiffre, préparation d'un rendez-vous bancaire, validation d'une décision stratégique, conseils sur la mise en pratique de la méthode P.O.P. Réponse sous 24 à 48h.",
+          "Pendant 6 semaines après la livraison complète, vous bénéficiez d'un accès exclusif à un canal mail/WhatsApp pour toute question : ajustement d'un chiffre, préparation d'un rendez-vous bancaire, validation d'une décision stratégique, conseils sur la mise en pratique de la méthode P.O.P IA. Réponse sous 24 à 48h.",
       },
       {
         // « 30 000 € » : un seuil de financement du projet du client, pas un
@@ -1061,9 +1063,9 @@ export const PAGE_PACK_PREMIUM = {
   appelFinal: {
     titre: "Donnez à votre projet toutes ses chances",
     corps:
-      "9 livrables stratégiques, 3 appels d'1h, 6 semaines de support, et la formation P.O.P incluse. Le pack complet pour les projets ambitieux qui ne veulent rien laisser au hasard.",
+      "9 livrables stratégiques, 3 appels d'1h, 6 semaines de support, et la formation P.O.P IA incluse. Le pack complet pour les projets ambitieux qui ne veulent rien laisser au hasard.",
     mention:
-      "Paiement sécurisé · Accès immédiat à la formation P.O.P après commande",
+      "Paiement sécurisé · Accès immédiat à la formation P.O.P IA après commande",
   },
 
   formulaireDeCommande: {
@@ -1122,8 +1124,8 @@ export const PORTRAIT_DES_PACKS = {
 /** Les deux mots devant lesquels une page écrit un nombre à accorder. */
 export const UNITES_A_ACCORDER = { etapes: "étapes", livrables: "livrables" } as const;
 
-// L'ancienneté (« 15 ans » ici, « 16 ans » là, non tranché — voir l'en-tête)
-// s'affiche « plus de 15 ans » par `site.ancienneteSure`, la fonction que les
+// L'ancienneté relevée (« 15 ans » ici, « 16 ans » là) s'affiche « plus de
+// 16 ans » (cliente, 24/11/2026) par `site.ancienneteSure`, la fonction que les
 // formations utilisent aussi : elle n'est plus écrite dans ce fichier.
 
 /** Remplace le nombre écrit devant `unite` par celui qu'on a compté.
@@ -1184,10 +1186,7 @@ export const TITRES_PACKS = {
     PAGE_PACK_PREMIUM.comparatif.titre,
     "ce qui change vraiment",
   ),
-  experte: enDeuxTemps(
-    PAGE_PACK_ESSENTIEL.experte.titre,
-    "pas un junior dans une agence",
-  ),
+  experte: enDeuxTemps(PAGE_PACK_ESSENTIEL.experte.titre, "du début à la fin"),
 };
 
 export const TITRES_PACK_ESSENTIEL = {
@@ -1237,24 +1236,17 @@ export const TITRES_PACK_PREMIUM = {
   ),
   processus: enDeuxTemps(PAGE_PACK_PREMIUM.processus.titre, "sur 3 semaines"),
   comparatif: TITRES_PACKS.comparatif,
-  experte: enDeuxTemps(
-    PAGE_PACK_PREMIUM.experte.titre,
-    "pas un prestataire interchangeable",
-  ),
+  experte: enDeuxTemps(PAGE_PACK_PREMIUM.experte.titre, "du début à la fin"),
   faq: enDeuxTemps(PAGE_PACK_PREMIUM.faq.titre, "avant de commander"),
   appelFinal: enDeuxTemps(PAGE_PACK_PREMIUM.appelFinal.titre, "toutes ses chances"),
 };
 
 // ── Ce que les trois pages ont en commun ────────────────────────────────────
 
-/** La différence entre un pack et une étude de la plateforme, dite en haut de
- *  chaque page (stratégie commerciale) : un pack est réalisé par Evangeline
- *  elle-même. La seconde phrase reprend ce que les pages affirment déjà —
- *  « c'est moi qui m'en occupe, de A à Z. Pas de sous-traitance ». */
+/** Ce que les pages de packs ont en commun. La mention « Réalisé par
+ *  Evangeline Khaili elle-même » et sa phrase ont été retirées à la demande de
+ *  la cliente (24/11/2026). */
 export const COMMUN_PACKS = {
-  realisePar: "Réalisé par Evangeline Khaili elle-même",
-  realiseCorps:
-    "Un pack n'est pas produit par la plateforme : Evangeline réalise elle-même votre dossier, de A à Z, sans sous-traitance.",
   appelGratuit: "Réserver un appel gratuit",
   voirLesDeuxPacks: "Voir les deux packs",
   /** Sous le prix, dans l'encart de l'ouverture d'un pack. */
@@ -1370,7 +1362,7 @@ export const ARTICULATION_PACK_ESSENTIEL = {
 
 export const ARTICULATION_PACK_PREMIUM = {
   titreDeLOnglet:
-    "Pack Création Premium : business plan, pitch animé et formation P.O.P – EVKHA",
+    "Pack Création Premium : business plan, pitch animé et formation P.O.P IA – EVKHA",
   surtitre: "Pack d'accompagnement",
   prix: PRIX_PREMIUM,
   duree: PAGE_PACKS.packPremium.duree,

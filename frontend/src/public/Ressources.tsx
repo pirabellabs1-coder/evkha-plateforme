@@ -516,6 +516,7 @@ export function Swapn() {
                 {a.offre.titre.avant} <span className="acc-s">{a.offre.titre.fin}</span>
               </h2>
             </div>
+            <p>{a.offre.continuite}</p>
           </div>
 
           {/* Une figure et sa légende : les mots sont ceux de SWAPN, lus sur

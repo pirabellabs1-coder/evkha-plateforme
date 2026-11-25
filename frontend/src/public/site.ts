@@ -441,21 +441,18 @@ export function useSansIndexation(): void {
 // ── L'ancienneté ────────────────────────────────────────────────────────────
 
 /** L'ancienneté d'Evangeline. Les pages relevées écrivent « 15 ans » ici et
- *  « 16 ans » là, et la cliente n'a pas tranché. À l'affichage, les deux
- *  deviennent « plus de 15 ans », vrai dans les deux cas — la même formule que
- *  l'accueil. UNE fonction, pour les packs comme pour les formations
- *  (règle 5) ; le texte relevé n'est pas touché.
+ *  « 16 ans » là. La cliente a tranché le 24/11/2026 : « 16 ans de terrain
+ *  (ou plus de 16 ans), partout où elle apparaît ». À l'affichage, « 15 ans »,
+ *  « 16 ans » et « plus de 15 ans » deviennent donc « plus de 16 ans ». UNE
+ *  fonction, pour les packs comme pour les formations (règle 5) ; le texte
+ *  relevé n'est pas touché.
  *
- *  Un nombre déjà précédé de « plus de » est laissé tel quel. Écrit SANS
- *  regard arrière (« lookbehind ») : Safari avant 16.4 refuse cette syntaxe au
- *  chargement du fichier, et toute l'application tombe avec lui. Le préfixe
- *  est donc capturé, puis remis en place. */
+ *  Le préfixe « plus de » déjà écrit est absorbé par la capture, pour ne pas
+ *  le doubler. Écrit SANS regard arrière (« lookbehind ») : Safari avant 16.4
+ *  refuse cette syntaxe au chargement du fichier, et toute l'application tombe
+ *  avec lui. */
 export function ancienneteSure(texte: string): string {
-  return texte.replace(
-    /(plus de )?\b1[56](?=\sans\b)/g,
-    (trouve: string, dejaDit: string | undefined) =>
-      dejaDit === undefined ? "plus de 15" : trouve,
-  );
+  return texte.replace(/(?:plus de )?\b1[56](?=\sans\b)/g, "plus de 16");
 }
 
 // ── Le menu plein écran ─────────────────────────────────────────────────────

@@ -809,7 +809,13 @@
   align-items: center;
 }
 
+/* `grid-area: auto` : `.pro-cadre` se range dans la zone « image » de la
+   grille de l'OUVERTURE. Ici, aucune zone n'est déclarée : ce nom créait des
+   colonnes implicites, et le texte de la fondatrice tombait dans une colonne
+   de quelques pixels, une lettre par ligne (signalé par la cliente le
+   24/11/2026). */
 .pro-cadre-portrait {
+  grid-area: auto;
   max-width: 380px;
 }
 

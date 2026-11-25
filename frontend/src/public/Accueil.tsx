@@ -79,12 +79,11 @@ import {
   type Offre,
   type TypeDeLivrable,
 } from "./contenuAccueil";
-import { ID_DU_CONTENU, LIENS, TARIFS } from "./contenuSite";
+import { carteDEtude, ID_DU_CONTENU, LIENS, TARIFS } from "./contenuSite";
 import {
   chargerFormules,
   chargerLivrables,
   euros,
-  lienCommande,
   type FormulePublique,
   type LivrablePublic,
 } from "./donnees";
@@ -237,8 +236,15 @@ function affichageDeLOffre(offre: Offre, catalogues: Catalogues): Affichage {
       return {
         mention: "par mois",
         titre: formule?.libelle || offre.titre,
+        // Les points écrits ici d'abord, puis les avantages rendus par le
+        // serveur — sans doublon si le serveur en vient à dire la même chose.
         points: Array.isArray(formule?.avantages)
-          ? formule.avantages.filter((a) => typeof a === "string" && a !== "")
+          ? [
+              ...offre.points,
+              ...formule.avantages.filter(
+                (a) => typeof a === "string" && a !== "" && !offre.points.includes(a),
+              ),
+            ]
           : offre.points,
         tarif: tarifDe(catalogues.formules, () =>
           formule ? euros(formule.prix_mensuel_cents) : null,
@@ -302,7 +308,7 @@ function Intro({
  *  en change — sous mouvement réduit, par exemple.
  *
  *  Le premier mot seul est exposé aux lecteurs d'écran : le titre se lit
- *  « Transformez votre idée en entreprise… », une fois, et ne change pas sous
+ *  « Faites de votre idée une vraie entreprise. », une fois, et ne change pas sous
  *  l'oreille toutes les deux secondes. */
 function MotQuiTourne({ mots, fige }: { mots: string[]; fige: boolean }) {
   const [etat, setEtat] = useState({ courant: 0, sortant: -1 });
@@ -817,13 +823,7 @@ export function Accueil() {
                   {OUVERTURE.boutonSecondaire.libelle}
                 </Bouton>
               </div>
-              <p className="acc-pros acc-entre" style={variables({ "--i": 3 })}>
-                {OUVERTURE.professionnels.question}{" "}
-                <a href={OUVERTURE.professionnels.lien}>
-                  {OUVERTURE.professionnels.reponse}
-                </a>
-              </p>
-              <div className="acc-gens acc-entre" style={variables({ "--i": 4 })}>
+              <div className="acc-gens acc-entre" style={variables({ "--i": 3 })}>
                 <div className="acc-visages" aria-hidden="true">
                   {["-2px", "-47px", "-93px", "-140px"].map((x) => (
                     <span
@@ -923,6 +923,17 @@ export function Accueil() {
             </div>
           </div>
         </section>
+        {/* Sous « Ils me font confiance », et non plus à l'ouverture (demande
+            de la cliente du 24/11/2026). Hors de la section : la bande qui
+            défile ne porte aucun lien. */}
+        <div className="acc-w">
+          <p className="acc-pros acc-pros-confiance">
+            {OUVERTURE.professionnels.question}{" "}
+            <a href={OUVERTURE.professionnels.lien}>
+              {OUVERTURE.professionnels.reponse}
+            </a>
+          </p>
+        </div>
 
         {/* ── Le parcours : un projet, quatre documents ────────────────── */}
         <section className="acc-section" id="parcours">
@@ -995,10 +1006,11 @@ export function Accueil() {
                   <a
                     key={marche.type}
                     className={classes}
-                    // Tant que le slug n'est pas connu (attente, panne), la
-                    // marche mène à la page des études, qui porte son propre
-                    // catalogue et dira elle-même ce qu'il en est.
-                    href={livrable ? lienCommande(livrable.slug) : LIENS.etudes}
+                    // Vers la DESCRIPTION du document sur la page des études,
+                    // pas vers la commande : « les clients aiment lire quelque
+                    // chose avant de se lancer » (cliente, 24/11/2026). Tant
+                    // que le slug n'est pas connu, le haut de la page.
+                    href={livrable ? carteDEtude(livrable.slug) : LIENS.etudes}
                     style={style}
                     data-reveal=""
                   >
@@ -1236,11 +1248,11 @@ export function Accueil() {
           <div className="acc-w acc-elle">
             <div className="acc-elle-cadre" data-reveal="">
               <figure>
-                {/* Décorative ici : le même portrait est décrit à
-                    l'ouverture, et le nom figure juste à côté. */}
+                {/* Décorative ici : le nom figure juste à côté. Une autre
+                    photo que celle de l'ouverture (cliente, 24/11/2026). */}
                 <img
                   className="acc-elle-image"
-                  src={IMAGES_ACCUEIL.portrait}
+                  src={IMAGES_ACCUEIL.portraitFondatrice}
                   alt=""
                   loading="lazy"
                   decoding="async"
@@ -1258,7 +1270,19 @@ export function Accueil() {
               <p className="acc-elle-corps">{FONDATRICE_ACCUEIL.corps}</p>
               <ul className="acc-references">
                 {FONDATRICE_ACCUEIL.references.map((reference) => (
-                  <li key={reference}>{reference}</li>
+                  <li key={reference.texte}>
+                    <span className="acc-reference-nom">{reference.texte}</span>
+                    {/* Décoratif : le nom du réseau est écrit juste au-dessus. */}
+                    <img
+                      className="acc-reference-logo"
+                      src={reference.logo.src}
+                      alt=""
+                      width={reference.logo.largeur}
+                      height={reference.logo.hauteur}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </li>
                 ))}
               </ul>
               <Bouton lien={FONDATRICE_ACCUEIL.bouton.lien} aspect="noir">

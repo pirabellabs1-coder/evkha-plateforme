@@ -147,6 +147,12 @@
   text-underline-offset: 4px;
 }
 
+/* Sous les références « Ils me font confiance » (cliente, 24/11/2026). */
+.acc-pros-confiance {
+  margin-top: 22px;
+  text-align: center;
+}
+
 .acc-gens {
   display: flex;
   align-items: center;
@@ -1530,11 +1536,27 @@ a.acc-prete:hover {
 }
 
 .acc-references li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.acc-reference-nom {
   padding: 6px 15px;
   border: 1.5px solid var(--acc-encre);
   border-radius: 999px;
   font-weight: 700;
   font-size: 0.84rem;
+}
+
+/* Le logo du réseau sous son nom : même hauteur pour les deux, la largeur
+   suit le ratio du fichier. */
+.acc-reference-logo {
+  height: 34px;
+  width: auto;
+  max-width: 150px;
+  object-fit: contain;
 }
 
 /* ── Pourquoi : mosaïque ─────────────────────────────────────────────────── */

@@ -64,7 +64,7 @@ export const CHAPITRES_ETUDE_DE_MARCHE = chapitresAnnonces("etude-marche");
  *  opposition aux textes « générés à la chaîne », que l'accueil ne reprend
  *  pas. Le test de l'accueil vérifie que les deux écritures restent la même. */
 export const RELECTURE =
-  "Chaque étude est relue avant envoi par Evangeline elle-même.";
+  "Chaque étude passe une relecture systématique et un contrôle qualité avant envoi.";
 
 /** Toutes les images de l'accueil, et nulle part ailleurs.
  *
@@ -83,6 +83,10 @@ const DOSSIER = "/accueil";
 
 export const IMAGES_ACCUEIL = {
   portrait: `${DOSSIER}/portrait.webp`,
+  /** La photo de la section « Qui vous accompagne », DIFFÉRENTE de celle de
+   *  l'ouverture (cliente, 24/11/2026). Même ratio (798 × 1200) : la boîte de
+   *  la feuille la loge sans saut. */
+  portraitFondatrice: "/partenaires/evangeline.jpg",
   /** Bandeau de visages, recadré en quatre médaillons par la feuille. */
   visages: `${DOSSIER}/visages.webp`,
   idee: `${DOSSIER}/profil-idee.webp`,
@@ -102,17 +106,17 @@ export const IMAGES_ACCUEIL = {
 // ── Ouverture ───────────────────────────────────────────────────────────────
 
 export const OUVERTURE = {
-  /** « Plus de 15 ans », et non « 16 ans » : le site de la cliente écrit les
-   *  deux selon les pages, et elle n'a pas tranché (point 4 des questions
-   *  ouvertes du plan de refonte). La formule basse est vraie dans les deux
-   *  cas. */
-  surtitre: "Méthode EVKHA · plus de 15 ans de terrain",
+  /** « 16 ans de terrain » : tranché par la cliente le 24/11/2026, partout
+   *  sur le site. */
+  surtitre: "Méthode EVKHA · 16 ans de terrain",
+  /** Demande de la cliente du 24/11/2026 : « Faites de votre [idée / projet /
+   *  envie] une vraie entreprise. » */
   titre: {
-    avant: "Transformez votre",
+    avant: "Faites de votre",
     /** Le mot qui tourne. Le premier est celui que lit un lecteur d'écran. */
     mots: ["idée", "projet", "envie"],
-    milieu: "en entreprise",
-    fin: "qui tient debout.",
+    milieu: "une vraie",
+    fin: "entreprise.",
   },
   /** La promesse au porteur de projet (stratégie commerciale). */
   promesse:
@@ -225,7 +229,7 @@ export const PARCOURS = {
   marches: [
     {
       type: "market_study",
-      question: "Mon idée tient-elle ?",
+      question: "Mon idée est-elle faisable ?",
       document: "Étude de marché",
       corps:
         "La taille du marché, sa tendance, vos clients et les risques du projet, sur votre secteur et dans votre zone.",
@@ -235,7 +239,7 @@ export const PARCOURS = {
       question: "Face à qui ?",
       document: "Étude de la concurrence",
       corps:
-        "Vos concurrents directs et indirects analysés un par un : prix, services, points forts, faiblesses.",
+        "Vos concurrents directs et indirects analysés un par un : prix, services, points forts, faiblesses. Votre différenciation, avec des analyses statistiques et tarifaires.",
     },
     {
       type: "business_plan",
@@ -249,7 +253,7 @@ export const PARCOURS = {
       question: "Passer à l'action",
       document: "Stratégie business",
       corps:
-        "Vos priorités, votre positionnement et des recommandations que vous pouvez appliquer sans connaissance technique.",
+        "L'analyse de votre entreprise, de ses tarifs et de sa structure, puis des recommandations de développement : une vision claire pour structurer, communiquer et vendre avec impact.",
     },
   ] as Marche[],
 };
@@ -353,8 +357,8 @@ export const ATELIER = {
  *  n'a été recompté. S'ils changent, ils changent ici — sauf le nombre de
  *  chapitres, qui vient de `contenu.ETUDES`.
  *
- *  L'ancienneté n'y figure pas en chiffre : « 16 ans » ou « plus de 15 ans »,
- *  la cliente n'a pas tranché — voir `OUVERTURE.surtitre`. */
+ *  L'ancienneté n'y figure pas en chiffre : elle est dans
+ *  `OUVERTURE.surtitre` (« 16 ans de terrain », tranchée par la cliente le 24/11/2026). */
 export type Chiffre = {
   /** La valeur vers laquelle le compteur monte. */
   valeur: number;
@@ -412,7 +416,7 @@ export const POUR_QUI = {
       image: IMAGES_ACCUEIL.rebond,
     },
     {
-      titre: "Micro-entreprises",
+      titre: "Entreprises et micro-entreprises",
       corps:
         "L'activité tourne, la direction manque. La stratégie business fixe vos priorités et votre plan d'action.",
       bouton: "Clarifier ma stratégie",
@@ -423,7 +427,7 @@ export const POUR_QUI = {
       /** La promesse au professionnel (stratégie commerciale). */
       titre: "Partenaires PRO",
       corps:
-        "Vous restez l'expert de votre client. EVKHA produit le dossier sous votre marque, en moins de vingt minutes de votre temps.",
+        "Vous avez besoin d'études, de benchmarking et de stratégies business ? EVKHA les produit pour vous.",
       bouton: "Voir les abonnements",
       lien: LIENS.partenaires,
       image: IMAGES_ACCUEIL.partenaire,
@@ -472,11 +476,12 @@ export const OFFRES = {
   cartes: [
     {
       prix: "boutique-plancher",
-      surtitre: "Tout de suite",
+      surtitre: "Immédiat",
       titre: "Étude prête",
       corps: "Une étude déjà rédigée sur un secteur, dans la boutique.",
       points: [
         "Téléchargement immédiat",
+        "Mise à jour tous les trimestres",
         "Aucun questionnaire à remplir",
         "Un secteur déjà étudié, prêt à lire",
       ],
@@ -519,9 +524,10 @@ export const OFFRES = {
       surtitre: "Réseaux et incubateurs",
       titre: "Formule pour les structures",
       corps: "Pour accompagner des promotions entières de porteurs.",
-      // Vide à dessein : les points de cette carte sont les `avantages` de la
-      // formule, tels que le serveur les rend.
-      points: [],
+      // Les autres points de cette carte sont les `avantages` de la formule,
+      // tels que le serveur les rend. Celui-ci est demandé par la cliente
+      // (24/11/2026) et s'affiche en tête.
+      points: ["Plus de 9 crédits au choix"],
       bouton: "Voir cette formule",
       lien: LIENS.partenaires,
     },
@@ -537,7 +543,7 @@ export const OFFRES = {
 export const ETUDES_PRETES = {
   surtitre: "Études prêtes",
   titre: { avant: "Un secteur,", fin: "déjà étudié." },
-  corps: `Téléchargement immédiat. Une étude en ${CHAPITRES_ETUDE_DE_MARCHE} chapitres qui répond aux premières questions : est-ce un secteur rentable ? en croissance ? saturé ?`,
+  corps: `Téléchargement immédiat. Une étude en ${CHAPITRES_ETUDE_DE_MARCHE} chapitres qui répond aux premières questions : est-ce un secteur rentable ? En croissance ? Saturé ? Quels sont les risques ? Quels frais anticiper ?`,
   /** Au plus six cartes : la suite est dans la boutique. */
   maximum: 6,
   carte: "Voir l'étude",
@@ -570,7 +576,7 @@ export const METHODE = {
       titre: "Piloter",
       corps:
         "Une organisation, des indicateurs, des rendez-vous réguliers avec vos chiffres.",
-      livrables: "Méthode P.O.P et accompagnement",
+      livrables: "Méthode P.O.P IA et accompagnement",
       // La méthode P.O.P est une formation, vendue sur le site de la
       // cliente : le renvoi y mène, il ne promet rien que la plateforme vende.
       lien: LIENS.formations,
@@ -598,7 +604,7 @@ export const AILLEURS = {
       points: [
         "Créer son entreprise de A à Z",
         "Créer sa micro-entreprise de A à Z",
-        "Gérer son entreprise avec la méthode P.O.P : productivité, suivi financier, organisation quotidienne",
+        "Gérer son entreprise avec la méthode P.O.P IA : productivité, suivi financier, organisation quotidienne",
       ],
       bouton: "Voir les formations",
       lien: LIENS.formations,
@@ -639,15 +645,32 @@ export const FONDATRICE_ACCUEIL = {
   },
   nom: "Evangeline Khaili, fondatrice d'EVKHA",
   corps:
-    "J'ai créé et dirigé des entreprises dans le e-commerce, la restauration et la gestion de projets. Je suis passée par les doutes et les questions ; c'est ce vécu que je mets dans chaque étude et chaque accompagnement.",
-  references: ["Formatrice LégalPlace", "Consultante Initiative France"],
+    "J'ai créé et dirigé des entreprises dans le e-commerce, la restauration et la gestion de projets. J'ai créé des entreprises en France et en Espagne. Je suis passée par les doutes et les questions ; c'est ce vécu que je mets dans chaque étude et chaque accompagnement.",
+  /** Le logo du réseau sous son nom (cliente, 24/11/2026). Les fichiers sont
+   *  ceux de la bande « Ils me font confiance ». */
+  references: [
+    {
+      texte: "Formatrice LégalPlace",
+      logo: { src: IMAGES_ACCUEIL.logoLegalPlace, largeur: 870, hauteur: 198, nom: "LegalPlace" },
+    },
+    {
+      texte: "Consultante Initiative France",
+      logo: {
+        src: IMAGES_ACCUEIL.logoInitiativeFrance,
+        largeur: 1388,
+        hauteur: 646,
+        nom: "Réseau Initiative France",
+      },
+    },
+  ],
   bouton: { libelle: "Discutons de votre projet", lien: "#contact" },
 };
 
 // ── Pourquoi EVKHA ──────────────────────────────────────────────────────────
 
 /** Les trois preuves de la stratégie commerciale — des chiffres sourcés, une
- *  méthode, une relecture humaine — puis deux cases : l'habillage et le prix.
+ *  méthode déposée, une relecture et un contrôle qualité (cliente, 24/11/2026)
+ *  — puis deux cases : l'habillage et le prix.
  *  `forme` : `large` pour la grande case dorée, `voile` pour la case crème.
  *
  *  La relecture est dite pour ce qu'elle est, sans l'opposer à quoi que ce
@@ -667,12 +690,12 @@ export const POURQUOI = {
     },
     {
       signe: String(CHAPITRES_ETUDE_DE_MARCHE),
-      titre: "Une méthode",
+      titre: "Une méthode déposée",
       corps: `L'étude de marché suit ${CHAPITRES_ETUDE_DE_MARCHE} chapitres, toujours dans le même ordre. Rien d'important n'est laissé de côté.`,
     },
     {
       signe: "Aa",
-      titre: "Une relecture humaine avant envoi",
+      titre: "Une relecture et un contrôle qualité avant envoi",
       corps: RELECTURE,
     },
     {
@@ -680,7 +703,7 @@ export const POURQUOI = {
       forme: "voile",
       titre: "À vos couleurs et avec votre logo",
       corps:
-        "Le document porte votre identité, en PDF et en Word modifiable.",
+        "Un document qui vous ressemble, avec votre charte graphique, pour unifier tous les livrables de votre entreprise. En PDF et en Word modifiable.",
     },
     {
       signe: "€",
@@ -729,7 +752,7 @@ export const AVIS = {
   // nombre d'avis positifs est celui que le profil affichait ce jour-là : il
   // n'est PAS relu en direct, et vieillira avec cette phrase.
   corps:
-    "Les dix derniers avis laissés à Evangeline sur ComeUp, où son profil compte 221 avis positifs. Recopiés tels qu'ils ont été écrits, les plus longs en extrait.",
+    "Les dix derniers avis laissés à Evangeline sur ComeUp, où son profil compte plus de 230 avis positifs. Recopiés tels qu'ils ont été écrits, les plus longs en extrait.",
   bouton: { libelle: "Commander une étude", lien: LIENS.etudes },
   groupe: "Avis de clients",
   liste: [

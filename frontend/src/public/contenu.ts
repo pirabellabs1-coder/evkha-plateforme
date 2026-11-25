@@ -111,8 +111,8 @@ export const CALCUL = {
 
 export const FONDATRICE = {
   surtitre: "LA MÉTHODE, LA FONDATRICE",
-  titre: "Une méthode née de 15 ans d'accompagnement",
-  corps: "Je suis Evangeline Khaili, fondatrice d'Evkha. La méthode en 22 chapitres condense quinze années d'accompagnement de créateurs d'entreprise et plus de 250 dossiers livrés. Chaque livrable produit pour vos clients est contrôlé avant envoi : vous vous appuyez sur une méthode déposée et une exigence de qualité constante — pas sur une IA générique.",
+  titre: "Une méthode née de 16 ans d'accompagnement",
+  corps: "Je suis Evangeline Khaili, fondatrice d'Evkha. La méthode en 22 chapitres condense seize années d'accompagnement de créateurs d'entreprise et plus de 250 dossiers livrés. Chaque livrable produit pour vos clients est contrôlé avant envoi : vous vous appuyez sur une méthode déposée et une exigence de qualité constante — pas sur une IA générique.",
 };
 
 export const FAQ = {
@@ -386,7 +386,7 @@ export const ETUDES_PAGE = {
         "Vous repartez avec des réponses, pas des questions",
       ],
     },
-    pied: "Chaque étude est relue avant envoi par Evangeline elle-même. Vous lisez une étude claire, faite pour vous — jamais un texte généré à la chaîne.",
+    pied: "Chaque étude passe une relecture systématique et un contrôle qualité avant envoi. Vous lisez une étude claire, faite pour vous — jamais un texte généré à la chaîne.",
   },
 
   faq: {

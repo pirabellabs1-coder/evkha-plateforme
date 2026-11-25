@@ -137,8 +137,14 @@ describe("aucune regex à regard arrière dans le code de production", () => {
   });
 
   it("contre-épreuve : l'ancienneté réécrite rend ce que rendait le regard arrière", () => {
-    // Le motif d'origine, gardé ICI comme référence : sous Node, il se lit.
-    const dOrigine = (texte: string) => texte.replace(/(?<!plus de )\b1[56](?=\sans\b)/g, "plus de 15");
+    // La règle, écrite ICI avec des regards arrière comme référence : sous
+    // Node, ils se lisent. Depuis la décision de la cliente du 24/11/2026,
+    // « 15 ans », « 16 ans » et « plus de 15 ans » deviennent tous
+    // « plus de 16 ans ».
+    const dOrigine = (texte: string) =>
+      texte
+        .replace(/(?<=plus de )1[56](?=\sans\b)/g, "16")
+        .replace(/(?<!plus de )\b1[56](?=\sans\b)/g, "plus de 16");
     const INSECABLE = String.fromCharCode(0xa0);
     const cas = [
       "une expertise de 15 ans à vos côtés",
@@ -161,7 +167,8 @@ describe("aucune regex à regard arrière dans le code de production", () => {
     }
     // Et les cas ne sont pas tous des cas où rien ne change.
     expect(cas.filter((texte) => ancienneteSure(texte) !== texte).length).toBeGreaterThanOrEqual(5);
-    expect(ancienneteSure("une expertise de 15 ans")).toBe("une expertise de plus de 15 ans");
-    expect(ancienneteSure("plus de 15 ans de terrain")).toBe("plus de 15 ans de terrain");
+    expect(ancienneteSure("une expertise de 15 ans")).toBe("une expertise de plus de 16 ans");
+    expect(ancienneteSure("plus de 15 ans de terrain")).toBe("plus de 16 ans de terrain");
+    expect(ancienneteSure("plus de 16 ans de terrain")).toBe("plus de 16 ans de terrain");
   });
 });

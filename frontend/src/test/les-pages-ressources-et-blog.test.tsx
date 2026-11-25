@@ -1043,6 +1043,8 @@ describe("la page du partenaire Swapn", () => {
     }
     // L'attribution : elle ouvre la carte, et la légende dit qui s'engage.
     expect(texteDe(figure)).toContain("Selon Swapn");
+    // La place de Swapn dans le parcours (cliente, 24/11/2026).
+    expect(texteDe(document.getElementById("offre"))).toContain(PAGE_SWAPN.offre.continuite);
     expect(texteDe(figure.querySelector("figcaption"))).toMatch(/Swapn/);
     expect(texteDe(figure.querySelector("figcaption"))).toMatch(/non un engagement d'EVKHA/);
 
@@ -1083,7 +1085,7 @@ describe("la page du partenaire Swapn", () => {
       expect(texteDe(relation)).toContain(champ?.libelle ?? "");
     }
     // La page dit à qui les coordonnées seront transmises.
-    expect(texteDe(relation)).toMatch(/transmettre votre nom et votre adresse e-mail à Swapn/);
+    expect(texteDe(relation)).toMatch(/transmettre votre nom et votre adresse e-mail à son partenaire Swapn/);
   });
 });
 

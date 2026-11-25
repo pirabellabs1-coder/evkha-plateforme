@@ -748,7 +748,9 @@ describe("les pages des formations", () => {
       await afficherLue(page);
 
       expect(texte()).not.toMatch(NON_AFFICHE);
-      expect(texte()).not.toContain("16 ans");
+      // L'ancienneté ne s'écrit jamais nue : « plus de 16 ans » seulement
+      // (cliente, 24/11/2026).
+      expect(texte()).not.toMatch(/(?<!plus de )\b1[56] ans/);
       expect(texte()).not.toContain("(15 ans d'expérience)");
       expect(texte()).not.toContain("Chaque formation inclut");
       // Le bloc de commande de l'ancien tunnel n'est pas rendu.
@@ -1442,7 +1444,7 @@ describe("les pages des formations", () => {
     for (const phrase of [
       "11h de formation",
       "Durée : 11h 00",
-      "La formation P.O.P en 11 heures est une expérience immersive",
+      "La formation P.O.P IA en 11 heures est une expérience immersive",
       "11h de formation digitale",
     ]) {
       expect(page, phrase).toContain(phrase);
@@ -1487,7 +1489,7 @@ describe("les pages des formations", () => {
     micro.unmount();
 
     await afficherLue(POP);
-    expect(texte()).toContain("La formation P.O.P est une expérience immersive et concrète");
+    expect(texte()).toContain("La formation P.O.P IA est une expérience immersive et concrète");
     expect(texte()).not.toContain("Durée :");
   });
 
@@ -1553,14 +1555,14 @@ describe("les pages des formations", () => {
     expect(texteDe(document.querySelector(".for-ouverture"))).toContain("4 modules");
   });
 
-  it("l'ancienneté s'écrit « plus de 15 ans », et « accès à vie » reste tel que la cliente l'écrit", () => {
+  it("l'ancienneté s'écrit « plus de 16 ans » (cliente, 24/11/2026), et « accès à vie » reste tel que la cliente l'écrit", () => {
     const { unmount } = afficher(CATALOGUE);
-    expect(texte()).toContain("Depuis plus de 15 ans");
+    expect(texte()).toContain("Depuis plus de 16 ans");
     expect(texte()).toContain(ATOUTS_DES_FORMATIONS.acces.titre);
     unmount();
 
     afficher(POP);
-    expect(texte()).toContain("(plus de 15 ans d'expérience)");
+    expect(texte()).toContain("(plus de 16 ans d'expérience)");
     expect(PAGE_POP.pourQui.promesse).toContain("(15 ans d'expérience)");
     expect(texte()).toContain("Accès à vie");
   });

@@ -49,7 +49,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ETUDES, ETUDES_PAGE } from "../public/contenu";
 import { NosEtudes } from "../public/NosEtudes";
@@ -563,5 +563,35 @@ describe("la page des études lit ses prix au serveur", () => {
     }
     // Le collecteur de phrases descend dans les listes et les objets.
     expect(phrases({ a: "un", b: ["deux", { c: "trois", d: 4, e: null }] })).toEqual(["un", "deux", "trois"]);
+  });
+});
+
+describe("arrivée sur la carte d'une étude (parcours de l'accueil, menu)", () => {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+    vi.restoreAllMocks();
+  });
+
+  it("le catalogue reçu, la page défile jusqu'à la carte que l'adresse vise", async () => {
+    window.history.replaceState(null, "", "/etudes#carte-business-plan");
+    const defile = vi.fn();
+    Element.prototype.scrollIntoView = defile;
+    servir(lesLivrables(DU_SERVEUR));
+    render(<NosEtudes />);
+    await cartesChargees(4);
+
+    await waitFor(() => expect(defile).toHaveBeenCalledTimes(1));
+    expect(defile.mock.instances[0]).toBe(document.getElementById("carte-business-plan"));
+  });
+
+  it("contre-épreuve : une ancre qui n'est pas celle d'une carte ne fait pas défiler", async () => {
+    window.history.replaceState(null, "", "/etudes#comment-ca-marche");
+    const defile = vi.fn();
+    Element.prototype.scrollIntoView = defile;
+    servir(lesLivrables(DU_SERVEUR));
+    render(<NosEtudes />);
+    await cartesChargees(4);
+
+    expect(defile).not.toHaveBeenCalled();
   });
 });

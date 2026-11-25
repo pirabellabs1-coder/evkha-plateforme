@@ -1146,14 +1146,19 @@ export const PAGE_SWAPN = {
     surtitre: "Selon Swapn",
     titre: { avant: "Ce que propose", fin: "Swapn." },
     attribution: "Selon Swapn :",
+    /** Ce que la cliente demande de préciser (24/11/2026) : la place de Swapn
+     *  dans le parcours, juste après EVKHA. */
+    continuite:
+      "Swapn propose la création administrative de votre entreprise gratuitement (statuts, dépôt INPI, etc.), puis un comptable qui vous suit mois par mois. C'est la continuité d'EVKHA.",
     source:
       "Offre présentée par Swapn. Ses conditions, ses tarifs et ses délais sont ceux de Swapn, et non un engagement d'EVKHA.",
   },
   relation: {
     surtitre: "Mise en relation",
     titre: { avant: "Un message,", fin: "et Swapn vous contacte." },
+    /** Texte de la cliente du 24/11/2026. */
     corps:
-      "Écrivez-nous en indiquant votre nom. En envoyant ce message, vous demandez à EVKHA de transmettre votre nom et votre adresse e-mail à Swapn, qui vous recontactera.",
+      "Écrivez-nous en indiquant votre nom. En envoyant ce message, vous demandez à EVKHA de transmettre votre nom et votre adresse e-mail à son partenaire Swapn, qui connaîtra déjà votre projet et vous recontactera.",
     bouton: "Demander la mise en relation",
     objet: "Mise en relation avec Swapn",
   },

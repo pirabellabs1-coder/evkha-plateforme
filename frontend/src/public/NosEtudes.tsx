@@ -59,7 +59,7 @@
  * boutons aimantés sont coupés. Deux boutons de pause arrêtent le ruban
  * (WCAG 2.2.2).
  */
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { CONTACT_EMAIL, ETUDES, ETUDES_PAGE } from "./contenu";
 import {
@@ -82,6 +82,7 @@ import { ID_DU_CONTENU, TARIFS } from "./contenuSite";
 import {
   chargerLivrables,
   euros,
+  ancreDeLEtude,
   lienCommande,
   type LivrablePublic,
 } from "./donnees";
@@ -154,11 +155,9 @@ function fourchette(etudes: LivrablePublic[]): string | null {
     : `de ${euros(b.bas)} à ${euros(b.haut)}`;
 }
 
-/** L'identifiant d'une carte, cible de la barre d'ancres. Préfixé : un slug
- *  venu du serveur ne doit pas pouvoir prendre l'identifiant d'une section. */
-function ancreDe(slug: string): string {
-  return `carte-${slug}`;
-}
+/** L'identifiant d'une carte : écrit une fois, dans `donnees.ts`, que
+ *  l'accueil lit aussi pour y renvoyer. */
+const ancreDe = ancreDeLEtude;
 
 function numero(rang: number): string {
   return String(rang + 1).padStart(2, "0");
@@ -335,6 +334,21 @@ export function NosEtudes() {
   useDonneesStructurees(SERVICES_DES_ETUDES);
   // Les questions de la page, déclarées telles qu'elle les affiche.
   useQuestionsStructurees(page);
+
+  // Arrivé d'une autre page sur `/etudes#carte-<slug>` (le parcours de
+  // l'accueil, le menu) : la carte n'existe qu'une fois le catalogue reçu, et
+  // le navigateur a déjà renoncé à l'ancre. On y défile alors, UNE fois.
+  const ancreSuivie = useRef(false);
+  useEffect(() => {
+    if (livrables.etat !== "recu" || ancreSuivie.current) return;
+    ancreSuivie.current = true;
+    const ancre = decodeURIComponent(window.location.hash.slice(1));
+    if (!ancre.startsWith(ancreDeLEtude(""))) return;
+    const carte = document.getElementById(ancre);
+    if (!carte) return;
+    const reduit = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    carte.scrollIntoView({ block: "start", behavior: reduit ? "auto" : "smooth" });
+  }, [livrables.etat]);
 
   const p = ETUDES_PAGE;
   const etudes = livrables.etat === "recu" ? ordonnees(livrables.donnees) : [];

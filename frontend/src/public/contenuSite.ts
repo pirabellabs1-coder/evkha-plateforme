@@ -15,6 +15,7 @@
  * montant en euros ne figure dans ce fichier.
  */
 import { CONTACT_EMAIL } from "./contenu";
+import { ancreDeLEtude } from "./donnees";
 
 // ── Adresses ────────────────────────────────────────────────────────────────
 
@@ -128,18 +129,16 @@ export const RESEAUX_SOCIAUX = [
   },
 ] as const;
 
-/** L'adresse de la carte d'une étude, sur la page des études.
+/** L'adresse de la carte d'une étude, sur la page des études. L'ancre est
+ *  `donnees.ancreDeLEtude`, celle que `NosEtudes.tsx` pose sur chaque carte :
+ *  écrite une fois.
  *
- *  `NosEtudes.tsx` pose `id="carte-<slug>"` sur chaque carte (sa fonction
- *  `ancreDe`, qui n'est pas exportée) : le préfixe est donc écrit DEUX fois,
- *  là-bas et ici. Le test de l'en-tête verrouille que les slugs du menu sont
- *  ceux du parcours ; le préfixe, lui, n'est tenu que par cette phrase.
- *
- *  Les cartes ne sont montées qu'une fois le catalogue reçu : un visiteur qui
- *  arrive d'une autre page avant ce moment reste en haut de la page des
- *  études — au bon endroit, pas sur un lien mort. */
+ *  Les cartes ne sont montées qu'une fois le catalogue reçu : la page des
+ *  études défile alors jusqu'à la carte visée (`NosEtudes`, au premier
+ *  catalogue reçu). Sans catalogue, le visiteur reste en haut de la page — au
+ *  bon endroit, pas sur un lien mort. */
 export function carteDEtude(slug: string): string {
-  return `${LIENS.etudes}#carte-${slug}`;
+  return `${LIENS.etudes}#${ancreDeLEtude(slug)}`;
 }
 
 /** L'identifiant du contenu principal, visé par le lien d'évitement. Écrit une
@@ -215,7 +214,7 @@ export const NAVIGATION: Rubrique[] = [
     liens: [
       {
         libelle: "Étude de marché",
-        description: "Mon idée tient-elle ?",
+        description: "Mon idée est-elle faisable ?",
         lien: carteDEtude("etude-marche"),
       },
       {
@@ -303,7 +302,7 @@ export const NAVIGATION: Rubrique[] = [
         lien: CHEMINS.formationMicro,
       },
       {
-        libelle: "Méthode P.O.P",
+        libelle: "Méthode P.O.P IA",
         description: "Planifier, organiser, produire.",
         lien: CHEMINS.formationPop,
       },

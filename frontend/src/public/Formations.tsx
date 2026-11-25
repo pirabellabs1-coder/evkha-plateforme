@@ -100,7 +100,7 @@
  * Six retouches, toutes faites dans `contenuFormations.ts` (voir sa section
  * « ARTICULATION ») et non ici : « Attestation Qualiopi » rendue
  * « Attestation de fin de formation » ; les mentions d'outillage interne des
- * cartes de la micro-entreprise retirées ; « plus de 15 ans » d'expérience ;
+ * cartes de la micro-entreprise retirées ; « plus de 16 ans » d'expérience ;
  * la question de l'assistant IA réservée aux formations qui en annoncent un,
  * et sa parenthèse « (organisation et productivité) » à la seule Méthode
  * P.O.P ; le titre de la section d'avis du catalogue, qui dit que ces avis

@@ -422,6 +422,13 @@ export function lienCommande(slug: string): string {
   return `/inscription?livrable=${encodeURIComponent(slug)}`;
 }
 
+/** L'identifiant de la carte d'une étude sur la page des études : la cible
+ *  de sa barre d'ancres, et celle du parcours de l'accueil. Préfixé : un slug
+ *  venu du serveur ne doit pas pouvoir prendre l'identifiant d'une section. */
+export function ancreDeLEtude(slug: string): string {
+  return `carte-${slug}`;
+}
+
 /** Ouvre le paiement et rend l'adresse Stripe où envoyer la personne.
  *
  *  L'adresse e-mail est facultative : Stripe la collecte de toute façon sur sa

@@ -40,7 +40,7 @@ import { describe, expect, it } from "vitest";
 
 import { Accueil } from "../public/Accueil";
 import { ETUDES, ETUDES_PAGE } from "../public/contenu";
-import { AVIS, RELECTURE } from "../public/contenuAccueil";
+import { AVIS, PARCOURS, RELECTURE } from "../public/contenuAccueil";
 import { server } from "./server";
 
 // L'adresse que `donnees.ts` et `catalogue.ts` construisent réellement :
@@ -199,12 +199,13 @@ describe("l'accueil lit ses prix au serveur", () => {
     // La pastille en orbite porte le prix de SON livrable.
     expect(texte()).toContain("Étude de marché · 151 €");
 
-    // Chaque marche du parcours : son prix, et son lien de commande par slug.
+    // Chaque marche du parcours : son prix, et son lien vers la DESCRIPTION
+    // du document sur la page des études (cliente, 24/11/2026), par slug.
     const attendus: [RegExp, string, string][] = [
-      [/Mon idée tient-elle/, "151 €", "/inscription?livrable=etude-marche"],
-      [/Face à qui/, "93 €", "/inscription?livrable=etude-concurrence"],
-      [/Convaincre la banque/, "187 €", "/inscription?livrable=business-plan"],
-      [/Passer à l'action/, "203 €", "/inscription?livrable=strategie-business"],
+      [/Mon idée est-elle faisable/, "151 €", "/etudes#carte-etude-marche"],
+      [/Face à qui/, "93 €", "/etudes#carte-etude-concurrence"],
+      [/Convaincre la banque/, "187 €", "/etudes#carte-business-plan"],
+      [/Passer à l'action/, "203 €", "/etudes#carte-strategie-business"],
     ];
     for (const [question, prix, lien] of attendus) {
       const marche = screen.getByRole("link", { name: question });
@@ -230,7 +231,7 @@ describe("l'accueil lit ses prix au serveur", () => {
     expect(screen.getAllByText(/Tarif en cours de chargement/).length).toBeGreaterThan(0);
     expect(alerte()).toBeEmptyDOMElement();
     // Sans slug connu, une marche mène à la page des études, pas à un lien mort.
-    expect(screen.getByRole("link", { name: /Mon idée tient-elle/ })).toHaveAttribute("href", "/etudes");
+    expect(screen.getByRole("link", { name: /Mon idée est-elle faisable/ })).toHaveAttribute("href", "/etudes");
     // Les études prêtes attendent, sous forme de gabarits sans un chiffre.
     const pretes = document.querySelector("#etudes-pretes");
     expect(pretes).not.toBeNull();
@@ -324,14 +325,15 @@ describe("l'accueil lit ses prix au serveur", () => {
     expect(screen.getAllByText(/Indisponible pour le moment/).length).toBeGreaterThanOrEqual(8);
 
     // Les quatre cartes d'offre : le bouton n'est plus un lien.
-    for (const surtitre of ["Tout de suite", "Pour votre projet", "Vous accompagnez", "Réseaux et incubateurs"]) {
+    for (const surtitre of ["Immédiat", "Pour votre projet", "Vous accompagnez", "Réseaux et incubateurs"]) {
       const carte = carteDOffre(surtitre);
       expect(carte.querySelector(".acc-btn-inactif"), surtitre).toHaveAttribute("aria-disabled", "true");
       expect(carte.querySelector("a"), surtitre).toBeNull();
     }
     // Les quatre marches non plus.
-    expect(screen.queryByRole("link", { name: /Mon idée tient-elle/ })).toBeNull();
-    expect(screen.getByRole("heading", { level: 3, name: "Mon idée tient-elle ?" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: new RegExp(PARCOURS.marches[0].question.replace("?", "\\?")) })).toBeNull();
+    expect(screen.getByRole("heading", { name: PARCOURS.marches[0].question })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Mon idée est-elle faisable ?" })).toBeInTheDocument();
     // Une vitrine vide n'apprend rien : la section n'existe pas.
     expect(document.querySelector("#etudes-pretes")).toBeNull();
   });
@@ -348,7 +350,8 @@ describe("l'accueil lit ses prix au serveur", () => {
     await waitFor(() => expect(texte()).toContain("dès 77 €"));
     expect(texte()).not.toMatch(/(?<!\d)0 €/);
     // Le livrable à zéro n'est pas vendable : sa marche le dit, sans lien.
-    expect(screen.queryByRole("link", { name: /Mon idée tient-elle/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: new RegExp(PARCOURS.marches[0].question.replace("?", "\\?")) })).toBeNull();
+    expect(screen.getByRole("heading", { name: PARCOURS.marches[0].question })).toBeInTheDocument();
     expect(texte()).toContain("de 93 € à 203 €");
     // Et l'étude à zéro n'entre pas dans la vitrine.
     expect(screen.queryByText("Une étude offerte")).toBeNull();
@@ -366,8 +369,11 @@ describe("l'accueil lit ses prix au serveur", () => {
     const carte = carteDOffre("Réseaux et incubateurs");
     expect(texteDe(carte)).toContain("433 € par mois");
     expect(within(carte).getByRole("heading", { level: 3 })).toHaveTextContent("Structure Horizon");
-    expect(within(carte).getByText("Convention sur douze mois")).toBeInTheDocument();
-    expect(within(carte).getByText("Une référente nommée")).toBeInTheDocument();
+    expect(within(carte).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Plus de 9 crédits au choix",
+      "Convention sur douze mois",
+      "Une référente nommée",
+    ]);
     expect(within(carte).getByRole("link")).toHaveAttribute("href", "/partenaires");
     expect(texte()).not.toContain("999 €");
     expect(texte()).not.toContain("Tout illimité");
@@ -408,7 +414,7 @@ describe("l'accueil lit ses prix au serveur", () => {
     expect(within(pretes).getByRole("link", { name: /Voir toute la boutique/ })).toHaveAttribute("href", "/boutique");
     expect(pretes.querySelector(".acc-prete-gabarit")).toBeNull();
     // Le « dès » de la carte d'offre vient du MÊME appel : le moins cher des huit.
-    expect(texteDe(carteDOffre("Tout de suite"))).toContain("dès 71 €");
+    expect(texteDe(carteDOffre("Immédiat"))).toContain("dès 71 €");
   });
 
   // ── Ce qui ne dépend pas des prix ─────────────────────────────────────────
@@ -419,12 +425,12 @@ describe("l'accueil lit ses prix au serveur", () => {
     await waitFor(() => expect(alerte()).not.toBeEmptyDOMElement());
 
     // Le titre, lu une fois, avec le premier des mots qui tournent.
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Transformez votre idée.*en entreprise qui tient debout/);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Faites de votre idée.*une vraie entreprise/);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(document.title).toBe("Étude de marché, business plan, étude de concurrence — EVKHA");
 
     // Le parcours, dans l'ordre du projet.
-    const questions = ["Mon idée tient-elle ?", "Face à qui ?", "Convaincre la banque", "Passer à l'action"];
+    const questions = ["Mon idée est-elle faisable ?", "Face à qui ?", "Convaincre la banque", "Passer à l'action"];
     const marches = screen
       .getAllByRole("heading", { level: 3 })
       .map((titre) => titre.textContent)
@@ -437,7 +443,7 @@ describe("l'accueil lit ses prix au serveur", () => {
     expect(texte()).toContain("Les dix derniers avis laissés à Evangeline sur ComeUp");
     expect(texte()).not.toContain("après leur commande");
 
-    // Le second public, dès l'ouverture, et le contact à la place de la lettre.
+    // Le second public, sous « Ils me font confiance », et le contact à la place de la lettre.
     expect(screen.getByRole("link", { name: /EVKHA produit le dossier sous votre marque/ })).toHaveAttribute("href", "/partenaires");
     expect(document.querySelector("#contact a[href^='mailto:']")).toHaveAttribute("href", "mailto:contact@evkha.fr");
     expect(document.querySelector("form")).toBeNull();
@@ -445,6 +451,8 @@ describe("l'accueil lit ses prix au serveur", () => {
 
     // Les sections reprises du site, sans un prix : elles ne se vendent pas ici.
     for (const nom of ["LegalPlace", "Réseau Initiative France", "Swapn", "Yyyours"]) {
+      // Une fois : sous les références de la fondatrice (cliente, 24/11/2026),
+      // le logo est décoratif, son nom est écrit juste au-dessus.
       expect(screen.getByRole("img", { name: nom })).toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Voir les formations/ })).toHaveAttribute("href", "/formations");
@@ -452,7 +460,7 @@ describe("l'accueil lit ses prix au serveur", () => {
     expect(texte()).toContain("Ces offres se réservent sur evkha.fr.");
     expect(screen.getByRole("link", { name: /Lire l'article/ })).toHaveAttribute("href", "/blog/idee-business-viable");
     expect(screen.getByRole("link", { name: "LinkedIn" })).toHaveAttribute("rel", "noopener");
-    expect(screen.getByRole("link", { name: /Méthode P\.O\.P et accompagnement/ })).toHaveAttribute("href", "/formations");
+    expect(screen.getByRole("link", { name: /Méthode P\.O\.P IA et accompagnement/ })).toHaveAttribute("href", "/formations");
   });
 
   it("ce qui est écrit ailleurs n'est pas réécrit : chapitres, relecture, engagement", async () => {
@@ -471,8 +479,11 @@ describe("l'accueil lit ses prix au serveur", () => {
 
     // La relecture : les mots de la page des études, et aucune opposition.
     expect(ETUDES_PAGE.comparatif.pied.startsWith(RELECTURE)).toBe(true);
-    expect(texte()).toContain("relue avant envoi par Evangeline elle-même");
-    expect(texte()).not.toMatch(/fait à l'IA|à la chaîne|\bIA\b/);
+    expect(texte()).toContain("relecture systématique et un contrôle qualité avant envoi");
+    expect(texte()).not.toContain("relue avant envoi par Evangeline elle-même");
+    // « IA » n'apparaît que dans le nom de la méthode P.O.P IA (cliente,
+    // 24/11/2026) : jamais pour opposer la relecture à l'IA.
+    expect(texte().replace(/P\.O\.P IA/g, "")).not.toMatch(/fait à l'IA|à la chaîne|\bIA\b/);
 
     // L'engagement : la phrase de `espace/engagement.ts`.
     expect(texte()).toContain("Engagement minimum de trois mois, puis arrêt sur simple demande");

@@ -54,7 +54,7 @@ export const TITRES_PRO = {
   formules: enDeuxTemps(TITRE_DES_FORMULES, "zéro droit d'entrée"),
   pourQui: enDeuxTemps(POUR_QUI.titre, "QUI ?"),
   calcul: enDeuxTemps(CALCUL.titre, "est simple"),
-  fondatrice: enDeuxTemps(FONDATRICE.titre, "15 ans d'accompagnement"),
+  fondatrice: enDeuxTemps(FONDATRICE.titre, "16 ans d'accompagnement"),
   faq: enDeuxTemps(FAQ.titre, "le plus souvent"),
   appel: enDeuxTemps(APPEL_FINAL.titre, "la profondeur d'analyse d'un cabinet."),
 };
