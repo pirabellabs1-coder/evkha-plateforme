@@ -342,7 +342,7 @@ export const NAVIGATION: Rubrique[] = [
     liens: [
       {
         libelle: "Boîte à outils",
-        description: "Une checklist et un lexique à recevoir par e-mail.",
+        description: "Une checklist et un lexique à télécharger gratuitement.",
         lien: CHEMINS.boiteAOutils,
       },
       {

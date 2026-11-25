@@ -1371,8 +1371,13 @@ a.acc-prete:hover {
   font-size: 0.95rem;
 }
 
-.acc-outils .acc-outil-bouton {
+.acc-outils .acc-outil-bouton,
+.acc-outils .aud-form {
   margin-top: auto;
+}
+
+.acc-outils .aud-form {
+  width: 100%;
 }
 
 /* ── La méthode : un fil qui se dessine ──────────────────────────────────── */

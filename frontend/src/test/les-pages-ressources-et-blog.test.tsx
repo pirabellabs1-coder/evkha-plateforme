@@ -7,8 +7,10 @@
  * 1. chaque page se rend, à son adresse, avec un seul h1, des titres sans
  *    saut, un lien d'évitement qui vise le contenu, rien de focalisable sous
  *    `aria-hidden`, un titre d'onglet à elle ;
- * 2. AUCUN formulaire, aucun champ : la plateforme n'a pas de service pour les
- *    recevoir. Chaque formulaire du site est devenu un lien `mailto:` vers
+ * 2. aucun formulaire QUI N'ENVOIE RIEN : les seuls permis sont ceux de
+ *    l'audience (`FormulaireAudience`, servis par `audience` côté serveur) —
+ *    les deux documents de la boîte à outils et la lettre du blog, depuis le
+ *    25/11/2026. Le contact et Swapn restent un lien `mailto:` vers
  *    l'adresse de contact, avec un objet qui dit ce qui est demandé ;
  * 3. RIEN de ce que les pages disaient n'a disparu : chaque phrase relevée est
  *    dans le DOM — au VOUS : là où le relevé tutoie, c'est `texteAuVous` qui
@@ -27,11 +29,11 @@
  *    proche, sans prix ;
  * 9. aucun montant et aucune adresse du CDN de l'ancien site ne sont écrits
  *    dans les sources du lot — la classe du défaut (règle 4) ;
- * 10. AUCUN téléchargement promis : la plateforme envoie ses documents par
- *    courriel. Ce que le relevé écrit « Téléchargez… » ou « à télécharger »
- *    s'affiche « Recevez par e-mail… » et « à recevoir par e-mail » — sur la
- *    boîte à outils et dans l'encart de fin d'article, dont le bouton ouvre un
- *    courriel qui demande la checklist promise ;
+ * 10. un téléchargement n'est promis que s'il a lieu : sur la boîte à outils,
+ *    la checklist et le lexique se téléchargent (le relevé s'affiche tel
+ *    quel) ; l'encart de fin d'article, dont la plateforme n'a pas le
+ *    fichier, dit « à recevoir par e-mail » et son bouton ouvre un courriel
+ *    qui demande la checklist promise ;
  * 11. le filtre du blog s'écrit dans l'adresse, sans recharger ni empiler
  *    d'historique, et la région d'état annonce le thème avec le nombre.
  *
@@ -81,7 +83,6 @@ import {
   CONTACT,
   COORDONNEES,
   FORMULAIRES,
-  PAGE_BOITE_A_OUTILS,
   PAGE_CONTACT,
   PAGE_SWAPN,
   sansTelechargement,
@@ -252,9 +253,21 @@ async function avecUnSecondArticle(corps: () => void | Promise<void>) {
 }
 
 /** Les cinq pages du lot, plus la page « introuvable ». */
-const PAGES: { nom: string; chemin: string; rendre: () => unknown; montantAdmis?: boolean }[] = [
-  { nom: "boîte à outils", chemin: "/boite-a-outils", rendre: () => rendre(<BoiteAOutils />, "/boite-a-outils") },
-  { nom: "blog", chemin: "/blog", rendre: () => rendre(<Blog />, "/blog") },
+const PAGES: {
+  nom: string;
+  chemin: string;
+  rendre: () => unknown;
+  montantAdmis?: boolean;
+  /** Le nombre de formulaires de l'audience attendus. Absent : aucun. */
+  formulaires?: number;
+}[] = [
+  {
+    nom: "boîte à outils",
+    chemin: "/boite-a-outils",
+    rendre: () => rendre(<BoiteAOutils />, "/boite-a-outils"),
+    formulaires: 2,
+  },
+  { nom: "blog", chemin: "/blog", rendre: () => rendre(<Blog />, "/blog"), formulaires: 1 },
   { nom: "article", chemin: `/blog/${VIABLE.slug}`, rendre: () => rendreLArticle(VIABLE.slug) },
   { nom: "article introuvable", chemin: "/blog/nulle-part", rendre: () => rendreLArticle("nulle-part") },
   { nom: "contact", chemin: "/contact", rendre: () => rendre(<Contact />, "/contact") },
@@ -271,7 +284,7 @@ afterEach(() => {
 
 describe("les pages ressources et le blog se laissent conduire", () => {
   for (const page of PAGES) {
-    it(`${page.nom} : un seul h1, des titres sans saut, un lien d'évitement, aucun formulaire`, async () => {
+    it(`${page.nom} : un seul h1, des titres sans saut, un lien d'évitement, aucun formulaire muet`, async () => {
       await page.rendre();
 
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
@@ -291,15 +304,25 @@ describe("les pages ressources et le blog se laissent conduire", () => {
         `#${principal().id}`,
       );
 
-      // Aucun formulaire qui n'envoie rien : ni balise, ni champ.
-      expect(document.querySelectorAll("form, input, textarea, select")).toHaveLength(0);
+      // Aucun formulaire qui n'envoie rien : seuls ceux de l'audience, au
+      // nombre attendu, et aucun champ hors d'eux.
+      const formulaires = Array.from(document.querySelectorAll("form"));
+      expect(formulaires).toHaveLength(page.formulaires ?? 0);
+      for (const formulaire of formulaires) {
+        expect(formulaire.classList.contains("aud-form"), formulaire.className).toBe(true);
+      }
+      for (const champ of Array.from(document.querySelectorAll("input, textarea, select"))) {
+        expect(champ.closest("form.aud-form"), champ.outerHTML).not.toBeNull();
+      }
 
-      // Rien de focalisable sous `aria-hidden`.
+      // Rien d'atteignable au clavier sous `aria-hidden`. Seule exception : le
+      // champ piège des formulaires, hors du parcours (`tabindex="-1"`).
+      const atteignables = "a, button, input, select, textarea, summary, [tabindex]";
       for (const cache of Array.from(document.querySelectorAll("[aria-hidden='true']"))) {
-        expect(
-          cache.querySelector("a, button, input, select, textarea, summary, [tabindex]"),
-          cache.className,
-        ).toBeNull();
+        const dedans = Array.from(cache.querySelectorAll(atteignables)).filter(
+          (element) => !element.matches(".aud-piege input[name='site'][tabindex='-1']"),
+        );
+        expect(dedans, cache.className).toHaveLength(0);
       }
       // Chaque image dit ce qu'elle est, et réserve sa place.
       for (const image of Array.from(document.querySelectorAll("img"))) {
@@ -385,9 +408,8 @@ describe("la boîte à outils", () => {
     const tutoyes = blocs.filter((bloc) => bloc.texteAuVous !== undefined);
     expect(tutoyes.length).toBeGreaterThan(8);
     for (const bloc of blocs) {
-      // Au vous, et sans promesse de téléchargement : c'est par courriel que
-      // la page envoie ses documents.
-      const attendu = sansPromesse(bloc.texteAuVous ?? bloc.texte);
+      // Au vous ; le téléchargement promis est réel, la phrase reste la sienne.
+      const attendu = bloc.texteAuVous ?? bloc.texte;
       expect(page, `la page ne dit plus : « ${attendu} »`).toContain(espaces(attendu));
     }
     // Le tutoiement du relevé n'est plus affiché.
@@ -397,7 +419,7 @@ describe("la boîte à outils", () => {
 
     for (const phrase of [
       b.ouverture.titre,
-      sansPromesse(b.ouverture.corps),
+      b.ouverture.corps,
       b.decouvrir.titre,
       ...b.decouvrir.points,
       b.decouvrir.suite,
@@ -414,7 +436,7 @@ describe("la boîte à outils", () => {
     expect(document.title).toBe("Boîte à outils pour entrepreneurs : modèles, ressources, templates — EVKHA");
   });
 
-  it("ne promet aucun téléchargement : les documents se reçoivent par e-mail", () => {
+  it("promet un téléchargement et le tient : chaque document a son formulaire, aucun courriel", () => {
     const b = BOITE_A_OUTILS;
     // Règle 1 : le relevé promet bien des téléchargements — sinon ce test ne
     // verrouillerait rien.
@@ -427,32 +449,25 @@ describe("la boîte à outils", () => {
     expect(prometteurs.length).toBeGreaterThanOrEqual(5);
 
     rendre(<BoiteAOutils />, "/boite-a-outils");
-    // La CLASSE (règle 4) : plus aucune forme du mot dans le contenu.
-    expect(texte()).not.toMatch(TELECHARGEMENT);
-    // Chaque phrase qui le promettait est toujours là, retouchée — pas retirée.
+    // Chaque phrase qui le promet est affichée telle quelle : la page le fait.
     for (const phrase of prometteurs) {
-      const affichee = sansPromesse(phrase);
-      expect(affichee, phrase).not.toMatch(TELECHARGEMENT);
-      expect(affichee, phrase).toMatch(/par e-mail/);
-      expect(texte(), `la page ne dit plus : « ${affichee} »`).toContain(espaces(affichee));
+      expect(texte(), `la page ne dit plus : « ${phrase} »`).toContain(espaces(phrase));
     }
-    expect(texte()).toContain("des documents à recevoir par e-mail");
-    expect(texte()).toContain("Recevez par e-mail votre checklist gratuitement en PDF ci-dessous.");
-    expect(texte()).toContain("Recevez par e-mail votre lexique des termes entrepreneuriaux");
+    // Contre-épreuve : plus aucune retouche « par e-mail » sur cette page.
+    expect(texte()).not.toMatch(/à recevoir par e-mail|Recevez par e-mail/);
 
     // L'étiquette des deux documents dit comment on les obtient.
-    const etiquettes = Array.from(document.querySelectorAll("article.res-ressource-document .res-etiquette")).map(
-      texteDe,
-    );
-    expect(etiquettes).toEqual(["Document à recevoir par e-mail", "Document à recevoir par e-mail"]);
-    // Et le bouton fait ce que la page dit : il ouvre un courriel.
-    for (const bouton of Array.from(document.querySelectorAll("article.res-ressource-document a"))) {
-      expect(bouton.getAttribute("href")).toMatch(/^mailto:/);
+    const documents = Array.from(document.querySelectorAll("article.res-ressource-document"));
+    expect(documents).toHaveLength(2);
+    expect(documents.map((d) => texteDe(d.querySelector(".res-etiquette")))).toEqual([
+      "PDF à télécharger",
+      "PDF à télécharger",
+    ]);
+    // Et chacun porte un formulaire qui envoie, sans aucun lien `mailto:`.
+    for (const carte of documents) {
+      expect(carte.querySelectorAll("form.aud-form")).toHaveLength(1);
+      expect(carte.querySelector("a[href^='mailto:']")).toBeNull();
     }
-
-    // Le relevé, lui, n'est pas touché : la retouche est d'affichage.
-    expect(b.ouverture.corps).toContain("des documents à télécharger");
-    expect(FORMULAIRES.lexique.titre[0].texteAuVous).toBe("Téléchargez votre lexique des termes entrepreneuriaux");
 
     // Contre-épreuves : le détecteur voit toutes les formes, et la fonction du
     // site rend ce que ce test attend, sans toucher à ce qui est juste.
@@ -467,27 +482,27 @@ describe("la boîte à outils", () => {
     }
   });
 
-  it("trois ressources : deux documents demandés par courriel, un article lu sur le blog", () => {
+  it("trois ressources : deux documents à télécharger, un article lu sur le blog", () => {
     rendre(<BoiteAOutils />, "/boite-a-outils");
 
     const cartes = Array.from(document.querySelectorAll<HTMLElement>("article.res-ressource"));
     expect(cartes).toHaveLength(BOITE_A_OUTILS.ressources.length);
     expect(cartes).toHaveLength(3);
 
-    // Les deux documents : UN lien par carte, un courriel dont l'objet nomme
-    // la ressource — et pas la même pour les deux.
+    // Les deux documents : un formulaire chacun, au bouton RELEVÉ, et dont le
+    // nom accessible nomme la ressource — pas la même pour les deux.
     const [checklist, lexique, article] = cartes;
-    const lienChecklist = within(checklist).getAllByRole("link");
-    const lienLexique = within(lexique).getAllByRole("link");
-    expect(lienChecklist).toHaveLength(1);
-    expect(lienLexique).toHaveLength(1);
-    expect(lienChecklist[0]).toHaveTextContent(PAGE_BOITE_A_OUTILS.recevoir);
-    expect(lienLexique[0]).toHaveTextContent("Recevoir par e-mail");
-    expect(objetDuCourriel(lienChecklist[0])).toMatch(/checklist/i);
-    expect(objetDuCourriel(lienChecklist[0])).toContain("micro-entreprise");
-    expect(objetDuCourriel(lienLexique[0])).toMatch(/lexique/i);
-    // Deux boutons au même libellé : leur nom accessible les distingue.
-    expect(lienChecklist[0].textContent).not.toBe(lienLexique[0].textContent);
+    const formChecklist = within(checklist).getByRole("form");
+    const formLexique = within(lexique).getByRole("form");
+    expect(within(formChecklist).getByRole("button")).toHaveTextContent(FORMULAIRES.checklist.bouton);
+    expect(within(formLexique).getByRole("button")).toHaveTextContent("Je veux mon lexique");
+    expect(formChecklist.getAttribute("aria-label")).toMatch(/micro-entreprise/);
+    expect(formLexique.getAttribute("aria-label")).toMatch(/lexique/i);
+    expect(formChecklist.getAttribute("aria-label")).not.toBe(formLexique.getAttribute("aria-label"));
+    // La case de la lettre : celle du relevé, au vous, DÉCOCHÉE.
+    const case_ = within(formChecklist).getByRole("checkbox") as HTMLInputElement;
+    expect(case_.checked).toBe(false);
+    expect(formChecklist).toHaveTextContent(FORMULAIRES.checklist.consentement?.texte ?? "?");
 
     // L'article : vers le blog de la plateforme, pas vers l'ancien site.
     const lienArticle = within(article).getAllByRole("link");

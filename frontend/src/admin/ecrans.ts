@@ -13,6 +13,7 @@
  */
 export { CoquilleAdmin } from "./Coquille";
 export { Annonces } from "./pages/Annonces";
+export { AudienceAdmin } from "./pages/Audience";
 export { BoutiqueAdmin } from "./pages/BoutiqueAdmin";
 export { DemandesAdmin } from "./pages/Demandes";
 export { FormationsAdmin } from "./pages/Formations";

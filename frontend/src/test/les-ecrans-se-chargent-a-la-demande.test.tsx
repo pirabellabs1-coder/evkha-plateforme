@@ -172,10 +172,12 @@ function horsDeLEntree(fichier: string): boolean {
 }
 
 /** Les pages publiques que le fichier d'entrée a le droit d'importer : la page
- *  d'accueil et les trois pièces du socle qu'elle monte. */
+ *  d'accueil, les trois pièces du socle qu'elle monte, et le formulaire des
+ *  documents gratuits qu'elle porte (cliente, 24/11/2026). */
 const PAGES_DE_L_ENTREE = [
   "public/Accueil.tsx",
   "public/EnTeteSite.tsx",
+  "public/FormulaireAudience.tsx",
   "public/PiecesSite.tsx",
   "public/PiedSite.tsx",
 ];

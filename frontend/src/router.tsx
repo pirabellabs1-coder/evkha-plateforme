@@ -49,6 +49,7 @@ const QualiteAdmin = ecranDiffere(admin, "QualiteAdmin");
 const BoutiqueAdmin = ecranDiffere(admin, "BoutiqueAdmin");
 const FormationsAdmin = ecranDiffere(admin, "FormationsAdmin");
 const Annonces = ecranDiffere(admin, "Annonces");
+const AudienceAdmin = ecranDiffere(admin, "AudienceAdmin");
 const ProspectionAdmin = ecranDiffere(admin, "ProspectionAdmin");
 const TransactionsAdmin = ecranDiffere(admin, "TransactionsAdmin");
 const DemandesAdmin = ecranDiffere(admin, "DemandesAdmin");
@@ -309,6 +310,13 @@ const adminAnnonces = createRoute({
   getParentRoute: () => adminRoute,
   path: "annonces",
   component: Annonces,
+});
+
+// L'audience du site : les adresses des ressources gratuites et de la lettre.
+const adminAudience = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "audience",
+  component: AudienceAdmin,
 });
 
 const adminProspection = createRoute({
@@ -602,6 +610,7 @@ export const routeTree = rootRoute.addChildren([
     adminBoutique,
     adminFormations,
     adminAnnonces,
+    adminAudience,
     adminProspection,
     adminTransactions,
     adminLivrables,

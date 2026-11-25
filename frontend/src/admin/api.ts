@@ -546,6 +546,20 @@ export interface FeuilleDEmargement {
   }[];
 }
 
+/** Une adresse de l'audience du site (`dashboard.audience._vue`). */
+export interface ContactDeLAudience {
+  id: string;
+  email: string;
+  premiere_demande_le: string;
+  derniere_demande_le: string;
+  /** Les libellés, dans l'ordre de la première demande : « Checklist »,
+   *  « Lexique », « Lettre ». */
+  demandes: string[];
+  inscrit_a_la_lettre: boolean;
+  lettre_le: string | null;
+  desinscrit_le: string | null;
+}
+
 /** Un fichier reçu du serveur, prêt à être enregistré par le navigateur. */
 export interface FichierRecu {
   blob: Blob;
@@ -941,6 +955,23 @@ export const adminApi = {
       `/supervision/demandes/${demandeId}/traiter/`,
       corps,
     ),
+
+  // ── Audience du site ────────────────────────────────────────────────────
+  audience: () =>
+    get<{ contacts: ContactDeLAudience[]; total: number; inscrits_a_la_lettre: number }>(
+      "/audience/",
+    ),
+  /** `lettre` : les seuls inscrits à la lettre, le fichier à importer dans
+   *  l'outil d'envoi. Sans lui, toutes les adresses, téléchargeurs compris. */
+  exporterLAudience: (lettre = false) =>
+    lettre
+      ? telecharger("/audience.csv?lettre=1", "lettre-evkha-inscrits.csv")
+      : telecharger("/audience.csv", "audience-evkha.csv"),
+  desinscrireDeLaLettre: (contactId: string) =>
+    post<{ contact: ContactDeLAudience }>(`/audience/${contactId}/desinscrire/`, {}),
+  /** Efface un contact et ses demandes, à sa demande (RGPD). Irréversible. */
+  effacerUnContact: (contactId: string) =>
+    post<{ supprime: boolean }>(`/audience/${contactId}/supprimer/`, {}),
 
   // ── Signalements et assistance ──────────────────────────────────────────
   signalements: () =>

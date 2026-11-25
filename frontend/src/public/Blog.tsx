@@ -45,6 +45,13 @@
  * — jamais une page vide (règle 1). Elle demande aux moteurs de ne pas
  * l'indexer, le temps de son affichage.
  *
+ * ## Les porteurs et la lettre (cliente, 24/11/2026)
+ *
+ * La liste s'ouvre sur les porteurs de projet de « La Lettre des Porteurs » :
+ * les articles du thème « portraits », photo, nom et phrase en exergue, chacun
+ * un lien vers son portrait. Elle se ferme sur l'inscription à la lettre
+ * (`FormulaireLettre`), qui récolte les adresses (`audience` côté serveur).
+ *
  * ## Les passerelles
  *
  * Le blog est une porte d'entrée gratuite : chaque page se termine par UNE
@@ -73,6 +80,7 @@ import {
 } from "./contenuBlog";
 import type { ElementDArticle } from "./contenuRessources";
 import { CHEMINS } from "./contenuSite";
+import { FormulaireLettre } from "./FormulaireAudience";
 import { Bouton } from "./PiecesSite";
 import { CadreDePage, Passage, TitreDOuverture } from "./Ressources";
 import { useReveler } from "./reveler";
@@ -169,6 +177,46 @@ function CarteDArticle({ article, aLaUne }: { article: Article; aLaUne: boolean 
   );
 }
 
+/** Les porteurs de projet : les articles du thème « portraits », dans
+ *  l'ordre du blog. */
+const PORTEURS = ARTICLES.filter((article) => article.theme === "portraits");
+
+/** Une carte de porteur : sa photo, son nom, sa phrase. UN lien, porté par
+ *  le nom et étendu à la carte. */
+function CarteDePorteur({ article }: { article: Article }) {
+  const { image } = article;
+  return (
+    <li>
+      <article className="res-porteur" data-reveal="">
+        {image && (
+          <div className="res-porteur-image">
+            <img
+              className="res-porteur-photo"
+              src={image.src}
+              alt={image.alt}
+              width={image.largeur}
+              height={image.hauteur}
+              loading="lazy"
+              decoding="async"
+              style={cadrageDe(image)}
+            />
+          </div>
+        )}
+        <div className="res-porteur-corps">
+          <h3>
+            <a href={adresseDeLArticle(article.slug)}>{article.titre}</a>
+          </h3>
+          <p className="res-article-sous-titre">{article.sousTitre}</p>
+          <span className="res-porteur-lire" aria-hidden="true">
+            {BLOG.porteurs.lire}
+            <span className="res-porteur-fleche">→</span>
+          </span>
+        </div>
+      </article>
+    </li>
+  );
+}
+
 export function Blog() {
   const page = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<SlugDeTheme | null>(themeDeLAdresse);
@@ -200,6 +248,29 @@ export function Blog() {
           </p>
         </div>
       </div>
+
+      {/* ── Les porteurs de projet, à l'honneur ─────────────────────────── */}
+      {PORTEURS.length > 0 && (
+        <section className="acc-section acc-section-suite" aria-labelledby="res-porteurs-titre">
+          <div className="acc-w">
+            <div className="acc-intro" data-reveal="">
+              <div>
+                <span className="acc-tag">{BLOG.porteurs.surtitre}</span>
+                <h2 id="res-porteurs-titre">
+                  {BLOG.porteurs.titre.avant}{" "}
+                  <span className="acc-s">{BLOG.porteurs.titre.fin}</span>
+                </h2>
+              </div>
+              <p>{BLOG.porteurs.corps}</p>
+            </div>
+            <ul className="res-porteurs">
+              {PORTEURS.map((article) => (
+                <CarteDePorteur key={article.slug} article={article} />
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* ── Les articles, filtrés par thème ─────────────────────────────── */}
       <section className="acc-section acc-section-suite" aria-labelledby="res-articles-titre">
@@ -247,6 +318,23 @@ export function Blog() {
               ))}
             </ul>
           )}
+        </div>
+      </section>
+
+      {/* ── La lettre ───────────────────────────────────────────────────── */}
+      <section className="acc-section acc-section-suite" aria-labelledby="res-lettre-titre">
+        <div className="acc-w">
+          <div className="res-lettre" data-reveal="">
+            <div>
+              <span className="acc-tag">{BLOG.lettre.surtitre}</span>
+              <h2 id="res-lettre-titre" className="acc-titre-cote">
+                {BLOG.lettre.titre.avant}{" "}
+                <span className="acc-s">{BLOG.lettre.titre.fin}</span>
+              </h2>
+              <p>{BLOG.lettre.corps}</p>
+            </div>
+            <FormulaireLettre bouton={BLOG.lettre.bouton} mention={BLOG.lettre.mention} />
+          </div>
         </div>
       </section>
 

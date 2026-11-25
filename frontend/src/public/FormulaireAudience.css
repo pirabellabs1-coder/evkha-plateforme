@@ -1,0 +1,136 @@
+/* Les formulaires de l'audience (`FormulaireAudience.tsx`) : une ressource
+   contre une adresse, l'inscription à la lettre. Les jetons sont ceux de
+   la charte (`--evkha-*`, que le socle `Site.css` renomme `--acc-*`) ; le bouton est celui du socle. */
+
+.aud-form {
+  display: grid;
+  gap: 10px;
+  max-width: 460px;
+  margin-top: 14px;
+}
+
+.aud-libelle {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--evkha-encre);
+}
+
+.aud-champ {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 999px;
+  background: var(--evkha-blanc);
+  color: var(--evkha-encre);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.aud-champ::placeholder {
+  color: var(--evkha-gris);
+  opacity: 0.8;
+}
+
+.aud-champ:focus-visible {
+  outline: 3px solid var(--evkha-or);
+  outline-offset: 2px;
+  border-color: var(--evkha-encre);
+}
+
+.aud-champ[aria-invalid="true"] {
+  border-color: var(--evkha-corail);
+}
+
+.aud-case {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--texte-tenu);
+  cursor: pointer;
+}
+
+.aud-case input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--evkha-encre);
+}
+
+.aud-bouton {
+  justify-self: start;
+}
+
+.aud-bouton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Le texte d'erreur : le rouge des messages d'erreur (contraste AA sur le
+   blanc comme sur le voile doré). Le corail reste à la bordure. */
+.aud-form .aud-refus {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--portail-erreur-texte);
+}
+
+/* Le cadre sans habillage qui désactive le formulaire de la page écrite. */
+.aud-cadre {
+  display: contents;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.aud-form .aud-statut {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--evkha-encre);
+}
+
+/* Pas de `display: none` quand elle est vide : une région d'état masquée
+   n'annonce pas toujours ce qui y apparaît. */
+
+.aud-statut a,
+.aud-mention a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.aud-form .aud-mention {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--evkha-gris);
+}
+
+/* La lettre : le champ et le bouton côte à côte dès qu'il y a la place. Le
+   cadre (`.aud-cadre`) s'efface de la grille : ses enfants s'y placent. */
+@media (min-width: 640px) {
+  .aud-form-ligne {
+    grid-template-columns: 1fr auto;
+    max-width: 560px;
+  }
+  .aud-form-ligne > :not(.aud-cadre),
+  .aud-form-ligne .aud-libelle {
+    grid-column: 1 / -1;
+  }
+  .aud-form-ligne .aud-bouton {
+    align-self: stretch;
+  }
+}
+
+/* Le piège à robots : hors de l'écran, pas `display: none` (que certains
+   robots savent sauter). */
+.aud-piege {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

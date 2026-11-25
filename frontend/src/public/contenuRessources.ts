@@ -36,6 +36,7 @@
  *  des champs nommés `propose`, jamais mêlées au texte relevé.
  */
 import { CONTACT_EMAIL } from "./contenu";
+import { RELEVES_DES_DOCUMENTS } from "./contenuAudience";
 import { CHEMINS, LIENS, RESEAUX_SOCIAUX } from "./contenuSite";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -271,11 +272,9 @@ export const FORMULAIRES: Record<
       { texte: "“Créer sa micro-entreprise en 10 étapes”" },
     ],
     champs: [],
-    consentement: {
-      texte: "Oui, je souhaite recevoir les nouveautés et informations EVKHA",
-    },
+    consentement: { texte: RELEVES_DES_DOCUMENTS.checklist.consentement },
     bouton: "Je la veux",
-    mention: "Votre email ne sera jamais partagé",
+    mention: RELEVES_DES_DOCUMENTS.checklist.mention,
     declenche:
       "Envoyer par e-mail, à l'adresse saisie, la checklist PDF « Créer sa micro-entreprise en 10 étapes ». Si la case est cochée, inscrire l'adresse aux nouveautés et informations EVKHA. Le fichier PDF lui-même n'est pas dans le relevé : il est à récupérer auprès de la cliente.",
     propose: {
@@ -294,11 +293,9 @@ export const FORMULAIRES: Record<
       },
     ],
     champs: [],
-    consentement: {
-      texte: "Oui, j'accepte d'être informé(e) sur les nouveautés EVKHA",
-    },
+    consentement: { texte: RELEVES_DES_DOCUMENTS.lexique.consentement },
     bouton: "Je veux mon lexique",
-    mention: "Votre email ne sera jamais partagé",
+    mention: RELEVES_DES_DOCUMENTS.lexique.mention,
     declenche:
       "Envoyer par e-mail, à l'adresse saisie, le lexique EVKHA des termes de l'entrepreneuriat (PDF). Si la case est cochée, inscrire l'adresse aux nouveautés EVKHA. Le fichier PDF n'est pas dans le relevé : il est à récupérer auprès de la cliente.",
     propose: {
@@ -394,7 +391,7 @@ export const FORMULAIRES: Record<
     bouton: "JE M'ABONNE",
     mention: "Je HAIS le spam. Votre email ne sera jamais partagé",
     declenche:
-      "Inscrire l'adresse saisie à la lettre d'information « Business Tips ». Aucun service ne reçoit d'inscription sur la plateforme aujourd'hui.",
+      "Inscrire l'adresse saisie à la lettre d'information « Business Tips ». Branché depuis le 25/11/2026 : `POST /api/public/lettre/` (`FormulaireLettre`, sur le blog).",
     propose: {
       champs: [CHAMP_COURRIEL],
       remarque:
@@ -980,21 +977,19 @@ export const ROUTES_RESSOURCES = {
   partenaires: CHEMINS.partenaires,
 } as const;
 
-/** RETOUCHE D'AFFICHAGE : un document ne se télécharge pas sur la plateforme.
+/** RETOUCHE D'AFFICHAGE : un document qui ne se télécharge pas.
  *
- *  Le site de la cliente délivrait la checklist et le lexique par un
- *  formulaire ; la plateforme n'a ni formulaire ni fichier à servir, et le
- *  visiteur les DEMANDE par courriel (`courrielAvecObjet`). Une page qui
- *  écrit « Téléchargez… » au-dessus d'un bouton qui ouvre un courriel promet
- *  ce qu'elle ne fait pas.
+ *  Depuis le 25/11/2026, la checklist et le lexique de la boîte à outils se
+ *  téléchargent (`FormulaireAudience`) et ne passent plus par ici. Reste le
+ *  bonus de fin d'article (« Ai-je une idée de business viable ? »), dont la
+ *  plateforme n'a pas le fichier : le visiteur le DEMANDE par courriel
+ *  (`courrielAvecObjet`), et une page qui écrit « Téléchargez… » au-dessus
+ *  d'un bouton qui ouvre un courriel promet ce qu'elle ne fait pas.
  *
  *  À l'affichage, donc : « à télécharger » devient « à recevoir par e-mail »
  *  et « Téléchargez » « Recevez par e-mail ». Le texte RELEVÉ, plus haut,
- *  n'est pas touché — le jour où les fichiers sont servis, il suffit de ne
- *  plus passer par cette fonction. Elle vise la CLASSE (règle 4) : tout texte
- *  qui passe par elle, pas trois phrases désignées ; le test du lot verrouille
- *  qu'aucun « télécharg… » ne reste affiché sur la boîte à outils ni dans
- *  l'encart de fin d'article. */
+ *  n'est pas touché. Elle vise la CLASSE (règle 4) : tout texte qui passe par
+ *  elle, pas trois phrases désignées. */
 export function sansTelechargement(texte: string): string {
   return texte
     .replace(/à télécharger/g, "à recevoir par e-mail")
@@ -1023,16 +1018,10 @@ export const PAGE_BOITE_A_OUTILS = {
   surtitreDesRessources: "En libre accès",
   titreDesRessources: enDeuxTemps(BOITE_A_OUTILS.titreDesRessources, "& Vos Outils"),
   /** L'étiquette de chaque carte, selon `Ressource.nature`. */
-  natures: { document: "Document à recevoir par e-mail", article: "Article du blog" },
-  /** Le bouton des deux documents : un courriel à EVKHA, qui répond avec le
-   *  fichier. */
+  natures: { document: "PDF à télécharger", article: "Article du blog" },
+  /** Le bouton du bonus de fin d'article, dont la plateforme n'a pas le
+   *  fichier : un courriel à EVKHA, qui répond avec le document. */
   recevoir: "Recevoir par e-mail",
-  /** L'objet prérempli du courriel, qui nomme la ressource demandée. */
-  objets: {
-    checklist:
-      "Je souhaite recevoir la checklist « Créer sa micro-entreprise en 10 étapes »",
-    lexique: "Je souhaite recevoir le lexique EVKHA des termes entrepreneuriaux",
-  },
   passerelle: {
     titre: { avant: "Des outils pour démarrer,", fin: "une formation pour avancer." },
     corps:

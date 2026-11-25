@@ -5,6 +5,7 @@ from django.urls import path
 from . import (
     actions,
     annonces,
+    audience,
     boutique,
     formations,
     prospection,
@@ -19,6 +20,19 @@ app_name = "dashboard"
 
 urlpatterns = [
     path("overview/", views.overview, name="overview"),
+    # L'audience du site : ressources gratuites et lettre (24/11/2026).
+    path("audience/", audience.liste, name="audience"),
+    path("audience.csv", audience.liste_csv, name="audience-csv"),
+    path(
+        "audience/<str:contact_id>/desinscrire/",
+        audience.desinscrire,
+        name="audience-desinscrire",
+    ),
+    path(
+        "audience/<str:contact_id>/supprimer/",
+        audience.supprimer,
+        name="audience-supprimer",
+    ),
     # Rapport interne de qualité : ce que la production a corrigé (29/09/2026).
     path("qualite/", qualite.rapport_qualite, name="rapport-qualite"),
     # Jobs

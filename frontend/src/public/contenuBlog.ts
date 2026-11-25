@@ -293,10 +293,10 @@ export const ARTICLES: Article[] = [
     // Le texte de l'appel est celui de l'article. Il promet une checklist
     // « Ai-je une idée de business viable ? » et renvoyait vers la boîte à
     // outils — qui ne la propose pas (elle n'a que la checklist de la
-    // micro-entreprise et le lexique). Le bouton ouvre donc un courriel qui
-    // la DEMANDE, comme les deux documents de la boîte à outils, et le titre
-    // ne promet plus un téléchargement (retouche d'affichage : le relevé
-    // garde sa formulation).
+    // micro-entreprise et le lexique, qui se téléchargent). La plateforme n'a
+    // pas le fichier de celle-ci : le bouton ouvre donc un courriel qui la
+    // DEMANDE, et le titre ne promet plus un téléchargement (retouche
+    // d'affichage : le relevé garde sa formulation).
     appel: {
       titre: sansTelechargement(VIABLE.appel.titre),
       document: VIABLE.appel.document,
@@ -361,6 +361,28 @@ export const BLOG = {
   lire: "Lire l'article",
   /** L'espace insécable tient le nombre et son unité sur la même ligne. */
   lecture: (minutes: number) => `${minutes}\u00a0min de lecture`,
+  /** Les porteurs de projet mis en avant, en tête du blog (demande de la
+   *  cliente du 24/11/2026). Les cartes sont les articles du thème
+   *  « portraits » : rien n'est recopié ici. La formule « que j'accompagne ou
+   *  avec qui je travaille » est celle des lettres (`contenuPortraits`). */
+  porteurs: {
+    surtitre: "La Lettre des Porteurs",
+    titre: { avant: "Les porteurs de projet", fin: "à l'honneur." },
+    corps:
+      "Dans La Lettre des Porteurs, je présente des entrepreneurs que j'accompagne ou avec qui je travaille : leur projet, leurs difficultés, ce qui les a fait avancer.",
+    lire: "Lire son portrait",
+  },
+  /** L'inscription à la lettre (`FormulaireLettre`), avant la passerelle. La
+   *  mention reprend celle du site (« Je HAIS le spam »), en écriture
+   *  courante. */
+  lettre: {
+    surtitre: "La lettre d'EVKHA",
+    titre: { avant: "Les prochains portraits,", fin: "dans votre boîte mail." },
+    corps:
+      "Les portraits des porteurs de projet, des conseils concrets et les nouveautés EVKHA. Gratuit, et vous vous désinscrivez quand vous voulez.",
+    bouton: "Je m'abonne",
+    mention: "Je déteste le spam : votre adresse ne sera jamais partagée.",
+  },
   passerelle: {
     titre: { avant: "De la lecture", fin: "à votre projet." },
     corps:

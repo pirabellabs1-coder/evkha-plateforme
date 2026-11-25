@@ -1,0 +1,13 @@
+/* L'écran « Audience » (`Audience.tsx`) : deux boutons d'export côte à
+   côte, deux gestes par ligne. Le reste vient de la console. */
+
+.aud-exports,
+.aud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-2);
+}
+
+.aud-actions {
+  justify-content: flex-end;
+}

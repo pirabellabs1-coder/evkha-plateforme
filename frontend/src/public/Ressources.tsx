@@ -11,21 +11,17 @@
  * la nouvelle forme AJOUTE (`PAGE_BOITE_A_OUTILS`, `PAGE_CONTACT`,
  * `PAGE_SWAPN`). Rien n'est écrit dans ce fichier (règle 5).
  *
- * ## Aucun formulaire
+ * ## Les formulaires
  *
  * Le site en portait quatre sur ces pages (checklist, lexique, contact, mise
- * en relation). La plateforme n'a pas de service pour recevoir un message ni
- * envoyer un document, et un formulaire qui n'envoie rien est interdit. Chaque
- * formulaire est remplacé par le moyen qui marche : un lien `mailto:` vers
- * l'adresse de contact, objet prérempli (`courrielAvecObjet`), et le lien de
- * rendez-vous.
+ * en relation). Depuis le 25/11/2026 (demande de la cliente du 24/11), les
+ * deux documents de la boîte à outils se TÉLÉCHARGENT aussitôt contre une
+ * adresse e-mail (`FormulaireAudience`, servi par `audience` côté serveur) :
+ * le texte relevé, « Téléchargez… », dit donc vrai et s'affiche tel quel.
  *
- * Et aucun téléchargement : les deux documents de la boîte à outils se
- * DEMANDENT par courriel. Le texte relevé dit « Téléchargez… » et « à
- * télécharger » ; la boîte à outils l'affiche donc par `dire`, qui passe au
- * vous ET remplace la promesse de téléchargement par ce que la page fait —
- * « à recevoir par e-mail » (`contenuRessources.sansTelechargement`, retouche
- * d'affichage : le relevé n'est pas touché).
+ * Le contact et la mise en relation restent un lien `mailto:` vers l'adresse
+ * de contact, objet prérempli (`courrielAvecObjet`), et le lien de
+ * rendez-vous : aucun service ne reçoit encore de message.
  *
  * ## Ces pages sont des portes d'entrée gratuites
  *
@@ -37,8 +33,8 @@
  * ## Rien ne boucle
  *
  * Ces pages n'ont ni ruban ni mouvement en boucle : elles ne portent donc pas
- * de bouton de pause. Elles ne chargent rien non plus — pas de région
- * d'alerte, qui n'aurait jamais rien à annoncer. L'apparition des blocs au
+ * de bouton de pause. Seuls les formulaires de la boîte à outils ont une
+ * région d'état et d'alerte, la leur. L'apparition des blocs au
  * défilement suit la politique du socle : sous mouvement réduit, un fondu
  * seul (`Site.css`).
  */
@@ -55,14 +51,15 @@ import {
   PAGE_BOITE_A_OUTILS,
   PAGE_CONTACT,
   PAGE_SWAPN,
-  sansTelechargement,
   SWAPN,
   type Passerelle,
   type Ressource,
   type Texte,
 } from "./contenuRessources";
+import { texteDuFormulaire } from "./contenuAudience";
 import { ID_DU_CONTENU } from "./contenuSite";
 import { EnTeteSite } from "./EnTeteSite";
+import { FormulaireRessource } from "./FormulaireAudience";
 import { Bouton } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
 import { useReveler } from "./reveler";
@@ -151,17 +148,17 @@ function enDeux(point: string): { avant: string; suite: string } {
 
 // ── La boîte à outils ───────────────────────────────────────────────────────
 
-/** Ce que la boîte à outils AFFICHE d'un bloc relevé : au vous, et sans
- *  promesse de téléchargement — la page envoie par courriel. */
+/** Ce que la boîte à outils AFFICHE d'un bloc relevé : au vous. Le
+ *  téléchargement promis par le relevé est réel (`FormulaireRessource`). */
 function dire(bloc: Texte): string {
-  return sansTelechargement(auVous(bloc));
+  return auVous(bloc);
 }
 
 /** Une ressource : à gauche ce qu'elle est, à droite ce qu'elle apporte, et
  *  SOUS le texte le moyen de l'obtenir — le texte relevé dit « ci-dessous ».
  *
- *  Un document se demande par courriel : la plateforme ne sait pas l'envoyer,
- *  EVKHA répond avec le fichier. L'article se lit sur le blog. */
+ *  Un document se télécharge contre une adresse e-mail ; l'article se lit sur
+ *  le blog. */
 function CarteDeRessource({ ressource, rang }: { ressource: Ressource; rang: number }) {
   const a = PAGE_BOITE_A_OUTILS;
   const titre = `res-ressource-${rang + 1}`;
@@ -198,18 +195,7 @@ function CarteDeRessource({ ressource, rang }: { ressource: Ressource; rang: num
                     <span key={ligne.texte}>{dire(ligne)} </span>
                   ))}
                 </p>
-                <Bouton
-                  lien={courrielAvecObjet(a.objets[ressource.formulaire])}
-                  aspect="noir"
-                  className="res-bouton-souple"
-                >
-                  <span>
-                    {a.recevoir}
-                    {/* Deux boutons au même libellé sur la page : le nom de
-                        la ressource les distingue pour un lecteur d'écran. */}
-                    <span className="res-invisible"> : {nom}</span>
-                  </span>
-                </Bouton>
+                <FormulaireDeLaCarte formulaire={ressource.formulaire} nom={nom} />
               </>
             )}
             {ressource.nature === "article" && ressource.bouton && (
@@ -228,6 +214,27 @@ function CarteDeRessource({ ressource, rang }: { ressource: Ressource; rang: num
   );
 }
 
+/** Le formulaire d'un document : bouton, case et mention RELEVÉS, au vous
+ *  (`contenuAudience.texteDuFormulaire`, que l'accueil lit aussi). */
+function FormulaireDeLaCarte({
+  formulaire,
+  nom,
+}: {
+  formulaire: "checklist" | "lexique";
+  nom: string;
+}) {
+  const { consentement, mention } = texteDuFormulaire(formulaire);
+  return (
+    <FormulaireRessource
+      ressource={formulaire}
+      nom={nom}
+      bouton={FORMULAIRES[formulaire].bouton}
+      consentement={consentement}
+      mention={mention}
+    />
+  );
+}
+
 export function BoiteAOutils() {
   const page = useRef<HTMLDivElement>(null);
   const b = BOITE_A_OUTILS;
@@ -235,9 +242,9 @@ export function BoiteAOutils() {
 
   useReveler(page, undefined, { memeEnMouvementReduit: true });
   useAimants(page);
-  // L'ouverture relevée annonce « des documents à télécharger » : affichée,
-  // elle dit ce que la page fait.
-  const chapeau = sansTelechargement(b.ouverture.corps);
+  // L'ouverture relevée annonce « des documents à télécharger » : c'est ce
+  // que la page fait.
+  const chapeau = b.ouverture.corps;
 
   useTitreDePage(
     titreDOnglet(b.entete.titreOnglet ? dire(b.entete.titreOnglet) : b.ouverture.titre),

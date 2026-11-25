@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from django.urls import path
 
+from audience import vues_publiques as vues_audience
+
 from . import pages_boutique, vues_boutique, vues_formations
 from . import vues_publiques as vues
 
@@ -15,6 +17,9 @@ app_name = "public"
 
 urlpatterns = [
     path("formules/", vues.formules_publiques, name="formules"),
+    # Les ressources gratuites contre une adresse, et la lettre (24/11/2026).
+    path("ressources/", vues_audience.ressource, name="ressources"),
+    path("lettre/", vues_audience.lettre, name="lettre"),
     # La boutique : catalogue des etudes deja redigees, vendues telles
     # quelles. Aucun compte n'est requis pour la consulter.
     path("boutique/", vues_boutique.catalogue, name="boutique"),

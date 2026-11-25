@@ -133,7 +133,7 @@ known-first-party = [
   "catalog", "core", "customers", "dashboard",
   "delivery", "documents", "evkha", "generation",
   "intake", "integrations", "monitoring", "orders",
-  "organisations",
+  "organisations", "audience",
 ]
 
 [tool.mypy]

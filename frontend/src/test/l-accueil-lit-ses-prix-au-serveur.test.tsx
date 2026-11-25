@@ -446,7 +446,14 @@ describe("l'accueil lit ses prix au serveur", () => {
     // Le second public, sous « Ils me font confiance », et le contact à la place de la lettre.
     expect(screen.getByRole("link", { name: /EVKHA produit le dossier sous votre marque/ })).toHaveAttribute("href", "/partenaires");
     expect(document.querySelector("#contact a[href^='mailto:']")).toHaveAttribute("href", "mailto:contact@evkha.fr");
-    expect(document.querySelector("form")).toBeNull();
+    // Les seuls formulaires : les deux documents gratuits de la boîte à
+    // outils, qui envoient (cliente, 24/11/2026 — `FormulaireAudience`).
+    const formulaires = Array.from(document.querySelectorAll("form"));
+    expect(formulaires).toHaveLength(2);
+    for (const formulaire of formulaires) {
+      expect(formulaire.classList.contains("aud-form")).toBe(true);
+      expect(formulaire.closest("#outils")).not.toBeNull();
+    }
     expect(texte()).not.toContain("Pôle Emploi");
 
     // Les sections reprises du site, sans un prix : elles ne se vendent pas ici.

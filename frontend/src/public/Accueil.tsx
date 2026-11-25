@@ -28,8 +28,9 @@
  * La structure et les interactions sont celles de
  * `maquette-evkha/accueil.html`. Son script est porté en crochets, chacun
  * défaisant ce qu'il a branché. Les textes et les offres suivent la stratégie
- * commerciale : voir `contenuAccueil.ts`. La lettre d'information a disparu —
- * aucun service ne la reçoit.
+ * commerciale : voir `contenuAccueil.ts`. La lettre d'information se prend
+ * sur le blog ; ici, les deux documents gratuits se téléchargent contre une
+ * adresse (`FormulaireAudience`).
  *
  * ## Le socle partagé avec la page des études
  *
@@ -88,6 +89,8 @@ import {
   type LivrablePublic,
 } from "./donnees";
 import { EnTeteSite } from "./EnTeteSite";
+import { texteDuFormulaire } from "./contenuAudience";
+import { FormulaireRessource } from "./FormulaireAudience";
 import { Bouton, BoutonPause } from "./PiecesSite";
 import { PiedSite } from "./PiedSite";
 import { useReveler } from "./reveler";
@@ -1371,14 +1374,23 @@ export function Accueil() {
                   <span className="acc-outil-etiquette">{OUTILS.etiquette}</span>
                   <h3>{ressource.titre}</h3>
                   <p>{ressource.corps}</p>
-                  <Bouton
-                    lien={ressource.lien}
-                    aspect="clair"
-                    externe
-                    className="acc-outil-bouton"
-                  >
-                    {ressource.bouton}
-                  </Bouton>
+                  {ressource.formulaire ? (
+                    <FormulaireRessource
+                      ressource={ressource.formulaire}
+                      nom={ressource.titre}
+                      bouton={ressource.bouton}
+                      {...texteDuFormulaire(ressource.formulaire)}
+                    />
+                  ) : (
+                    <Bouton
+                      lien={ressource.lien}
+                      aspect="clair"
+                      externe
+                      className="acc-outil-bouton"
+                    >
+                      {ressource.bouton}
+                    </Bouton>
+                  )}
                 </li>
               ))}
             </ul>

@@ -32,12 +32,12 @@ import type { SourceDArticle } from "./contenuBlog";
 import type { Passerelle } from "./contenuRessources";
 import { CHEMINS } from "./contenuSite";
 
-/** L'appel de fin de guide : la boîte à outils, qui propose réellement une
- *  checklist et un lexique à recevoir par e-mail (`contenuSite.NAVIGATION`). */
+/** L'appel de fin de guide : la boîte à outils, où la checklist et le
+ *  lexique se téléchargent contre une adresse (`FormulaireAudience`). */
 const APPEL: SourceDArticle["appel"] = {
   titre: "Deux documents gratuits pour préparer votre création",
   document: "La boîte à outils EVKHA",
-  corps: "Une checklist et un lexique à recevoir par e-mail.",
+  corps: "Une checklist et un lexique à télécharger gratuitement.",
   bouton: { libelle: "Ouvrir la boîte à outils", lien: CHEMINS.boiteAOutils },
 };
 

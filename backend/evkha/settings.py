@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     "monitoring",
     "dashboard",
     "prospection",
+    "audience",
 ]
 
 MIDDLEWARE = [

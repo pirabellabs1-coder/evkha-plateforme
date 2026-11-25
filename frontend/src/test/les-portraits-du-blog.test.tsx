@@ -391,7 +391,8 @@ describe("les portraits du blog", () => {
       expect(passerelles).toHaveLength(1);
       expect(within(passerelles[0] as HTMLElement).getByRole("link")).toHaveAttribute("href", CHEMINS.etudes);
       expect(page).not.toMatch(MONTANT_ECRIT);
-      // Aucun formulaire : la lettre n'en veut pas, la plateforme n'en a pas.
+      // Aucun formulaire dans un portrait : la lettre n'en veut pas (« Pas de
+      // formulaire compliqué ») ; l'inscription est sur la liste du blog.
       expect(document.querySelectorAll("form, input, textarea, select")).toHaveLength(0);
     });
 

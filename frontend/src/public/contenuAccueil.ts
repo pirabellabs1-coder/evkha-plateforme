@@ -835,27 +835,33 @@ export const AVIS = {
 // ── Boîte à outils ──────────────────────────────────────────────────────────
 
 /** Trois ressources gratuites du site de la cliente. Les deux premières se
- *  demandent depuis sa page « Boîte à outils » (elle les envoie par e-mail),
- *  la troisième est un article. Le site tutoie ; ici on vouvoie. */
+ *  TÉLÉCHARGENT ici même contre une adresse e-mail (demande de la cliente du
+ *  24/11/2026 : téléchargement immédiat, qui récolte les adresses —
+ *  `FormulaireAudience`) ; la troisième est un article. Le site tutoie ; ici
+ *  on vouvoie. */
 export const OUTILS = {
   surtitre: "Boîte à outils",
   titre: { avant: "Trois ressources,", fin: "pour commencer." },
   corps:
-    "Des documents gratuits pour préparer votre projet, avant de vous engager.",
+    "Des documents gratuits pour préparer votre projet, à télécharger tout de suite.",
   etiquette: "Gratuit",
+  // La case de la lettre et la mention de chaque document sont celles de la
+  // boîte à outils (`contenuAudience.texteDuFormulaire`).
   ressources: [
     {
       titre: "Checklist : créer sa micro-entreprise en 10 étapes",
       corps:
         "Dix étapes clés, avec des actions concrètes à cocher, pour vous lancer sans rien oublier.",
-      bouton: "Voir la checklist",
+      formulaire: "checklist" as const,
+      bouton: "Télécharger la checklist",
       lien: LIENS.outils,
     },
     {
       titre: "Le lexique EVKHA de l'entrepreneuriat",
       corps:
         "Des définitions claires et des exemples concrets, pour comprendre les mots de la création d'entreprise avant de signer.",
-      bouton: "Voir le lexique",
+      formulaire: "lexique" as const,
+      bouton: "Télécharger le lexique",
       lien: LIENS.outils,
     },
     {
@@ -909,8 +915,8 @@ export const FIN = {
   corps:
     "Un premier appel gratuit pour parler de votre projet, de vos chiffres et de la suite.",
   bouton: { libelle: "Réserver un appel gratuit", lien: LIENS.appel },
-  /** À la place de la lettre d'information de la maquette : aucun service ne
-   *  reçoit d'inscription, et un formulaire qui n'envoie rien est interdit. */
+  /** À la place de la lettre d'information de la maquette, une question
+   *  ouverte : la lettre se prend sur le blog (`FormulaireLettre`). */
   question: {
     titre: "Une question ?",
     corps: "Écrivez-nous : nous répondons sous 48 h.",

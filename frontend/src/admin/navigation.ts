@@ -190,6 +190,13 @@ export const GROUPES: GroupeDeNavigation[] = [
         titre: "Prospection",
         aide: "Trouver des prospects, préparer les e-mails, valider avant l'envoi, suivre les résultats.",
       },
+      {
+        vers: "/admin/audience",
+        libelle: "Audience",
+        icone: "audience",
+        titre: "Audience du site",
+        aide: "Les adresses laissées pour les ressources gratuites et la lettre. Export pour votre outil d'envoi.",
+      },
     ],
   },
 ];

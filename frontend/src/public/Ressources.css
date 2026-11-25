@@ -766,6 +766,117 @@
   background: var(--acc-or-brume);
 }
 
+/* ── Les porteurs de projet, en tête du blog ─────────────────────────────── */
+
+.res-porteurs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.res-porteur {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-brume);
+  box-shadow: var(--acc-ecrin);
+  transition: transform var(--duree-acc-survol) ease;
+}
+
+.res-porteur:hover {
+  transform: translateY(-2px);
+}
+
+.res-porteur-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+}
+
+.res-porteur-corps {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: clamp(22px, 3vw, 34px);
+}
+
+.res-porteur h3 {
+  font-size: clamp(1.15rem, 1.8vw, 1.4rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.res-porteur h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.res-porteur h3 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.res-porteur h3 a:focus-visible {
+  outline: none;
+}
+
+.res-porteur:has(a:focus-visible) {
+  outline: 3px solid var(--acc-or);
+  outline-offset: 3px;
+}
+
+.res-porteur-lire {
+  margin-top: auto;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.res-porteur-fleche {
+  margin-left: 0.4em;
+}
+
+@media (max-width: 600px) {
+  .res-porteur {
+    grid-template-columns: 1fr;
+  }
+  .res-porteur-photo {
+    height: auto;
+    aspect-ratio: 3 / 2;
+    min-height: 0;
+  }
+}
+
+/* ── La lettre, en fin de blog ───────────────────────────────────────────── */
+
+.res-lettre {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  padding: clamp(26px, 4vw, 52px);
+  border-radius: var(--acc-r2);
+  background: var(--acc-or-clair);
+  box-shadow: var(--acc-ecrin);
+}
+
+@media (max-width: 900px) {
+  .res-lettre {
+    grid-template-columns: 1fr;
+  }
+}
+
 .res-article-photo {
   display: block;
   width: 100%;
@@ -1387,6 +1498,7 @@
 @media (prefers-reduced-motion: reduce) {
   .res-moyen:hover,
   .res-article:hover,
+  .res-porteur:hover,
   .res-orientations a:hover .res-fleche,
   .res-article:hover .res-article-lire .acc-btn-fleche {
     transform: none;
