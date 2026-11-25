@@ -1301,7 +1301,6 @@ export const ENSEMBLE_PACKS = {
     "Appels en visio",
     "6 semaines de support",
     "Format éditable et PDF",
-    "Réalisé par Evangeline",
   ],
   fin: {
     titre: { avant: "Un doute sur le pack", fin: "qu'il vous faut ?" } satisfies DeuxTemps,

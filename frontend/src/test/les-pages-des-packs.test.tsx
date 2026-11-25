@@ -354,7 +354,8 @@ describe("les pages des packs", () => {
     it(`${nom} : plus de « réalisé par Evangeline » (cliente, 24/11/2026), et une passerelle vers les études sans un prix`, () => {
       rendre(nom);
 
-      expect(texte()).not.toContain("Réalisé par Evangeline Khaili elle-même");
+      // Ni l'encart, ni sa forme courte (le ruban de /packs).
+      expect(texte()).not.toMatch(/Réalisé par Evangeline/);
       expect(texte()).not.toContain("Un pack n'est pas produit par la plateforme");
 
       const passerelle = document.getElementById("autrement") as HTMLElement;

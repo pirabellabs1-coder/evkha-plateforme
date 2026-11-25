@@ -178,7 +178,7 @@ export const PASSERELLE = {
     "Une étude sur mesure n'est pas la seule façon de travailler avec EVKHA.",
   portes: [
     {
-      surtitre: "Tout de suite",
+      surtitre: "Immédiat",
       titre: "Une étude prête à télécharger",
       corps:
         "Une étude déjà rédigée, sur un secteur : vous la téléchargez immédiatement depuis la boutique, sans questionnaire à remplir.",
