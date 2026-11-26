@@ -22,6 +22,10 @@ dependencies = [
   # negociation CORS est subtile (preflight, Vary, credentials).
   "django-cors-headers>=4.4,<5",
   "django-environ>=0.11,<1",
+  # Nettoie le HTML des lettres d'information (`lettre.nettoyage`) : une
+  # liste blanche de balises, d'attributs et de styles, appliquée par un
+  # analyseur HTML réel — jamais par des expressions régulières.
+  "nh3>=0.3,<0.4",
   "gunicorn>=22,<24",
   "psycopg[binary]>=3.2,<4",
   # `generation/blocks.py` importe pydantic AU NIVEAU MODULE. La dependance

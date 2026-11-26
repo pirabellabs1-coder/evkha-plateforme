@@ -690,6 +690,89 @@ export interface RapportQualite {
   constats_pdf: { controle: string; occurrences: number }[];
 }
 
+
+// ── Lettre d'information ────────────────────────────────────────────────────
+
+/** Appel JSON avec une méthode d'écriture (PUT, DELETE). `post` reste la
+ *  forme courante ; celle-ci existe parce que les vues de la lettre suivent
+ *  les verbes HTTP (`dashboard/lettre.py`). */
+async function ecrireEnJson<T>(methode: "PUT" | "DELETE", chemin: string, corps?: unknown): Promise<T> {
+  const reponse = await fetch(`${BASE}/api/dashboard${chemin}`, {
+    method: methode,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+    },
+    body: corps === undefined ? undefined : JSON.stringify(corps),
+  });
+  if (reponse.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Non autorisé");
+  }
+  if (!reponse.ok) {
+    throw new Error(await messageDuRefus(reponse, `Erreur ${reponse.status}`));
+  }
+  return (await reponse.json()) as T;
+}
+
+export type StatutDeLettre = "brouillon" | "programmee" | "en_cours" | "envoyee" | "annulee";
+export type StatutDEnvoi = "a_envoyer" | "en_cours" | "envoye" | "echec" | "ignore";
+export type Declencheur = "inscription" | "checklist" | "lexique";
+
+/** Ce qu'on rédige : la même forme pour une lettre, un modèle et une étape. */
+export interface ContenuDeLettre {
+  objet: string;
+  /** Le texte gris affiché par les messageries à côté de l'objet. */
+  apercu: string;
+  corps_html: string;
+}
+
+/** Une lettre (`dashboard.lettre._vue_lettre`). */
+export interface LettreAdmin extends ContenuDeLettre {
+  id: string;
+  statut: StatutDeLettre;
+  programmee_pour: string | null;
+  lancee_le: string | null;
+  terminee_le: string | null;
+  cree_le: string;
+  modifiee_le: string;
+  envois: Record<StatutDEnvoi, number>;
+  destinataires_prevus?: number;
+}
+
+export interface ModeleDeLettre extends ContenuDeLettre {
+  id: string;
+  nom: string;
+  modifie_le: string;
+}
+
+export interface EtapeDAutomatisation extends ContenuDeLettre {
+  /** Absent pour un message qui n'est pas encore enregistré. */
+  id?: string;
+  delai_jours: number;
+  envoyes?: number;
+}
+
+export interface AutomatisationAdmin {
+  id: string;
+  nom: string;
+  declencheur: Declencheur;
+  active: boolean;
+  active_depuis: string | null;
+  etapes: EtapeDAutomatisation[];
+}
+
+export interface ResumeDeLaLettre {
+  inscrits: number;
+  en_attente_de_confirmation: number;
+  desinscrits: number;
+  declencheurs: { valeur: Declencheur; libelle: string }[];
+}
+
+export type EcritureDAutomatisation = Omit<AutomatisationAdmin, "id" | "active_depuis">;
+
 export const adminApi = {
   qualite: () => get<RapportQualite>("/qualite/"),
 
@@ -972,6 +1055,44 @@ export const adminApi = {
   /** Efface un contact et ses demandes, à sa demande (RGPD). Irréversible. */
   effacerUnContact: (contactId: string) =>
     post<{ supprime: boolean }>(`/audience/${contactId}/supprimer/`, {}),
+
+  // ── Lettre d'information ────────────────────────────────────────────────
+  resumeDeLaLettre: () => get<ResumeDeLaLettre>("/lettre/"),
+  lettres: () => get<{ lettres: LettreAdmin[]; inscrits: number }>("/lettre/lettres/"),
+  lettre: (id: string) => get<LettreAdmin>(`/lettre/lettres/${id}/`),
+  creerUneLettre: (contenu: ContenuDeLettre) => post<LettreAdmin>("/lettre/lettres/", contenu),
+  modifierUneLettre: (id: string, contenu: ContenuDeLettre) =>
+    ecrireEnJson<LettreAdmin>("PUT", `/lettre/lettres/${id}/`, contenu),
+  supprimerUneLettre: (id: string) =>
+    ecrireEnJson<{ supprimee: boolean }>("DELETE", `/lettre/lettres/${id}/`),
+  /** `quand` nul : la lettre part à la prochaine minute. */
+  programmerUneLettre: (id: string, quand: string | null) =>
+    post<LettreAdmin>(`/lettre/lettres/${id}/programmer/`, { quand }),
+  annulerUneLettre: (id: string) => post<LettreAdmin>(`/lettre/lettres/${id}/annuler/`, {}),
+  apercuDeLettre: (contenu: ContenuDeLettre) => post<{ html: string }>("/lettre/apercu/", contenu),
+  essaiDeLettre: (contenu: ContenuDeLettre, email: string) =>
+    post<{ envoye: boolean; adresse: string }>("/lettre/essai/", { ...contenu, email }),
+  /** Rend l'adresse ABSOLUE et publique de l'image, à poser dans le texte. */
+  televerserUneImage: (image: File) => {
+    const donnees = new FormData();
+    donnees.set("image", image);
+    return envoyer<{ url: string }>("/lettre/images/", donnees);
+  },
+  modelesDeLettre: () => get<{ modeles: ModeleDeLettre[] }>("/lettre/modeles/"),
+  creerUnModele: (modele: Omit<ModeleDeLettre, "id" | "modifie_le">) =>
+    post<ModeleDeLettre>("/lettre/modeles/", modele),
+  modifierUnModele: (id: string, modele: Omit<ModeleDeLettre, "id" | "modifie_le">) =>
+    ecrireEnJson<ModeleDeLettre>("PUT", `/lettre/modeles/${id}/`, modele),
+  supprimerUnModele: (id: string) =>
+    ecrireEnJson<{ supprime: boolean }>("DELETE", `/lettre/modeles/${id}/`),
+  automatisations: () =>
+    get<{ automatisations: AutomatisationAdmin[] }>("/lettre/automatisations/"),
+  creerUneAutomatisation: (automatisation: EcritureDAutomatisation) =>
+    post<AutomatisationAdmin>("/lettre/automatisations/", automatisation),
+  modifierUneAutomatisation: (id: string, automatisation: EcritureDAutomatisation) =>
+    ecrireEnJson<AutomatisationAdmin>("PUT", `/lettre/automatisations/${id}/`, automatisation),
+  supprimerUneAutomatisation: (id: string) =>
+    ecrireEnJson<{ supprimee: boolean }>("DELETE", `/lettre/automatisations/${id}/`),
 
   // ── Signalements et assistance ──────────────────────────────────────────
   signalements: () =>

@@ -194,7 +194,7 @@ describe("l'inscription à la lettre", () => {
     saisir("lea@exemple.fr");
     fireEvent.click(screen.getByRole("button", { name: /Je m'abonne/ }));
 
-    expect(await screen.findByText(/C'est noté/)).toBeInTheDocument();
+    expect(await screen.findByText(/confirmez votre adresse/)).toBeInTheDocument();
     expect(recu).toEqual({ email: "lea@exemple.fr", site: "" });
   });
 });

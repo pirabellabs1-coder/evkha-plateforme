@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     "dashboard",
     "prospection",
     "audience",
+    "lettre",
 ]
 
 MIDDLEWARE = [
@@ -223,6 +224,15 @@ CELERY_TASK_ROUTES = {
 # Tâches périodiques (service beat du compose prod).
 # Purge horaire des artefacts expirés — conservation 12 mois depuis le 29/09/2026.
 CELERY_BEAT_SCHEDULE = {
+    # La lettre d'information : confirmations, lettres programmées,
+    # automatisations et file d'envoi — un passage par minute (`lettre.envoi`).
+    "pomper-la-lettre": {
+        "task": "lettre.pomper",
+        "schedule": 60.0,
+        # Une minute plus tard, la suivante fait le même travail : un passage
+        # resté en file (ouvrier occupé, redémarrage) ne doit pas s'empiler.
+        "options": {"expires": 55},
+    },
     "purge-expired-artifacts": {
         "task": "delivery.purge_expired_artifacts",
         "schedule": 3600.0,

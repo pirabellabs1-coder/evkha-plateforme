@@ -239,7 +239,7 @@ class _ClientEspionEnvoi:
         self.html_body = ""
 
     def send_delivery_email(self, *, recipient_email: str, subject: str,
-                            html_body: str, attachments: Any = ()) -> Any:
+                            html_body: str, attachments: Any = (), **_: Any) -> Any:
         self.html_body = html_body
         from integrations.brevo import EmailSendResult  # noqa: PLC0415
         return EmailSendResult(provider_message_id="brevo-envoye-1")

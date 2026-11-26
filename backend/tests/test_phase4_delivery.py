@@ -189,6 +189,7 @@ def test_delivery_failure_creates_incident(
             subject: str,
             html_body: str,
             attachments: tuple[EmailAttachment, ...],
+            **_: object,
         ) -> EmailSendResult:
             del recipient_email, subject, html_body, attachments
             raise RuntimeError("brevo down")

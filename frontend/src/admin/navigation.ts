@@ -191,6 +191,13 @@ export const GROUPES: GroupeDeNavigation[] = [
         aide: "Trouver des prospects, préparer les e-mails, valider avant l'envoi, suivre les résultats.",
       },
       {
+        vers: "/admin/lettre",
+        libelle: "Lettre",
+        icone: "lettre",
+        titre: "Lettre d'information",
+        aide: "Écrire et programmer la lettre, ses modèles et ses envois automatiques. Chaque message porte sa désinscription.",
+      },
+      {
         vers: "/admin/audience",
         libelle: "Audience",
         icone: "audience",

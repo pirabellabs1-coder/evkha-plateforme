@@ -16,6 +16,7 @@ dépendance de plus à suivre, à mettre à jour et à auditer.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 from django.conf import settings
@@ -61,6 +62,8 @@ class ResendApiClient:
         subject: str,
         html_body: str,
         attachments: tuple[EmailAttachment, ...],
+        headers: Mapping[str, str] | None = None,
+        copie_cachee: bool = True,
     ) -> EmailSendResult:
         import urllib.request  # import paresseux : jamais utilisé en dev/CI (doublure)
 
@@ -95,8 +98,10 @@ class ResendApiClient:
         # de la demande : un doublon reconnaissable, avec son propre horodatage,
         # et deux entrees dans les journaux du prestataire pour un seul echange.
         copie = str(getattr(settings, "EVKHA_COPIE_COURRIEL", "") or "").strip()
-        if copie and copie.lower() != recipient_email.lower():
+        if copie_cachee and copie and copie.lower() != recipient_email.lower():
             payload["bcc"] = [copie]
+        if headers:
+            payload["headers"] = dict(headers)
         if attachments:
             payload["attachments"] = [
                 {"path": piece.url, "filename": piece.filename}

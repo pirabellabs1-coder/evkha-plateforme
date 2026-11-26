@@ -59,8 +59,10 @@ EXTENSIONS_EN_LIGNE: frozenset[str] = frozenset(
 def _prefixes_publics() -> tuple[str, ...]:
     """Prefixes servis SANS signature et EN LIGNE.
 
-    Deux : la vitrine de la boutique et celle des formations — les
-    couvertures. Ce sont des supports de vente, et les deux protections qui couvrent les
+    Trois : la vitrine de la boutique et celle des formations — les
+    couvertures —, et les images des lettres d'information, qu'une
+    messagerie doit afficher sans signature des mois après l'envoi. Ce
+    sont des supports publics, et les deux protections qui couvrent les
     livrables les rendraient inutilisables : une image en
     `Content-Disposition: attachment` ne s'affiche pas dans une balise `<img>`,
     et une signature qui expire ferait disparaitre les couvertures d'un
@@ -74,6 +76,8 @@ def _prefixes_publics() -> tuple[str, ...]:
     Import differe : ce module est charge tot, et importer les modeles a son
     sommet imposerait l'ordre de chargement des applications.
     """
+    from lettre.models import PREFIXE_IMAGES  # noqa: PLC0415
+
     from catalog.models import (  # noqa: PLC0415
         PREFIXE_VITRINE,
         PREFIXE_VITRINE_FORMATIONS,
@@ -84,7 +88,7 @@ def _prefixes_publics() -> tuple[str, ...]:
     # hors de cette liste, donc signés.
     return tuple(
         f"{prefixe.strip('/')}/"
-        for prefixe in (PREFIXE_VITRINE, PREFIXE_VITRINE_FORMATIONS)
+        for prefixe in (PREFIXE_VITRINE, PREFIXE_VITRINE_FORMATIONS, PREFIXE_IMAGES)
     )
 
 

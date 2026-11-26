@@ -318,6 +318,7 @@ def test_deliver_job_sends_pdf_as_attachment(branded_submission: IntakeSubmissio
             subject: str,
             html_body: str,
             attachments: tuple[EmailAttachment, ...],
+            **_: object,
         ) -> EmailSendResult:
             captured.extend(attachments)
             return EmailSendResult(provider_message_id="test-ok")

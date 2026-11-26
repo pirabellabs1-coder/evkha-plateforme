@@ -160,7 +160,7 @@ def test_la_route_de_secours_joint_le_word_elle_aussi() -> None:
     recues: list[tuple[str, ...]] = []
 
     class _Mouchard:
-        def send_delivery_email(self, *, recipient_email, subject, html_body, attachments):
+        def send_delivery_email(self, *, recipient_email, subject, html_body, attachments, **_):
             recues.append(tuple(a.filename for a in attachments))
             return EmailSendResult(provider_message_id="test")
 

@@ -135,9 +135,7 @@ def desinscrire(request: HttpRequest, contact_id: str) -> HttpResponse:
     contact = Contact.objects.filter(pk=contact_id).first() if _uuid(contact_id) else None
     if contact is None:
         return JsonResponse({"erreur": "Contact introuvable.", "code": "introuvable"}, status=404)
-    if contact.inscrit_a_la_lettre:
-        contact.desinscrit_le = timezone.now()
-        contact.save(update_fields=["desinscrit_le", "updated_at"])
+    contact.desinscrire(timezone.now())
     return _sans_cache(JsonResponse({"contact": _vue(contact)}))
 
 

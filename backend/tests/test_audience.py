@@ -33,6 +33,15 @@ def _poster(adresse: str, charge: Any) -> Any:
     return Client().post(adresse, data=json.dumps(charge), content_type="application/json")
 
 
+def _confirmer(email: str) -> None:
+    """Le clic dans le courriel de confirmation (double consentement)."""
+    from lettre.gabarit import jeton_de_confirmation
+
+    contact = Contact.objects.get(email=email)
+    reponse = Client().post(f"/l/confirmation/{jeton_de_confirmation(contact)}/")
+    assert reponse.status_code == 200
+
+
 # ── Les ressources ───────────────────────────────────────────────────────────
 
 
@@ -63,6 +72,13 @@ def test_la_case_de_la_lettre_cochee_inscrit_et_seulement_elle() -> None:
     # Une valeur « vraie » qui n'est pas `true` n'est pas un consentement.
     _poster(RESSOURCES, {"email": "b@exemple.fr", "ressource": "lexique", "lettre": "oui"})
 
+    a = Contact.objects.get(email="a@exemple.fr")
+    b = Contact.objects.get(email="b@exemple.fr")
+    # Cocher DEMANDE l'inscription ; elle n'est faite qu'à la confirmation.
+    assert a.inscrit_a_la_lettre is False
+    assert a.confirmation_demandee_le is not None
+    assert b.confirmation_demandee_le is None
+    _confirmer("a@exemple.fr")
     assert Contact.objects.get(email="a@exemple.fr").inscrit_a_la_lettre is True
     assert Contact.objects.get(email="b@exemple.fr").inscrit_a_la_lettre is False
 
@@ -130,28 +146,44 @@ def test_seul_post_est_accepte() -> None:
 # ── La lettre ────────────────────────────────────────────────────────────────
 
 
-def test_l_inscription_a_la_lettre_est_un_consentement_date() -> None:
+def test_l_inscription_a_la_lettre_est_un_consentement_date_et_confirme() -> None:
     reponse = _poster(LETTRE, {"email": "lea@exemple.fr"})
 
     assert reponse.status_code == 200
     assert reponse.json() == {"inscrit": True}
     contact = Contact.objects.get(email="lea@exemple.fr")
+    # Double consentement (26/11/2026) : la requête anonyme ne fait que
+    # demander ; seul le lien reçu dans la boîte inscrit.
+    assert contact.inscrit_a_la_lettre is False
+    assert contact.lettre_le is None
+    assert contact.confirmation_demandee_le is not None
+    assert [d.origine for d in contact.demandes.all()] == ["lettre"]
+
+    _confirmer("lea@exemple.fr")
+    contact.refresh_from_db()
     assert contact.inscrit_a_la_lettre is True
     assert contact.lettre_le is not None
-    assert [d.origine for d in contact.demandes.all()] == ["lettre"]
 
 
 def test_une_seconde_inscription_garde_la_date_de_la_premiere() -> None:
     _poster(LETTRE, {"email": "lea@exemple.fr"})
+    _confirmer("lea@exemple.fr")
     premiere = Contact.objects.get().lettre_le
+    demandee = Contact.objects.get().confirmation_demandee_le
     _poster(LETTRE, {"email": "lea@exemple.fr"})
-    assert Contact.objects.get().lettre_le == premiere
+    contact = Contact.objects.get()
+    assert contact.lettre_le == premiere
+    # Déjà inscrite : aucune nouvelle confirmation n'est demandée — la date de
+    # la demande d'origine reste, trace du double consentement.
+    assert contact.confirmation_demandee_le == demandee
+    assert demandee is not None
 
 
 def test_une_requete_anonyme_n_annule_jamais_une_desinscription() -> None:
     """Audit du 25/11/2026 : sinon n'importe qui réinscrit l'adresse d'un
     tiers qui a demandé à partir — par la lettre comme par la case."""
     _poster(LETTRE, {"email": "lea@exemple.fr"})
+    _confirmer("lea@exemple.fr")
     contact = Contact.objects.get()
     contact.desinscrit_le = timezone.now()
     contact.save()
@@ -160,6 +192,9 @@ def test_une_requete_anonyme_n_annule_jamais_une_desinscription() -> None:
     assert _poster(LETTRE, {"email": "lea@exemple.fr"}).status_code == 200
     _poster(RESSOURCES, {"email": "lea@exemple.fr", "ressource": "lexique", "lettre": True})
     assert Contact.objects.get().inscrit_a_la_lettre is False
+    # Seule la boîte aux lettres peut ramener la personne : le clic confirme.
+    _confirmer("lea@exemple.fr")
+    assert Contact.objects.get().inscrit_a_la_lettre is True
 
 
 def test_une_demande_repetee_ne_fait_pas_grossir_la_base() -> None:
@@ -216,6 +251,7 @@ def test_contre_epreuve_une_adresse_fausse_n_inscrit_personne() -> None:
 
 def test_le_tableau_de_bord_exige_le_jeton() -> None:
     _poster(LETTRE, {"email": "lea@exemple.fr"})
+    _confirmer("lea@exemple.fr")
     contact = Contact.objects.get()
     assert Client().get("/api/dashboard/audience/").status_code in (401, 403)
     assert Client().get("/api/dashboard/audience.csv").status_code in (401, 403)
@@ -227,6 +263,7 @@ def test_le_tableau_de_bord_exige_le_jeton() -> None:
 
 def test_le_tableau_de_bord_liste_les_contacts(client_admin: Any) -> None:
     _poster(RESSOURCES, {"email": "a@exemple.fr", "ressource": "checklist", "lettre": True})
+    _confirmer("a@exemple.fr")
     _poster(RESSOURCES, {"email": "a@exemple.fr", "ressource": "lexique"})
     _poster(RESSOURCES, {"email": "b@exemple.fr", "ressource": "lexique"})
 
@@ -256,7 +293,9 @@ def test_l_export_csv_neutralise_les_formules(client_admin: Any) -> None:
 
 def test_la_desinscription_garde_l_historique(client_admin: Any) -> None:
     _poster(LETTRE, {"email": "lea@exemple.fr"})
+    _confirmer("lea@exemple.fr")
     contact = Contact.objects.get()
+    assert contact.inscrit_a_la_lettre is True
 
     reponse = client_admin.post(f"/api/dashboard/audience/{contact.id}/desinscrire/")
     assert reponse.status_code == 200
@@ -268,6 +307,7 @@ def test_la_desinscription_garde_l_historique(client_admin: Any) -> None:
 
 def test_l_export_de_la_lettre_ne_porte_que_les_inscrits(client_admin: Any) -> None:
     _poster(RESSOURCES, {"email": "inscrite@exemple.fr", "ressource": "checklist", "lettre": True})
+    _confirmer("inscrite@exemple.fr")
     _poster(RESSOURCES, {"email": "telechargeur@exemple.fr", "ressource": "checklist"})
 
     reponse = client_admin.get("/api/dashboard/audience.csv?lettre=1")

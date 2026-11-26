@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -48,6 +49,8 @@ class TransactionalEmailClient(Protocol):
         subject: str,
         html_body: str,
         attachments: tuple[EmailAttachment, ...],
+        headers: Mapping[str, str] | None = None,
+        copie_cachee: bool = True,
     ) -> EmailSendResult: ...
 
 
@@ -65,6 +68,8 @@ class StubBrevoClient:
         subject: str,
         html_body: str,
         attachments: tuple[EmailAttachment, ...],
+        headers: Mapping[str, str] | None = None,
+        copie_cachee: bool = True,
     ) -> EmailSendResult:
         digest = hashlib.sha256(
             f"{recipient_email}:{subject}:{html_body}:{len(attachments)}".encode()
@@ -92,6 +97,8 @@ class BrevoApiClient:
         subject: str,
         html_body: str,
         attachments: tuple[EmailAttachment, ...],
+        headers: Mapping[str, str] | None = None,
+        copie_cachee: bool = True,
     ) -> EmailSendResult:
         import urllib.request  # import paresseux : jamais utilise en dev/CI (stub)
 
@@ -113,8 +120,10 @@ class BrevoApiClient:
         # repli qui perd la copie la ferait disparaitre le jour ou l'on bascule,
         # sans que personne ne s'en apercoive (regle 4).
         copie = str(getattr(settings, "EVKHA_COPIE_COURRIEL", "") or "").strip()
-        if copie and copie.lower() != recipient_email.lower():
+        if copie_cachee and copie and copie.lower() != recipient_email.lower():
             payload["bcc"] = [{"email": copie}]
+        if headers:
+            payload["headers"] = dict(headers)
 
         if attachments:
             payload["attachment"] = [

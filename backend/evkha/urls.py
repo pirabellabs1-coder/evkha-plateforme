@@ -6,6 +6,7 @@ from django.http import HttpRequest, JsonResponse
 from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 from django.views.static import serve
+from lettre import vues_publiques as lettre_publique
 from paiement.vues import webhook as stripe_webhook
 from prospection.vues_publiques import desinscription, webhook_brevo, webhook_resend
 
@@ -47,6 +48,18 @@ urlpatterns = [
         "p/desinscription/<uuid:jeton>/",
         desinscription,
         name="prospection-desinscription",
+    ),
+    # La lettre d'information : confirmer l'inscription, se désinscrire.
+    # Même règle que ci-dessus : la page demande, le bouton (POST) exécute.
+    path(
+        "l/confirmation/<str:jeton>/",
+        lettre_publique.confirmation,
+        name="lettre-confirmation",
+    ),
+    path(
+        "l/desinscription/<uuid:jeton>/",
+        lettre_publique.desinscription,
+        name="lettre-desinscription",
     ),
     # Dashboard API — consomme par le frontend TanStack (phase 6).
     # A securiser avec Better Auth token en production.

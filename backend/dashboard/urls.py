@@ -8,6 +8,7 @@ from . import (
     audience,
     boutique,
     formations,
+    lettre,
     prospection,
     qualite,
     signalements,
@@ -22,6 +23,27 @@ urlpatterns = [
     path("overview/", views.overview, name="overview"),
     # L'audience du site : ressources gratuites et lettre (24/11/2026).
     path("audience/", audience.liste, name="audience"),
+    # La lettre d'information (26/11/2026) : rédiger, programmer, automatiser.
+    path("lettre/", lettre.resume, name="lettre-resume"),
+    path("lettre/lettres/", lettre.lettres, name="lettre-lettres"),
+    path("lettre/lettres/<str:lettre_id>/", lettre.lettre, name="lettre-lettre"),
+    path(
+        "lettre/lettres/<str:lettre_id>/programmer/",
+        lettre.programmer,
+        name="lettre-programmer",
+    ),
+    path("lettre/lettres/<str:lettre_id>/annuler/", lettre.annuler, name="lettre-annuler"),
+    path("lettre/apercu/", lettre.apercu, name="lettre-apercu"),
+    path("lettre/essai/", lettre.essai, name="lettre-essai"),
+    path("lettre/images/", lettre.image, name="lettre-image"),
+    path("lettre/modeles/", lettre.modeles, name="lettre-modeles"),
+    path("lettre/modeles/<str:modele_id>/", lettre.modele, name="lettre-modele"),
+    path("lettre/automatisations/", lettre.automatisations, name="lettre-automatisations"),
+    path(
+        "lettre/automatisations/<str:automatisation_id>/",
+        lettre.automatisation,
+        name="lettre-automatisation",
+    ),
     path("audience.csv", audience.liste_csv, name="audience-csv"),
     path(
         "audience/<str:contact_id>/desinscrire/",

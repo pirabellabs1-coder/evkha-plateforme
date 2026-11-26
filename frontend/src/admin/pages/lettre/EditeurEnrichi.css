@@ -1,0 +1,184 @@
+/* L'éditeur enrichi des lettres. Le texte reprend la mise en page du
+ * courriel (`lettre/gabarit.py`) : 15 px, interligne 1,65, 600 px au plus —
+ * ce qu'on voit en écrivant est ce que lira l'abonné. Les teintes, elles,
+ * sont celles de la charte : l'aperçu montre les couleurs exactes du
+ * courriel. */
+
+.ee {
+  display: grid;
+  gap: var(--e-2);
+}
+
+.ee-barre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 10px 10px 0 0;
+  background: var(--evkha-coquille);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.ee-bouton {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--evkha-encre);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.ee-bouton:hover:not(:disabled) {
+  background: var(--evkha-blanc);
+  border-color: var(--evkha-bordure);
+}
+
+.ee-bouton[aria-pressed="true"] {
+  background: var(--evkha-encre);
+  color: var(--evkha-blanc);
+}
+
+.ee-bouton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ee-bouton:focus-visible,
+.ee-choix:focus-visible,
+.ee-teinte:focus-visible {
+  outline: 2px solid var(--evkha-info);
+  outline-offset: 2px;
+}
+
+.ee-bouton-texte {
+  font-size: 0.85rem;
+}
+
+.ee-choix {
+  min-height: 36px;
+  padding: 0 6px;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 6px;
+  background: var(--evkha-blanc);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.ee-separateur {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--evkha-bordure-forte);
+}
+
+.ee-nuancier {
+  position: relative;
+}
+
+.ee-palette {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 220px;
+  padding: 10px;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 10px;
+  background: var(--evkha-blanc);
+  box-shadow: var(--ombre-md);
+}
+
+.ee-teinte {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--evkha-bordure-forte);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.ee-libre {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.ee-libre input {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.ee .tiptap {
+  min-height: 280px;
+  max-width: 600px;
+  margin-top: -9px;
+  padding: 20px 24px;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 0 0 10px 10px;
+  background: var(--evkha-blanc);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--evkha-encre);
+  outline: none;
+}
+
+.ee .tiptap:focus-visible {
+  box-shadow: 0 0 0 2px var(--evkha-info);
+}
+
+.ee .tiptap img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 12px auto;
+}
+
+.ee .tiptap img.ProseMirror-selectednode {
+  outline: 3px solid var(--evkha-info);
+}
+
+.ee .tiptap blockquote {
+  margin: 16px 0;
+  padding: 4px 16px;
+  border-left: 3px solid var(--evkha-or-profond);
+  color: var(--evkha-gris);
+}
+
+.ee .tiptap hr {
+  border: 0;
+  border-top: 1px solid var(--evkha-bordure);
+  margin: 24px 0;
+}
+
+.ee .tiptap a {
+  color: var(--evkha-info);
+  text-decoration: underline;
+}
+
+.ee-erreur {
+  margin: 0;
+  color: var(--portail-erreur-texte, var(--evkha-echec));
+  font-size: 0.9rem;
+}
+
+.ee-aide {
+  margin: 0;
+  color: var(--evkha-gris);
+  font-size: 0.85rem;
+}

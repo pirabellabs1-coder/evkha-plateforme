@@ -50,6 +50,7 @@ const BoutiqueAdmin = ecranDiffere(admin, "BoutiqueAdmin");
 const FormationsAdmin = ecranDiffere(admin, "FormationsAdmin");
 const Annonces = ecranDiffere(admin, "Annonces");
 const AudienceAdmin = ecranDiffere(admin, "AudienceAdmin");
+const LettreAdmin = ecranDiffere(admin, "LettreAdmin");
 const ProspectionAdmin = ecranDiffere(admin, "ProspectionAdmin");
 const TransactionsAdmin = ecranDiffere(admin, "TransactionsAdmin");
 const DemandesAdmin = ecranDiffere(admin, "DemandesAdmin");
@@ -317,6 +318,13 @@ const adminAudience = createRoute({
   getParentRoute: () => adminRoute,
   path: "audience",
   component: AudienceAdmin,
+});
+
+// La lettre d'information : rédaction, modèles, automatisations (26/11/2026).
+const adminLettre = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "lettre",
+  component: LettreAdmin,
 });
 
 const adminProspection = createRoute({
@@ -611,6 +619,7 @@ export const routeTree = rootRoute.addChildren([
     adminFormations,
     adminAnnonces,
     adminAudience,
+    adminLettre,
     adminProspection,
     adminTransactions,
     adminLivrables,

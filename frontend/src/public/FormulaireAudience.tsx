@@ -48,7 +48,7 @@ type Etat =
   | { etape: "saisie" }
   | { etape: "envoi" }
   | { etape: "refus"; message: string }
-  | { etape: "fait"; lien?: string };
+  | { etape: "fait"; lien?: string; confirmer?: boolean };
 
 const ECHEC = "L'envoi n'a pas abouti. Réessayez dans un instant.";
 
@@ -197,7 +197,7 @@ export function FormulaireRessource({
       });
       const lien = lienSur(charge.lien);
       if (!lien) throw new Error("Le document est momentanément indisponible.");
-      setEtat({ etape: "fait", lien });
+      setEtat({ etape: "fait", lien, confirmer: lettre });
       telecharger(lien);
     } catch (erreur) {
       setEtat({ etape: "refus", message: (erreur as Error).message });
@@ -229,6 +229,8 @@ export function FormulaireRessource({
               télécharger {nom}
             </a>
             .
+            {etat.confirmer &&
+              " Pour recevoir la lettre, confirmez votre adresse : un courriel vous arrive dans la minute."}
           </>
         )}
       </p>
@@ -273,7 +275,8 @@ export function FormulaireLettre({ bouton, mention }: { bouton: string; mention:
         </p>
       )}
       <p className="aud-statut" aria-live="polite" aria-atomic="true">
-        {etat.etape === "fait" && "C'est noté : vous recevrez la prochaine lettre."}
+        {etat.etape === "fait" &&
+          "Presque fini : confirmez votre adresse en cliquant sur le lien du courriel qui vous arrive dans la minute."}
       </p>
       <Mention id={id} texte={mention} />
     </form>

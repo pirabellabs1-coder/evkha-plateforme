@@ -2,7 +2,8 @@
 
 - `POST /api/public/ressources/` : `{email, ressource, lettre, site}` — note
   l'adresse et la demande, et rend le lien du PDF, que la page ouvre aussitôt ;
-- `POST /api/public/lettre/` : `{email, site}` — inscrit à la lettre.
+- `POST /api/public/lettre/` : `{email, site}` — demande l'inscription à la
+  lettre, confirmée par courriel.
 
 Publiques et sans compte : ce sont des formulaires du site vitrine. D'où :
 
@@ -13,9 +14,9 @@ Publiques et sans compte : ce sont des formulaires du site vitrine. D'où :
   qu'une page tierce peut faire poster par ses visiteurs, sans contrôle CORS ;
 - une ligne par contact ET par origine : répéter une demande ne fait pas
   grossir la base ;
-- une requête anonyme n'annule JAMAIS une désinscription (audit du
-  25/11/2026) : une personne désinscrite qui veut revenir le demande à la
-  gérante ;
+- une requête anonyme n'inscrit JAMAIS : elle demande une confirmation par
+  courriel (26/11/2026), et seul le clic dans ce courriel inscrit — ou
+  réinscrit une personne désinscrite (audit du 25/11/2026) ;
 - un champ piège `site`, invisible pour une personne : rempli, la requête
   rend la même réponse qu'un succès, sans rien écrire — un robot n'apprend
   rien ;
@@ -30,6 +31,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+from datetime import timedelta
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -122,19 +124,38 @@ def _trop() -> HttpResponse:
     )
 
 
+#: Une seule confirmation par jour et par adresse : le formulaire est public,
+#: et sans ce délai il servirait à inonder la boîte d'un tiers.
+DELAI_ENTRE_CONFIRMATIONS = timedelta(hours=24)
+#: Courriels de confirmation restés sans clic, après quoi plus rien ne part à
+#: cette adresse depuis le formulaire public (audit du 26/11/2026).
+RELANCES_MAX = 3
+#: Toutes adresses confondues : un courriel de confirmation est un message que
+#: le domaine d'EVKHA envoie à la demande d'un inconnu, il est borné à part.
+CONFIRMATIONS_PAR_HEURE = limitation.Plafond("lettre-confirmations", maximum=60, fenetre_s=3600)
+
+
 def _noter(adresse: str, origine: str, lettre: bool) -> None:
     """Le contact (créé s'il est nouveau), sa demande — une par origine —, et
-    son consentement à la lettre s'il l'a donné.
+    sa DEMANDE d'inscription à la lettre s'il a coché la case.
 
-    Le consentement ne se pose qu'une fois : une inscription active garde sa
-    date, et une DÉSINSCRIPTION n'est jamais annulée par une requête
-    anonyme — sinon n'importe qui pourrait réinscrire l'adresse d'un tiers
-    qui a demandé à partir."""
+    Une requête anonyme ne pose jamais `lettre_le` : elle demande une
+    confirmation, que la pompe envoie à l'adresse (`lettre.envoi`). Seul le
+    clic dans ce courriel inscrit — et c'est aussi le seul chemin qui ramène
+    une personne désinscrite : l'adresse d'un tiers ne peut être ni inscrite
+    ni réinscrite sans lui."""
     with transaction.atomic():
         contact, _ = Contact.objects.select_for_update().get_or_create(email=adresse)
-        if lettre and contact.lettre_le is None and contact.desinscrit_le is None:
-            contact.lettre_le = timezone.now()
-            contact.save(update_fields=["lettre_le", "updated_at"])
+        if lettre and not contact.inscrit_a_la_lettre:
+            maintenant = timezone.now()
+            derniere = contact.confirmation_demandee_le
+            if (
+                (derniere is None or maintenant - derniere >= DELAI_ENTRE_CONFIRMATIONS)
+                and contact.confirmations_sans_reponse < RELANCES_MAX
+                and limitation.compter(CONFIRMATIONS_PAR_HEURE, "tout")
+            ):
+                contact.confirmation_demandee_le = maintenant
+                contact.save(update_fields=["confirmation_demandee_le", "updated_at"])
         Demande.objects.get_or_create(contact=contact, origine=origine)
 
 

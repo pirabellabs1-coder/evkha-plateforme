@@ -1,0 +1,187 @@
+/* L'écran de la lettre d'information. Jetons de la charte (`theme/tokens.css`)
+ * et classes communes de la console ; seul ce qui est propre à la rédaction
+ * vit ici. */
+
+.lt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2);
+}
+
+.lt-choix-modele {
+  min-height: 36px;
+  width: auto;
+}
+
+.lt-champs {
+  display: grid;
+  gap: var(--e-4);
+  margin-bottom: var(--e-4);
+}
+
+.lt-editeur,
+.lt-lu {
+  display: grid;
+  gap: var(--e-2);
+}
+
+.lt-cadre {
+  width: 100%;
+  max-width: 680px;
+  min-height: 420px;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 10px;
+  background: var(--evkha-blanc);
+}
+
+.lt-relecture {
+  display: grid;
+  gap: var(--e-3);
+  padding: var(--e-4);
+  border: 1px dashed var(--evkha-bordure-forte);
+  border-radius: 10px;
+  background: var(--evkha-coquille);
+}
+
+.lt-relecture-gestes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e-4);
+}
+
+.lt-essai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e-2);
+}
+
+.lt-essai .champ {
+  min-width: min(260px, 100%);
+}
+
+.lt-statut {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 0.9rem;
+}
+
+.lt-statut-succes {
+  color: var(--evkha-succes);
+}
+
+.lt-statut-echec {
+  color: var(--portail-erreur-texte, var(--evkha-echec));
+}
+
+.lt-pied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e-3);
+  margin-top: var(--e-5);
+  padding-top: var(--e-4);
+  border-top: 1px solid var(--evkha-bordure);
+}
+
+.lt-envoi {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e-2);
+}
+
+.lt-note,
+.lt-detail {
+  margin: 0;
+  color: var(--evkha-gris);
+  font-size: 0.875rem;
+}
+
+.lt-detail {
+  display: block;
+}
+
+.lt-liste {
+  display: grid;
+  gap: var(--e-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lt-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 10px;
+  background: var(--evkha-blanc);
+}
+
+.lt-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: var(--e-4);
+}
+
+.lt-bascule {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-2);
+  margin: var(--e-4) 0 var(--e-2);
+  font-weight: var(--graisse-moyenne);
+}
+
+.lt-bascule input {
+  width: 20px;
+  height: 20px;
+}
+
+.lt-etapes {
+  display: grid;
+  gap: var(--e-5);
+  margin: var(--e-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lt-etape {
+  padding: var(--e-4);
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 12px;
+  background: var(--evkha-blanc);
+}
+
+.lt-etape-tete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e-4);
+  margin-bottom: var(--e-3);
+}
+
+.lt-etape-tete h3 {
+  margin: 0 auto 0 0;
+  font-size: var(--t-lg, 1.1rem);
+}
+
+.lt-delai {
+  width: 11rem;
+}
+
+.lt-abonnes {
+  display: grid;
+  gap: var(--e-3);
+  justify-items: start;
+  max-width: 62ch;
+}
+
+.lt-abonnes p {
+  margin: 0;
+}

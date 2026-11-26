@@ -141,7 +141,7 @@ export function AudienceAdmin() {
           <Chiffre
             libelle="Inscrites à la lettre"
             valeur={f.nombre(data.inscrits_a_la_lettre)}
-            detail="Ont coché la case ou se sont abonnées"
+            detail="Ont confirmé leur adresse par courriel"
           />
         </div>
       )}

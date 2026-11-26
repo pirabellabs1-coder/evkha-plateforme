@@ -250,7 +250,13 @@ class _EmailEnregistreur:
         self.envois: list[dict[str, Any]] = []
 
     def send_delivery_email(
-        self, *, recipient_email: str, subject: str, html_body: str, attachments: Any
+        self,
+        *,
+        recipient_email: str,
+        subject: str,
+        html_body: str,
+        attachments: Any,
+        **_: Any,
     ) -> Any:
         self.envois.append(
             {

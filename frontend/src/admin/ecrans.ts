@@ -17,6 +17,7 @@ export { AudienceAdmin } from "./pages/Audience";
 export { BoutiqueAdmin } from "./pages/BoutiqueAdmin";
 export { DemandesAdmin } from "./pages/Demandes";
 export { FormationsAdmin } from "./pages/Formations";
+export { LettreAdmin } from "./pages/Lettre";
 export { LivrablesAdmin } from "./pages/Livrables";
 export { OrganisationsAdmin } from "./pages/Organisations";
 export { ProspectionAdmin } from "./pages/Prospection";
