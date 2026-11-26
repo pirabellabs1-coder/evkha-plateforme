@@ -1,4 +1,4 @@
-/** La lettre d'information d'EVKHA (demande de la gérante du 26/11/2026).
+/** La newsletter d'EVKHA (demandes de la gérante du 26/11/2026).
  *
  * Quatre onglets :
  * - LETTRES : rédiger (éditeur enrichi, images), relire (aperçu, essai),
@@ -7,13 +7,14 @@
  * - MODÈLES : des points de départ réutilisables ;
  * - AUTOMATISATIONS : des suites de messages qui partent d'elles-mêmes après
  *   une inscription ou un téléchargement, chacune à son délai ;
- * - ABONNÉS : qui reçoit la lettre. Les adresses elles-mêmes vivent dans
- *   l'écran « Audience », qui les exporte et les désinscrit.
+ * - ABONNÉS : en ajouter (une adresse, une liste collée, un export), et
+ *   l'accès à l'écran « Audience », qui les liste, les exporte et les
+ *   désinscrit.
  *
  * Les envois partent du serveur, à la minute (`lettre/envoi.py`) : fermer cet
  * écran n'arrête rien, et chaque message porte son lien de désinscription.
  */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
@@ -38,7 +39,7 @@ import {
   Vide,
 } from "../../espace/composants/Interface";
 import { message } from "./lettre/outils";
-import { ChampsDuContenu, Relecture } from "./lettre/Redaction";
+import { ChampsDuContenu, Relecture, Vignette } from "./lettre/Redaction";
 import "./Lettre.css";
 
 type Onglet = "lettres" | "modeles" | "automatisations" | "abonnes";
@@ -144,11 +145,11 @@ function FicheDeLettre({
         ton: "succes",
         texte:
           maj.programmee_pour && new Date(maj.programmee_pour).getTime() > Date.now() + 90_000
-            ? `Lettre programmée pour le ${f.dateHeure(maj.programmee_pour)}, à ${f.nombre(maj.destinataires_prevus ?? inscrits)} inscrits.`
-            : `C'est parti : la lettre part dans la minute à ${f.nombre(maj.destinataires_prevus ?? inscrits)} inscrits.`,
+            ? `Newsletter programmée pour le ${f.dateHeure(maj.programmee_pour)}, à ${f.nombre(maj.destinataires_prevus ?? inscrits)} inscrits.`
+            : `C'est parti : la newsletter part dans la minute à ${f.nombre(maj.destinataires_prevus ?? inscrits)} inscrits.`,
       });
     },
-    onError: (c) => setRetour({ ton: "echec", texte: message(c, "La lettre n'a pas été programmée.") }),
+    onError: (c) => setRetour({ ton: "echec", texte: message(c, "La newsletter n'a pas été programmée.") }),
   });
 
   const annulation = useMutation({
@@ -159,7 +160,7 @@ function FicheDeLettre({
         ton: "succes",
         texte:
           maj.statut === "brouillon"
-            ? "La lettre est déprogrammée : elle redevient un brouillon."
+            ? "La newsletter est déprogrammée : elle redevient un brouillon."
             : "L'envoi est arrêté : les messages pas encore partis ne partiront pas.",
       });
     },
@@ -185,7 +186,7 @@ function FicheDeLettre({
   });
 
   if (lecture.isError) {
-    return <ErreurDeChargement quoi="la lettre" erreur={lecture.error} perimees={false} />;
+    return <ErreurDeChargement quoi="la newsletter" erreur={lecture.error} perimees={false} />;
   }
   if (!contenu) return <Squelette lignes={6} />;
 
@@ -196,7 +197,7 @@ function FicheDeLettre({
   function envoyerMaintenant() {
     if (
       window.confirm(
-        `Envoyer « ${contenu?.objet} » maintenant à ${f.nombre(inscrits)} inscrit${inscrits > 1 ? "s" : ""} ? Une lettre envoyée ne se rattrape pas.`,
+        `Envoyer « ${contenu?.objet} » maintenant à ${f.nombre(inscrits)} inscrit${inscrits > 1 ? "s" : ""} ? Une newsletter envoyée ne se rattrape pas.`,
       )
     ) {
       programmation.mutate(null);
@@ -216,7 +217,7 @@ function FicheDeLettre({
 
   return (
     <Carte
-      titre={id ? contenu.objet || "Lettre sans objet" : "Nouvelle lettre"}
+      titre={id ? contenu.objet || "Newsletter sans objet" : "Nouvelle newsletter"}
       note={
         lettre?.statut === "programmee"
           ? `Programmée pour le ${f.dateHeure(lettre.programmee_pour)}.`
@@ -293,7 +294,7 @@ function FicheDeLettre({
             onClick={() => {
               const texte =
                 statut === "programmee"
-                  ? "Déprogrammer cette lettre ? Elle redeviendra un brouillon."
+                  ? "Déprogrammer cette newsletter ? Elle redeviendra un brouillon."
                   : "Arrêter l'envoi ? Les messages déjà partis le restent.";
               if (window.confirm(texte)) annulation.mutate();
             }}
@@ -318,7 +319,7 @@ function FicheDeLettre({
             className="bouton bouton-echec"
             disabled={occupe}
             onClick={() => {
-              if (window.confirm("Supprimer définitivement cette lettre ?")) suppression.mutate();
+              if (window.confirm("Supprimer définitivement cette newsletter ?")) suppression.mutate();
             }}
           >
             Supprimer
@@ -359,7 +360,7 @@ function OngletLettres({
   const lettres = lecture.data?.lettres ?? [];
   return (
     <Carte
-      titre="Les lettres"
+      titre="Les newsletters"
       note="Les plus récentes d'abord."
       action={
         <div className="lt-actions">
@@ -387,20 +388,20 @@ function OngletLettres({
             onClick={() => setOuverte({ id: null, depart: VIDE })}
           >
             <Icone nom="plus" taille={16} />
-            Nouvelle lettre
+            Nouvelle newsletter
           </button>
         </div>
       }
     >
       {lecture.isError && (
-        <ErreurDeChargement quoi="les lettres" erreur={lecture.error} perimees={lecture.isRefetchError} />
+        <ErreurDeChargement quoi="les newsletters" erreur={lecture.error} perimees={lecture.isRefetchError} />
       )}
       {lecture.isPending ? (
         <Squelette lignes={3} />
       ) : lettres.length === 0 ? (
         <Vide
           icone={<Icone nom="lettre" />}
-          titre="Aucune lettre pour l'instant"
+          titre="Aucune newsletter pour l'instant"
           texte="Écrivez la première : elle partira à toutes les personnes qui ont confirmé leur inscription."
         />
       ) : (
@@ -523,7 +524,7 @@ function FicheDeModele({
           Enregistrer le modèle
         </button>
         <button type="button" className="bouton bouton-contour" onClick={() => ecrireAvec(contenu)}>
-          Écrire une lettre avec ce modèle
+          Écrire une newsletter avec ce modèle
         </button>
         {id && (
           <button
@@ -531,7 +532,7 @@ function FicheDeModele({
             className="bouton bouton-echec"
             disabled={suppression.isPending}
             onClick={() => {
-              if (window.confirm("Supprimer ce modèle ? Les lettres déjà écrites avec lui ne changent pas.")) {
+              if (window.confirm("Supprimer ce modèle ? Les newsletters déjà écrites avec lui ne changent pas.")) {
                 suppression.mutate();
               }
             }}
@@ -561,7 +562,7 @@ function OngletModeles({ ecrireAvec }: { ecrireAvec: (contenu: ContenuDeLettre) 
   return (
     <Carte
       titre="Les modèles"
-      note="Une mise en page et un texte de départ, à reprendre pour chaque nouvelle lettre."
+      note="Une mise en page et un texte de départ, à reprendre pour chaque nouvelle newsletter."
       action={
         <button
           type="button"
@@ -582,13 +583,14 @@ function OngletModeles({ ecrireAvec }: { ecrireAvec: (contenu: ContenuDeLettre) 
         <Vide
           icone={<Icone nom="lettre" />}
           titre="Aucun modèle"
-          texte="Créez un modèle, ou enregistrez une lettre réussie comme modèle depuis sa fiche."
+          texte="Créez un modèle, ou enregistrez une newsletter réussie comme modèle depuis sa fiche."
         />
       ) : (
-        <ul className="lt-liste">
+        <ul className="lt-liste lt-liste-modeles">
           {modeles.map((m) => (
-            <li key={m.id} className="lt-ligne">
-              <div>
+            <li key={m.id} className="lt-ligne lt-ligne-modele">
+              <Vignette contenu={m} nom={m.nom} />
+              <div className="lt-ligne-texte">
                 <strong>{m.nom}</strong>
                 <span className="lt-detail">Modifié le {f.date(m.modifie_le)}</span>
               </div>
@@ -601,7 +603,7 @@ function OngletModeles({ ecrireAvec }: { ecrireAvec: (contenu: ContenuDeLettre) 
                   className="bouton bouton-principal bouton-sm"
                   onClick={() => ecrireAvec({ objet: m.objet, apercu: m.apercu, corps_html: m.corps_html })}
                 >
-                  Écrire une lettre
+                  Écrire une newsletter
                 </button>
               </div>
             </li>
@@ -739,7 +741,7 @@ function FicheDAutomatisation({
         <span>Active : les messages partent d'eux-mêmes</span>
       </label>
       <p className="lt-note">
-        Seules les personnes inscrites à la lettre reçoivent ces messages, même pour un
+        Seules les personnes inscrites à la newsletter reçoivent ces messages, même pour un
         téléchargement. Le délai compte depuis l'événement déclencheur.
       </p>
 
@@ -795,7 +797,11 @@ function FicheDAutomatisation({
             {etape.envoyes !== undefined && etape.envoyes > 0 && (
               <p className="lt-detail">Déjà reçu par {f.nombre(etape.envoyes)} personne{etape.envoyes > 1 ? "s" : ""}.</p>
             )}
-            <ChampsDuContenu contenu={etape} changer={(c) => changerEtape(rang, c)} />
+            <ChampsDuContenu
+              contenu={etape}
+              changer={(c) => changerEtape(rang, c)}
+              apercuEnDirect={false}
+            />
             <Relecture contenu={etape} />
           </li>
         ))}
@@ -921,10 +927,162 @@ function OngletAutomatisations({
   );
 }
 
+// ── Abonnés ─────────────────────────────────────────────────────────────────
+
+/** Un export de plusieurs dizaines de milliers de lignes fige le champ. */
+const TAILLE_MAX_FICHIER = 5 * 1024 * 1024;
+
+function AjoutDAbonnes() {
+  const id = useId();
+  const cache = useQueryClient();
+  const [texte, setTexte] = useState("");
+  const [provenance, setProvenance] = useState("");
+  const [accord, setAccord] = useState(false);
+  const [retour, setRetour] = useState<{ ton: "succes" | "echec"; texte: string } | null>(null);
+  const [lecture, setLecture] = useState("");
+
+  const ajout = useMutation({
+    mutationFn: () => adminApi.ajouterDesAbonnes(texte, provenance, accord),
+    onSuccess: (r) => {
+      void cache.invalidateQueries({ queryKey: [...CLE] });
+      void cache.invalidateQueries({ queryKey: ["admin", "audience"] });
+      const morceaux = [
+        `${f.nombre(r.ajoutees)} adresse${r.ajoutees > 1 ? "s" : ""} ajoutée${r.ajoutees > 1 ? "s" : ""}`,
+      ];
+      if (r.deja_inscrites) morceaux.push(`${f.nombre(r.deja_inscrites)} déjà abonnée${r.deja_inscrites > 1 ? "s" : ""}`);
+      if (r.desinscrites_non_reinscrites) {
+        morceaux.push(
+          `${f.nombre(r.desinscrites_non_reinscrites)} désinscrite${r.desinscrites_non_reinscrites > 1 ? "s" : ""} laissée${r.desinscrites_non_reinscrites > 1 ? "s" : ""} hors de la liste (elles seules peuvent revenir)`,
+        );
+      }
+      if (r.lignes_ecartees) {
+        morceaux.push(
+          `${f.nombre(r.lignes_ecartees)} ligne${r.lignes_ecartees > 1 ? "s" : ""} marquée${r.lignes_ecartees > 1 ? "s" : ""} « désinscrit » ou « rebond » écartée${r.lignes_ecartees > 1 ? "s" : ""}`,
+        );
+      }
+      if (r.invalides_total) {
+        const reste = r.invalides_total - r.invalides.length;
+        morceaux.push(
+          `illisibles : ${r.invalides.join(", ")}${reste > 0 ? ` et ${f.nombre(reste)} autre${reste > 1 ? "s" : ""}` : ""}`,
+        );
+      }
+      setRetour({ ton: "succes", texte: `${morceaux.join(" ; ")}. ${f.nombre(r.inscrits)} abonnés en tout.` });
+      setTexte("");
+      // Chaque lot s'atteste à nouveau : la case ne reste pas cochée.
+      setAccord(false);
+    },
+    onError: (c) => setRetour({ ton: "echec", texte: message(c, "L'ajout n'a pas abouti.") }),
+  });
+
+  async function lireLeFichier(fichier: File | undefined) {
+    if (!fichier) return;
+    if (fichier.size > TAILLE_MAX_FICHIER) {
+      setRetour({ ton: "echec", texte: "Fichier trop lourd : 5 Mo au plus. Coupez la liste en deux." });
+      return;
+    }
+    try {
+      const contenu = await fichier.text();
+      setLecture(fichier.name);
+      setTexte((avant) => (avant.trim() ? `${avant}\n${contenu}` : contenu));
+    } catch {
+      setRetour({ ton: "echec", texte: `Le fichier « ${fichier.name} » n'a pas pu être lu.` });
+    }
+  }
+
+  // Le même découpage que le serveur (`audience/adresses.py`) : on compte les
+  // morceaux qui portent un @, sans chercher d'adresse au milieu d'un mot.
+  const nombre = texte.split(/[\s,;<>"'()[\]|]+/).filter((m) => m.includes("@")).length;
+
+  return (
+    <Carte
+      titre="Ajouter des abonnés"
+      note="Une adresse, une liste collée, ou le fichier exporté d'un autre outil (Systeme.io, tableur en CSV) : seules les adresses e-mail sont lues."
+    >
+      <Retour retour={retour} />
+      <form
+        className="lt-ajout"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setRetour(null);
+          ajout.mutate();
+        }}
+      >
+        <div className="champ">
+          <label className="champ-libelle" htmlFor={`${id}-adresses`}>
+            Adresses e-mail
+          </label>
+          <textarea
+            id={`${id}-adresses`}
+            aria-describedby={`${id}-compte`}
+            className="champ-saisie lt-adresses"
+            rows={6}
+            value={texte}
+            placeholder={"marie@exemple.fr\npaul@exemple.fr"}
+            onChange={(e) => setTexte(e.target.value)}
+          />
+          <span className="champ-aide" id={`${id}-compte`} aria-live="polite">
+            {nombre > 0 ? `${f.nombre(nombre)} adresse${nombre > 1 ? "s" : ""} repérée${nombre > 1 ? "s" : ""}.` : "Une par ligne, ou séparées par des virgules."}
+          </span>
+        </div>
+        <label className="champ">
+          <span className="champ-libelle">Ou un fichier (CSV, texte)</span>
+          <input
+            className="champ-saisie"
+            type="file"
+            accept=".csv,.txt,text/csv,text/plain"
+            onChange={(e) => {
+              void lireLeFichier(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          {lecture && <span className="champ-aide">« {lecture} » ajouté au champ ci-dessus.</span>}
+        </label>
+        <div className="champ">
+          <label className="champ-libelle" htmlFor={`${id}-provenance`}>
+            D'où vient cette liste ?
+          </label>
+          <input
+            id={`${id}-provenance`}
+            className="champ-saisie"
+            value={provenance}
+            maxLength={200}
+            required
+            placeholder="Export Systeme.io du 26/11/2026"
+            aria-describedby={`${id}-provenance-aide`}
+            onChange={(e) => setProvenance(e.target.value)}
+          />
+          <span className="champ-aide" id={`${id}-provenance-aide`}>
+            Gardé avec chaque adresse : c'est la trace de leur accord.
+          </span>
+        </div>
+        <label className="lt-bascule">
+          <input type="checkbox" checked={accord} onChange={(e) => setAccord(e.target.checked)} />
+          <span>Ces personnes ont accepté de recevoir la newsletter d'EVKHA.</span>
+        </label>
+        <p className="lt-note">
+          Elles sont abonnées tout de suite, sans courriel de confirmation, et ne reçoivent pas
+          les messages de bienvenue automatiques. N'importez que les contacts actifs : une
+          personne désinscrite ou effacée n'est jamais réabonnée, et les lignes marquées «
+          désinscrit » ou « rebond » sont écartées.
+        </p>
+        <div className="lt-pied">
+          <button
+            type="submit"
+            className="bouton bouton-principal"
+            disabled={ajout.isPending || !accord || nombre === 0 || !provenance.trim()}
+          >
+            {ajout.isPending ? "Ajout…" : "Ajouter à la newsletter"}
+          </button>
+        </div>
+      </form>
+    </Carte>
+  );
+}
+
 // ── L'écran ─────────────────────────────────────────────────────────────────
 
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
-  { cle: "lettres", libelle: "Lettres" },
+  { cle: "lettres", libelle: "Newsletters" },
   { cle: "modeles", libelle: "Modèles" },
   { cle: "automatisations", libelle: "Automatisations" },
   { cle: "abonnes", libelle: "Abonnés" },
@@ -939,7 +1097,7 @@ export function LettreAdmin() {
   return (
     <>
       {resume.isError && (
-        <ErreurDeChargement quoi="la lettre" erreur={resume.error} perimees={resume.isRefetchError} />
+        <ErreurDeChargement quoi="la newsletter" erreur={resume.error} perimees={resume.isRefetchError} />
       )}
       {r && (
         <div className="grille-chiffres">
@@ -958,7 +1116,7 @@ export function LettreAdmin() {
         </div>
       )}
 
-      <nav className="console-onglets" aria-label="Sections de la lettre">
+      <nav className="console-onglets" aria-label="Sections de la newsletter">
         {ONGLETS.map((o) => (
           <button
             key={o.cle}
@@ -984,20 +1142,21 @@ export function LettreAdmin() {
         />
       )}
       {onglet === "automatisations" && <OngletAutomatisations declencheurs={r?.declencheurs ?? []} />}
+      {onglet === "abonnes" && <AjoutDAbonnes />}
       {onglet === "abonnes" && (
         <Carte
-          titre="Les abonnés"
-          note="Une personne n'est abonnée qu'après avoir cliqué le lien de confirmation reçu par courriel."
+          titre="La liste des abonnés"
+          note="Les inscriptions venues du site sont confirmées par courriel ; celles que vous ajoutez sont abonnées aussitôt."
         >
           {resume.isPending ? (
             <Squelette lignes={2} />
           ) : (
             <div className="lt-abonnes">
               <p>
-                Les personnes s'inscrivent depuis le blog, ou en cochant la case des ressources
-                gratuites (accueil, boîte à outils). Chaque message porte un lien pour se
-                désinscrire en un clic, et les messageries affichent aussi leur propre bouton «
-                Se désinscrire ».
+                Les personnes s'inscrivent aussi d'elles-mêmes, depuis le blog ou en cochant la
+                case des ressources gratuites (accueil, boîte à outils), puis confirment leur
+                adresse. Chaque message porte un lien pour se désinscrire en un clic, et les
+                messageries affichent aussi leur propre bouton « Se désinscrire ».
               </p>
               <p>
                 La liste complète, la recherche, l'export pour un tableur, la désinscription ou

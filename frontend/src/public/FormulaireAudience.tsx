@@ -230,7 +230,7 @@ export function FormulaireRessource({
             </a>
             .
             {etat.confirmer &&
-              " Pour recevoir la lettre, confirmez votre adresse : un courriel vous arrive dans la minute."}
+              " Pour recevoir la newsletter, confirmez votre adresse : un courriel vous arrive dans la minute."}
           </>
         )}
       </p>
@@ -262,7 +262,7 @@ export function FormulaireLettre({ bouton, mention }: { bouton: string; mention:
       className="aud-form aud-form-ligne"
       method="post"
       onSubmit={envoyer}
-      aria-label="Inscription à la lettre"
+      aria-label="Inscription à la newsletter"
     >
       <fieldset className="aud-cadre" disabled={pageEcrite()}>
       <ChampAdresse id={id} valeur={email} changer={setEmail} refus={refus} />

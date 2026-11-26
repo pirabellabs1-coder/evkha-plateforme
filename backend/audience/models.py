@@ -42,11 +42,14 @@ class Origine(models.TextChoices):
 
     CHECKLIST = "checklist", "Checklist"
     LEXIQUE = "lexique", "Lexique"
-    LETTRE = "lettre", "Lettre d'information"
+    LETTRE = "lettre", "Newsletter"
+    #: Ajoutée par la gérante (une personne qui a accepté ailleurs, par
+    #: exemple la liste reprise de Systeme.io) : la trace de QUI a inscrit.
+    AJOUT = "ajout", "Ajout par l'administration"
 
 
 class Contact(UUIDModel):
-    #: Unique, en minuscules : `audience.vues_publiques.adresse_normalisee`.
+    #: Unique, en minuscules : `audience.adresses.adresse_normalisee`.
     email = models.EmailField(max_length=254, unique=True)
     #: Consentement explicite à la lettre d'information. Vide = pas inscrit.
     lettre_le = models.DateTimeField(null=True, blank=True)
@@ -97,6 +100,10 @@ class Contact(UUIDModel):
         self.lettre_le = quand
         self.confirmations_sans_reponse = 0
         self.save(update_fields=["lettre_le", "confirmations_sans_reponse", "updated_at"])
+        # Revenue d'elle-même, preuve à l'appui : l'opposition tombe.
+        from .adresses import empreinte  # noqa: PLC0415
+
+        Opposition.objects.filter(empreinte=empreinte(self.email)).delete()
 
 
 def inscrits_q() -> Q:
@@ -112,6 +119,10 @@ class Demande(UUIDModel):
         Contact, on_delete=models.CASCADE, related_name="demandes"
     )
     origine = models.CharField(max_length=16, choices=Origine.choices)
+    #: Pour un AJOUT par la gérante : d'où vient la liste (« export Systeme.io
+    #: du 26/11/2026 »). C'est la trace du consentement qu'elle atteste
+    #: (RGPD, art. 7.1) — sans elle, « ajouté » ne prouverait rien.
+    provenance = models.CharField(max_length=200, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -120,3 +131,19 @@ class Demande(UUIDModel):
 
     def __str__(self) -> str:
         return f"{self.contact.email} · {self.origine}"
+
+
+class Opposition(UUIDModel):
+    """Une personne EFFACÉE à sa demande (art. 17), réduite à une empreinte.
+
+    L'effacement supprime le contact : sans cette trace, le prochain import
+    de la même liste la réabonnerait — elle, qui a demandé le plus fort de ne
+    plus rien recevoir. On garde l'empreinte (`adresses.empreinte`), jamais
+    l'adresse. Elle tombe si la personne revient d'elle-même et confirme.
+    """
+
+    empreinte = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        verbose_name = "opposition"
+        verbose_name_plural = "oppositions"

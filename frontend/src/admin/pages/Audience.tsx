@@ -74,7 +74,7 @@ export function AudienceAdmin() {
     mutationFn: (contact: ContactDeLAudience) => adminApi.desinscrireDeLaLettre(contact.id),
     onSuccess: (_, contact) => {
       setErreur("");
-      setAnnonce(`${contact.email} ne recevra plus la lettre.`);
+      setAnnonce(`${contact.email} ne recevra plus la newsletter.`);
       void cache.invalidateQueries({ queryKey: ["admin", "audience"] });
     },
     onError: (cause) => {
@@ -107,7 +107,7 @@ export function AudienceAdmin() {
   }
 
   function desinscrire(contact: ContactDeLAudience) {
-    if (window.confirm(`Retirer ${contact.email} de la lettre ? Son historique reste visible.`)) {
+    if (window.confirm(`Retirer ${contact.email} de la newsletter ? Son historique reste visible.`)) {
       desinscription.mutate(contact);
     }
   }
@@ -135,11 +135,11 @@ export function AudienceAdmin() {
           <Chiffre
             libelle="Adresses récoltées"
             valeur={f.nombre(data.total)}
-            detail="Ressources gratuites et lettre"
+            detail="Ressources gratuites et newsletter"
             accent
           />
           <Chiffre
-            libelle="Inscrites à la lettre"
+            libelle="Inscrites à la newsletter"
             valeur={f.nombre(data.inscrits_a_la_lettre)}
             detail="Ont confirmé leur adresse par courriel"
           />
@@ -148,7 +148,7 @@ export function AudienceAdmin() {
 
       <Carte
         titre="Les contacts"
-        note="Les nouvelles adresses d'abord. Les fichiers s'ouvrent dans Excel ou Google Sheets ; pour envoyer la lettre, importez celui des inscrits."
+        note="Les nouvelles adresses d'abord. Les fichiers s'ouvrent dans Excel ou Google Sheets ; l'envoi se fait depuis l'écran Newsletter."
         action={
           <div className="aud-exports">
             <button
@@ -158,7 +158,7 @@ export function AudienceAdmin() {
               disabled={exportation.isPending || !data || data.inscrits_a_la_lettre === 0}
             >
               <Icone nom="telecharger" taille={16} />
-              Inscrits à la lettre
+              Inscrits à la newsletter
             </button>
             <button
               type="button"
@@ -191,7 +191,7 @@ export function AudienceAdmin() {
             <Vide
               icone={<Icone nom="audience" />}
               titre={filtre ? "Aucune adresse ne correspond" : "Aucune adresse pour l'instant"}
-              texte="Les personnes qui téléchargent une ressource gratuite ou s'abonnent à la lettre apparaîtront ici."
+              texte="Les personnes qui téléchargent une ressource gratuite ou s'abonnent à la newsletter apparaîtront ici."
             />
           )
         ) : (
@@ -201,7 +201,7 @@ export function AudienceAdmin() {
                 <tr>
                   <th scope="col">Adresse e-mail</th>
                   <th scope="col">Ressources et inscriptions</th>
-                  <th scope="col">Lettre</th>
+                  <th scope="col">Newsletter</th>
                   <th scope="col">Dernière demande</th>
                   <th scope="col">
                     <span className="visuellement-cache">Action</span>
@@ -239,7 +239,7 @@ export function AudienceAdmin() {
                             className="bouton bouton-contour bouton-sm"
                             onClick={() => desinscrire(contact)}
                             disabled={desinscription.isPending}
-                            aria-label={`Désinscrire ${contact.email} de la lettre`}
+                            aria-label={`Désinscrire ${contact.email} de la newsletter`}
                           >
                             Désinscrire
                           </button>

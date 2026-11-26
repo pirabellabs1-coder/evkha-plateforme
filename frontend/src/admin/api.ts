@@ -1048,7 +1048,7 @@ export const adminApi = {
    *  l'outil d'envoi. Sans lui, toutes les adresses, téléchargeurs compris. */
   exporterLAudience: (lettre = false) =>
     lettre
-      ? telecharger("/audience.csv?lettre=1", "lettre-evkha-inscrits.csv")
+      ? telecharger("/audience.csv?lettre=1", "newsletter-evkha-inscrits.csv")
       : telecharger("/audience.csv", "audience-evkha.csv"),
   desinscrireDeLaLettre: (contactId: string) =>
     post<{ contact: ContactDeLAudience }>(`/audience/${contactId}/desinscrire/`, {}),
@@ -1078,6 +1078,18 @@ export const adminApi = {
     donnees.set("image", image);
     return envoyer<{ url: string }>("/lettre/images/", donnees);
   },
+  /** Inscrit directement les adresses trouvées dans `texte` (liste collée,
+   *  export CSV). `consentement` : la gérante atteste leur accord. */
+  ajouterDesAbonnes: (texte: string, provenance: string, consentement: boolean) =>
+    post<{
+      ajoutees: number;
+      deja_inscrites: number;
+      desinscrites_non_reinscrites: number;
+      lignes_ecartees: number;
+      invalides: string[];
+      invalides_total: number;
+      inscrits: number;
+    }>("/lettre/abonnes/", { texte, provenance, consentement }),
   modelesDeLettre: () => get<{ modeles: ModeleDeLettre[] }>("/lettre/modeles/"),
   creerUnModele: (modele: Omit<ModeleDeLettre, "id" | "modifie_le">) =>
     post<ModeleDeLettre>("/lettre/modeles/", modele),

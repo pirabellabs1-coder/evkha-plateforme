@@ -13,13 +13,15 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from django.db import transaction
 from django.db.models import Prefetch
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from audience.models import Contact, Demande, Origine
+from audience.adresses import empreinte
+from audience.models import Contact, Demande, Opposition, Origine
 from catalog.suivi import cellule_sure
 
 _log = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ def _vue(contact: Contact) -> dict[str, Any]:
             demandes[-1].created_at.isoformat() if demandes else contact.created_at.isoformat()
         ),
         "demandes": [_LIBELLES.get(o, o) for o in origines],
+        "provenances": [d.provenance for d in demandes if d.provenance],
         "inscrit_a_la_lettre": contact.inscrit_a_la_lettre,
         "lettre_le": contact.lettre_le.isoformat() if contact.lettre_le else None,
         "desinscrit_le": contact.desinscrit_le.isoformat() if contact.desinscrit_le else None,
@@ -74,8 +77,9 @@ def liste(request: HttpRequest) -> HttpResponse:
 _COLONNES = [
     "Adresse e-mail",
     "Ressources et inscriptions",
-    "Inscrit à la lettre",
-    "Consentement à la lettre",
+    "Inscrit à la newsletter",
+    "Inscription à la newsletter le",
+    "Provenance (ajout par l'administration)",
     "Première demande",
     "Dernière demande",
 ]
@@ -113,6 +117,7 @@ def liste_csv(request: HttpRequest) -> HttpResponse:
                 cellule_sure(", ".join(c["demandes"])),
                 "oui" if c["inscrit_a_la_lettre"] else "non",
                 _jour(c["lettre_le"]),
+                cellule_sure(" ; ".join(c["provenances"])),
                 _jour(c["premiere_demande_le"]),
                 _jour(c["derniere_demande_le"]),
             ]
@@ -121,7 +126,7 @@ def liste_csv(request: HttpRequest) -> HttpResponse:
         ("﻿" + tampon.getvalue()).encode("utf-8"),
         content_type="text/csv; charset=utf-8",
     )
-    nom = "lettre-evkha-inscrits.csv" if seulement_la_lettre else "audience-evkha.csv"
+    nom = "newsletter-evkha-inscrits.csv" if seulement_la_lettre else "audience-evkha.csv"
     reponse["Content-Disposition"] = f'attachment; filename="{nom}"'
     _log.info("Audience exportée (%d contacts).", len(contacts))
     return _sans_cache(reponse)
@@ -148,7 +153,9 @@ def supprimer(request: HttpRequest, contact_id: str) -> HttpResponse:
     contact = Contact.objects.filter(pk=contact_id).first() if _uuid(contact_id) else None
     if contact is None:
         return JsonResponse({"erreur": "Contact introuvable.", "code": "introuvable"}, status=404)
-    contact.delete()
+    with transaction.atomic():
+        Opposition.objects.get_or_create(empreinte=empreinte(contact.email))
+        contact.delete()
     _log.info("Contact de l'audience effacé à sa demande.")
     return _sans_cache(JsonResponse({"supprime": True}))
 

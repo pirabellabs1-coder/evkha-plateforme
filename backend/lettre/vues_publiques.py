@@ -80,7 +80,7 @@ def confirmation(request: HttpRequest, jeton: str) -> HttpResponse:
         return _page(
             "Lien expiré",
             "<h1>Ce lien n'est plus valable</h1><p>Il a expiré ou a déjà servi. "
-            "Pour recevoir la lettre, inscrivez-vous à nouveau depuis le site : "
+            "Pour recevoir la newsletter, inscrivez-vous à nouveau depuis le site : "
             "un nouveau lien vous sera envoyé.</p>",
             status=404,
         )
@@ -88,7 +88,7 @@ def confirmation(request: HttpRequest, jeton: str) -> HttpResponse:
         return _page(
             "Inscription confirmée",
             "<h1>Votre inscription est confirmée</h1><p>Vous recevrez la "
-            "prochaine lettre d'EVKHA à cette adresse.</p>",
+            "prochaine newsletter d'EVKHA à cette adresse.</p>",
         )
     if request.method == "POST":
         with transaction.atomic():
@@ -98,13 +98,13 @@ def confirmation(request: HttpRequest, jeton: str) -> HttpResponse:
         return _page(
             "Inscription confirmée",
             "<h1>Merci, votre inscription est confirmée</h1><p>Vous recevrez la "
-            "lettre d'EVKHA à cette adresse. Chaque message porte un lien pour "
+            "newsletter d'EVKHA à cette adresse. Chaque message porte un lien pour "
             "vous désinscrire en un clic.</p>",
         )
     return _page(
         "Confirmer l'inscription",
         "<h1>Confirmez votre inscription</h1><p>Un clic, et vous recevrez la "
-        "lettre d'EVKHA à cette adresse.</p>"
+        "newsletter d'EVKHA à cette adresse.</p>"
         + _formulaire("Confirmer mon inscription")
         + "<p style='color:#666;font-size:.9rem'>Tant que vous n'avez pas "
         "confirmé, rien n'est enregistré.</p>",
@@ -123,19 +123,19 @@ def desinscription(request: HttpRequest, jeton: str) -> HttpResponse:
             verrou.desinscrire(timezone.now())
         return _page(
             "Désinscription faite",
-            "<h1>Vous êtes désinscrit·e</h1><p>Vous ne recevrez plus la lettre "
+            "<h1>Vous êtes désinscrit·e</h1><p>Vous ne recevrez plus la newsletter "
             "d'EVKHA. Aucune autre démarche n'est nécessaire.</p>",
         )
     if not contact.inscrit_a_la_lettre and contact.confirmation_demandee_le is None:
         return _page(
             "Déjà désinscrit·e",
             "<h1>Vous êtes déjà désinscrit·e</h1><p>Cette adresse ne reçoit "
-            "plus la lettre d'EVKHA.</p>",
+            "plus la newsletter d'EVKHA.</p>",
         )
     return _page(
         "Se désinscrire",
         "<h1>Confirmez votre désinscription</h1><p>Vous ne recevrez plus la "
-        "lettre d'EVKHA.</p>"
+        "newsletter d'EVKHA.</p>"
         + _formulaire("Me désinscrire")
         + "<p style='color:#666;font-size:.9rem'>Tant que vous n'avez pas "
         "confirmé, rien n'est modifié.</p>",

@@ -650,7 +650,18 @@ def test_les_modeles_se_creent_et_se_nettoient(client_admin: Any) -> None:
     assert "<script" not in cree.json()["corps_html"]
     assert _json(client_admin, "post", "modeles/", {"nom": ""}).status_code == 400
     liste = client_admin.get("/api/dashboard/lettre/modeles/").json()["modeles"]
-    assert [m["nom"] for m in liste] == ["Mensuelle"]
+    assert "Mensuelle" in [m["nom"] for m in liste]
+
+
+def test_un_modele_de_depart_montre_la_mise_en_page(client_admin: Any) -> None:
+    """Demande du 26/11/2026 : « on doit voir le modèle ». La migration en pose
+    un, déjà passé par le nettoyage."""
+    liste = client_admin.get("/api/dashboard/lettre/modeles/").json()["modeles"]
+    depart = next(m for m in liste if m["nom"] == "Modèle EVKHA")
+    assert "<h1>" in depart["corps_html"]
+    # Passé par le nettoyage : les liens portent les attributs imposés.
+    assert 'target="_blank"' in depart["corps_html"]
+    assert 'rel="noopener noreferrer"' in depart["corps_html"]
 
 
 def test_reordonner_les_etapes_garde_leur_historique(client_admin: Any) -> None:
@@ -698,3 +709,231 @@ def test_une_automatisation_sans_message_ne_s_active_pas(client_admin: Any) -> N
     )
     assert reponse.status_code == 400
     assert not Automatisation.objects.exists()
+
+
+# ── Abonnés ajoutés par l'administration ────────────────────────────────────
+
+
+def _ajouter(
+    client_admin: Any,
+    texte: str,
+    consentement: bool = True,
+    provenance: str = "Export Systeme.io du 26/11/2026",
+) -> Any:
+    return _json(
+        client_admin,
+        "post",
+        "abonnes/",
+        {"texte": texte, "consentement": consentement, "provenance": provenance},
+    )
+
+
+def test_la_gerante_ajoute_des_abonnes_depuis_un_export(client_admin: Any) -> None:
+    export = (
+        "Prénom;Email;Date\n"
+        "Marie;Marie@Exemple.fr;2025-01-02\n"
+        "Paul;paul@exemple.fr;2025-03-04\n"
+        "Doublon;marie@exemple.fr;2025-05-06\n"
+        "Cassé;paul@;2025-05-06\n"
+    )
+    reponse = _ajouter(client_admin, export)
+    assert reponse.status_code == 200
+    corps = reponse.json()
+    assert corps["ajoutees"] == 2
+    assert corps["inscrits"] == 2
+    inscrits = Contact.objects.filter(lettre_le__isnull=False)
+    assert sorted(c.email for c in inscrits) == ["marie@exemple.fr", "paul@exemple.fr"]
+    ajouts = Demande.objects.filter(origine="ajout")
+    assert ajouts.count() == 2
+    # La provenance de la liste est gardée : c'est la trace du consentement.
+    assert set(ajouts.values_list("provenance", flat=True)) == {"Export Systeme.io du 26/11/2026"}
+    assert corps["invalides"] == ["paul@"]
+
+
+def test_sans_l_accord_coche_personne_n_est_ajoute(client_admin: Any) -> None:
+    reponse = _ajouter(client_admin, "marie@exemple.fr", consentement=False)
+    assert reponse.status_code == 400
+    assert not Contact.objects.exists()
+
+
+def test_une_personne_desinscrite_n_est_jamais_reinscrite_par_un_import(
+    client_admin: Any,
+) -> None:
+    partie = Contact.objects.create(
+        email="partie@exemple.fr",
+        lettre_le=timezone.now() - timedelta(days=9),
+        desinscrit_le=timezone.now() - timedelta(days=1),
+    )
+    deja = _inscrit("deja@exemple.fr")
+    corps = _ajouter(client_admin, "partie@exemple.fr, deja@exemple.fr").json()
+    assert corps["desinscrites_non_reinscrites"] == 1
+    assert corps["deja_inscrites"] == 1
+    assert corps["ajoutees"] == 0
+    partie.refresh_from_db()
+    assert partie.inscrit_a_la_lettre is False
+    deja.refresh_from_db()
+    assert deja.inscrit_a_la_lettre is True
+
+
+def test_un_contact_connu_non_inscrit_est_abonne(client_admin: Any) -> None:
+    """Une personne qui a pris la checklist sans cocher la case, et que la
+    gérante ajoute parce qu'elle l'a demandé de vive voix."""
+    Contact.objects.create(email="lectrice@exemple.fr")
+    corps = _ajouter(client_admin, "lectrice@exemple.fr").json()
+    assert corps["ajoutees"] == 1
+    assert Contact.objects.get().inscrit_a_la_lettre is True
+
+
+def test_un_import_ne_declenche_pas_la_bienvenue(client_admin: Any, temoin: Temoin) -> None:
+    _automatisation()
+    _ajouter(client_admin, "importee@exemple.fr")
+    _inscrit("nouvelle@exemple.fr")
+    _pomper()
+    assert [e["recipient_email"] for e in temoin.envoyes] == ["nouvelle@exemple.fr"]
+
+
+def test_un_import_recoit_bien_les_newsletters(client_admin: Any, temoin: Temoin) -> None:
+    _ajouter(client_admin, "importee@exemple.fr")
+    pompe.lancer(_lettre())
+    _pomper()
+    assert [e["recipient_email"] for e in temoin.envoyes] == ["importee@exemple.fr"]
+
+
+def test_l_ajout_exige_le_jeton() -> None:
+    reponse = Client().post(
+        "/api/dashboard/lettre/abonnes/",
+        data=json.dumps({"texte": "a@exemple.fr", "consentement": True, "provenance": "x"}),
+        content_type="application/json",
+    )
+    assert reponse.status_code in (401, 403)
+    assert not Contact.objects.exists()
+
+
+def test_sans_provenance_personne_n_est_ajoute(client_admin: Any) -> None:
+    reponse = _ajouter(client_admin, "marie@exemple.fr", provenance="  ")
+    assert reponse.status_code == 400
+    assert reponse.json()["code"] == "provenance_manquante"
+    assert not Contact.objects.exists()
+
+
+def test_une_adresse_n_est_jamais_tronquee_en_une_autre(client_admin: Any) -> None:
+    """Relecture du 26/11/2026 : chercher des adresses DANS un texte faisait
+    de `élise@exemple.fr` l'adresse `lise@exemple.fr` — valide, et abonnée
+    sans que personne ne l'ait donnée."""
+    corps = _ajouter(client_admin, "élise@exemple.fr\n'marie@exemple.fr'").json()
+    emails = set(Contact.objects.values_list("email", flat=True))
+    assert "lise@exemple.fr" not in emails
+    assert "marie@exemple.fr" in emails
+    assert "'marie@exemple.fr" not in emails
+    assert corps["ajoutees"] == len(emails)
+
+
+def test_une_personne_effacee_n_est_pas_reabonnee_par_un_import(client_admin: Any) -> None:
+    from audience.models import Opposition
+
+    _ajouter(client_admin, "effacee@exemple.fr")
+    contact = Contact.objects.get()
+    assert client_admin.post(f"/api/dashboard/audience/{contact.id}/supprimer/").status_code == 200
+    assert not Contact.objects.exists()
+    # L'empreinte est gardée, pas l'adresse.
+    assert Opposition.objects.count() == 1
+    assert "effacee" not in Opposition.objects.get().empreinte
+
+    corps = _ajouter(client_admin, "effacee@exemple.fr").json()
+    assert corps["ajoutees"] == 0
+    assert corps["desinscrites_non_reinscrites"] == 1
+    assert not Contact.objects.exists()
+
+
+def test_revenir_soi_meme_leve_l_opposition() -> None:
+    from audience.adresses import empreinte
+    from audience.models import Opposition
+
+    Opposition.objects.create(empreinte=empreinte("lea@exemple.fr"))
+    contact = Contact.objects.create(
+        email="lea@exemple.fr", confirmation_demandee_le=timezone.now()
+    )
+    contact.confirmer(timezone.now())
+    assert not Opposition.objects.exists()
+
+
+def test_les_lignes_d_un_export_marquees_desinscrites_sont_ecartees(client_admin: Any) -> None:
+    export = (
+        "email;statut\n"
+        "active@exemple.fr;Subscribed\n"
+        "partie@exemple.fr;Unsubscribed\n"
+        "rebond@exemple.fr;bounced\n"
+        "autre@exemple.fr;désinscrit le 3 mars\n"
+    )
+    corps = _ajouter(client_admin, export).json()
+    assert corps["ajoutees"] == 1
+    assert corps["lignes_ecartees"] == 3
+    assert list(Contact.objects.values_list("email", flat=True)) == ["active@exemple.fr"]
+
+
+def test_trop_d_adresses_d_un_coup_est_refuse(client_admin: Any) -> None:
+    from dashboard.lettre import AJOUTS_MAX
+
+    texte = "\n".join(f"p{i}@exemple.fr" for i in range(AJOUTS_MAX + 1))
+    reponse = _ajouter(client_admin, texte)
+    assert reponse.status_code == 400
+    assert reponse.json()["code"] == "trop_d_adresses"
+    assert not Contact.objects.exists()
+
+
+def test_un_gros_import_passe_en_peu_de_requetes(
+    client_admin: Any, django_assert_max_num_queries: Any
+) -> None:
+    texte = "\n".join(f"p{i}@exemple.fr" for i in range(2000))
+    with django_assert_max_num_queries(40):
+        corps = _ajouter(client_admin, texte).json()
+    assert corps["ajoutees"] == 2000
+
+
+def test_importee_partie_puis_revenue_recoit_la_bienvenue(
+    client_admin: Any, temoin: Temoin
+) -> None:
+    _automatisation()
+    _ajouter(client_admin, "lea@exemple.fr")
+    contact = Contact.objects.get()
+    contact.desinscrire(timezone.now() - timedelta(minutes=5))
+    # Elle revient d'elle-même, par le site, et confirme.
+    contact.confirmation_demandee_le = timezone.now()
+    contact.save()
+    contact.confirmer(timezone.now())
+    _pomper()
+    assert [e["recipient_email"] for e in temoin.envoyes] == ["lea@exemple.fr"]
+
+
+def test_une_confirmation_en_attente_s_eteint_si_la_gerante_ajoute(
+    client_admin: Any, temoin: Temoin
+) -> None:
+    Contact.objects.create(email="lea@exemple.fr", confirmation_demandee_le=timezone.now())
+    _ajouter(client_admin, "lea@exemple.fr")
+    _pomper()
+    assert temoin.envoyes == []
+    assert Contact.objects.get().inscrit_a_la_lettre is True
+
+
+def test_une_personne_effacee_revenue_par_une_ressource_n_est_pas_reabonnee(
+    client_admin: Any,
+) -> None:
+    """Porte finale du 26/11/2026 : effacée, elle reprend la checklist sans
+    cocher la newsletter — son contact existe de nouveau, son refus aussi."""
+    from audience.adresses import empreinte
+    from audience.models import Opposition
+
+    Opposition.objects.create(empreinte=empreinte("lea@exemple.fr"))
+    Contact.objects.create(email="lea@exemple.fr")
+    corps = _ajouter(client_admin, "lea@exemple.fr").json()
+    assert corps["ajoutees"] == 0
+    assert corps["desinscrites_non_reinscrites"] == 1
+    assert Contact.objects.get().inscrit_a_la_lettre is False
+
+
+def test_une_adresse_qui_ressemble_a_une_marque_de_retrait_reste_lue(
+    client_admin: Any,
+) -> None:
+    corps = _ajouter(client_admin, "rebond@exemple.fr;actif").json()
+    assert corps["ajoutees"] == 1
+    assert corps["lignes_ecartees"] == 0

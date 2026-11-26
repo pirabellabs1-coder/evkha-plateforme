@@ -34,7 +34,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
 from audience.models import Contact, Demande, Origine, inscrits_q
@@ -234,7 +234,18 @@ def _evenements(automatisation: Automatisation, etape: Etape, maintenant: dateti
     seuil = maintenant - timedelta(days=etape.delai_jours)
     inscrits = Contact.objects.filter(inscrits_q())
     if automatisation.declencheur == Declencheur.INSCRIPTION:
-        cibles = inscrits.filter(lettre_le__gte=depuis, lettre_le__lte=seuil)
+        # Les abonnés AJOUTÉS par la gérante (une liste reprise d'ailleurs)
+        # ne sont pas de nouveaux inscrits : leur souhaiter la bienvenue à
+        # tous d'un coup, le jour de l'import, serait un envoi massif surprise.
+        # Seulement si c'est l'ajout qui a posé l'inscription ACTUELLE : une
+        # personne importée, partie, puis revenue d'elle-même par le site est
+        # une vraie nouvelle inscrite.
+        ajoutee = Demande.objects.filter(
+            contact=OuterRef("pk"), origine=Origine.AJOUT, created_at__gte=OuterRef("lettre_le")
+        )
+        cibles = inscrits.filter(lettre_le__gte=depuis, lettre_le__lte=seuil).exclude(
+            Exists(ajoutee)
+        )
     else:
         # Un téléchargement ne déclenche la suite que s'il est fait APRÈS la
         # confirmation : une demande anonyme au nom d'un abonné (n'importe qui

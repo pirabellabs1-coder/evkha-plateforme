@@ -376,7 +376,7 @@ export const BLOG = {
    *  mention reprend celle du site (« Je HAIS le spam »), en écriture
    *  courante. */
   lettre: {
-    surtitre: "La lettre d'EVKHA",
+    surtitre: "La newsletter d'EVKHA",
     titre: { avant: "Les prochains portraits,", fin: "dans votre boîte mail." },
     corps:
       "Les portraits des porteurs de projet, des conseils concrets et les nouveautés EVKHA. Gratuit, et vous vous désinscrivez quand vous voulez.",

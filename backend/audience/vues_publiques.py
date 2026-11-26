@@ -34,8 +34,6 @@ import logging
 from datetime import timedelta
 from typing import Any
 
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
@@ -44,6 +42,7 @@ from django.views.decorators.http import require_POST
 
 from organisations import limitation
 
+from .adresses import adresse_normalisee
 from .models import Contact, Demande, Origine, Ressource
 
 _log = logging.getLogger(__name__)
@@ -93,22 +92,6 @@ def _corps(request: HttpRequest) -> dict[str, Any] | None:
     except (ValueError, RecursionError):
         return None
     return charge if isinstance(charge, dict) else None
-
-
-def adresse_normalisee(brut: object) -> str | None:
-    """L'adresse saisie, nettoyée et en minuscules, ou `None` si elle n'en est
-    pas une. Minuscules : `Marie@Exemple.fr` et `marie@exemple.fr` sont la
-    même personne, et la contrainte d'unicité doit le savoir."""
-    if not isinstance(brut, str):
-        return None
-    adresse = brut.strip().lower()
-    if not adresse or len(adresse) > 254:
-        return None
-    try:
-        validate_email(adresse)
-    except ValidationError:
-        return None
-    return adresse
 
 
 def _robot(charge: dict[str, Any]) -> bool:

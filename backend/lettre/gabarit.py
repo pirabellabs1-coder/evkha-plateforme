@@ -108,7 +108,7 @@ def enrober(
     """Le courriel complet. `lien_sortie` vide : aperçu ou essai, sans abonné."""
     if lien_sortie:
         sortie = (
-            "Vous ne souhaitez plus recevoir cette lettre ? "
+            "Vous ne souhaitez plus recevoir cette newsletter ? "
             f'<a href="{escape(lien_sortie)}" style="color:#888888;text-decoration:underline;">'
             "Se désinscrire</a>."
         )
@@ -120,7 +120,7 @@ def enrober(
         corps=corps_html,
         raison=(
             "Vous recevez ce message parce que vous vous êtes inscrit·e à la "
-            "lettre d'EVKHA sur evkha.fr."
+            "newsletter d'EVKHA sur evkha.fr."
         ),
         sortie=sortie,
         accent=_OR,
@@ -134,7 +134,7 @@ def courriel_de_confirmation(contact: Contact) -> tuple[str, str]:
     lien = escape(lien_de_confirmation(contact))
     corps = (
         "<p>Bonjour,</p>"
-        "<p>Vous avez demandé à recevoir la lettre d'EVKHA. Pour la recevoir, "
+        "<p>Vous avez demandé à recevoir la newsletter d'EVKHA. Pour la recevoir, "
         "confirmez votre adresse :</p>"
         f'<p style="text-align:center;margin:24px 0;"><a href="{lien}" '
         f'style="display:inline-block;padding:12px 22px;background:#1a1a1a;color:#ffffff;'
@@ -143,13 +143,13 @@ def courriel_de_confirmation(contact: Contact) -> tuple[str, str]:
         "<p>Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : "
         "vous ne recevrez rien d'autre.</p>"
     )
-    objet = "Confirmez votre inscription à la lettre d'EVKHA"
+    objet = "Confirmez votre inscription à la newsletter d'EVKHA"
     html = _GABARIT.format(
         objet=escape(objet),
         apercu="Un clic pour confirmer votre adresse.",
         corps=corps,
         raison="Ce message fait suite à une demande faite sur evkha.fr.",
-        sortie="Sans confirmation, votre adresse ne recevra aucune lettre.",
+        sortie="Sans confirmation, votre adresse ne recevra aucune newsletter.",
         accent=_OR,
         police=_POLICE,
         pied=_PIED,

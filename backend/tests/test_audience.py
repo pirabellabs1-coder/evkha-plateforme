@@ -311,7 +311,7 @@ def test_l_export_de_la_lettre_ne_porte_que_les_inscrits(client_admin: Any) -> N
     _poster(RESSOURCES, {"email": "telechargeur@exemple.fr", "ressource": "checklist"})
 
     reponse = client_admin.get("/api/dashboard/audience.csv?lettre=1")
-    assert reponse["Content-Disposition"] == 'attachment; filename="lettre-evkha-inscrits.csv"'
+    assert reponse["Content-Disposition"] == 'attachment; filename="newsletter-evkha-inscrits.csv"'
     texte = reponse.content.decode("utf-8-sig")
     assert "inscrite@exemple.fr" in texte
     assert "telechargeur@exemple.fr" not in texte

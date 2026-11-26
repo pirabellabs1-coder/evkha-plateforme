@@ -104,7 +104,7 @@ const PLAN: { groupe: string; entrees: [libelle: string, adresse: string][] }[] 
     entrees: [
       ["Annonces", "/admin/annonces"],
       ["Prospection", "/admin/prospection"],
-      ["Lettre", "/admin/lettre"],
+      ["Newsletter", "/admin/newsletter"],
       ["Audience", "/admin/audience"],
     ],
   },

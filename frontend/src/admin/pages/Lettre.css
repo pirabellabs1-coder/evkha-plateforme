@@ -185,3 +185,88 @@
 .lt-abonnes p {
   margin: 0;
 }
+
+/* L'éditeur et le courriel côte à côte : la gérante voit le modèle pendant
+ * qu'elle écrit. Sous 1200 px, l'aperçu passe sous l'éditeur. */
+.lt-composition {
+  display: grid;
+  gap: var(--e-5);
+  margin-bottom: var(--e-4);
+}
+
+@media (min-width: 1200px) {
+  .lt-composition {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .lt-direct {
+    position: sticky;
+    top: var(--e-4);
+  }
+}
+
+.lt-composition .lt-champs {
+  margin-bottom: 0;
+}
+
+.lt-direct {
+  display: grid;
+  gap: var(--e-2);
+}
+
+.lt-direct .lt-cadre {
+  max-width: none;
+  min-height: 560px;
+}
+
+.lt-direct-titre {
+  margin: 0;
+  color: var(--evkha-gris);
+  font-size: 0.875rem;
+  font-weight: var(--graisse-moyenne);
+}
+
+.lt-liste-modeles {
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: var(--e-4);
+}
+
+.lt-ligne-modele {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.lt-ligne-texte {
+  display: grid;
+  gap: 2px;
+}
+
+/* Le courriel réduit au tiers : une vignette, pas une page. */
+.lt-vignette {
+  height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--evkha-bordure);
+  border-radius: 8px;
+  background: var(--evkha-nuage);
+  pointer-events: none;
+}
+
+.lt-vignette-cadre {
+  width: 300%;
+  height: 660px;
+  border: 0;
+  transform: scale(0.3333);
+  transform-origin: 0 0;
+}
+
+.lt-ajout {
+  display: grid;
+  gap: var(--e-4);
+}
+
+.lt-adresses {
+  min-height: 9rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+}

@@ -465,7 +465,10 @@ export default function EditeurEnrichi({
   // Un contenu remplacé de l'extérieur (un modèle appliqué, une autre lettre
   // ouverte) remplace le texte ; la frappe, elle, ne repasse pas par ici.
   useEffect(() => {
-    if (!editeur) return;
+    // Un éditeur DÉTRUIT (démonté puis remonté par React, en ouvrant une
+    // newsletter depuis un modèle) n'a plus de schéma : l'interroger fait
+    // tomber tout l'écran.
+    if (!editeur || editeur.isDestroyed) return;
     const actuel = editeur.isEmpty ? "" : editeur.getHTML();
     if (valeur !== actuel) editeur.commands.setContent(valeur, { emitUpdate: false });
   }, [editeur, valeur]);

@@ -320,10 +320,19 @@ const adminAudience = createRoute({
   component: AudienceAdmin,
 });
 
-// La lettre d'information : rédaction, modèles, automatisations (26/11/2026).
-const adminLettre = createRoute({
+// L'écran s'est d'abord appelé « Lettre » : son ancienne adresse y mène.
+const adminAncienneLettre = createRoute({
   getParentRoute: () => adminRoute,
   path: "lettre",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/newsletter" });
+  },
+});
+
+// La newsletter : rédaction, modèles, abonnés, automatisations (26/11/2026).
+const adminLettre = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "newsletter",
   component: LettreAdmin,
 });
 
@@ -620,6 +629,7 @@ export const routeTree = rootRoute.addChildren([
     adminAnnonces,
     adminAudience,
     adminLettre,
+    adminAncienneLettre,
     adminProspection,
     adminTransactions,
     adminLivrables,

@@ -36,6 +36,7 @@ urlpatterns = [
     path("lettre/apercu/", lettre.apercu, name="lettre-apercu"),
     path("lettre/essai/", lettre.essai, name="lettre-essai"),
     path("lettre/images/", lettre.image, name="lettre-image"),
+    path("lettre/abonnes/", lettre.ajouter_des_abonnes, name="lettre-abonnes"),
     path("lettre/modeles/", lettre.modeles, name="lettre-modeles"),
     path("lettre/modeles/<str:modele_id>/", lettre.modele, name="lettre-modele"),
     path("lettre/automatisations/", lettre.automatisations, name="lettre-automatisations"),

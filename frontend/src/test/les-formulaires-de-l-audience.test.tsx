@@ -236,7 +236,7 @@ describe("le blog met en avant les porteurs et propose la lettre", () => {
     rendreLeBlog();
     const titre = await screen.findByRole("heading", { name: new RegExp(BLOG.lettre.titre.avant) });
     const section = titre.closest("section") as HTMLElement;
-    expect(within(section).getByRole("form", { name: "Inscription à la lettre" })).toBeInTheDocument();
+    expect(within(section).getByRole("form", { name: "Inscription à la newsletter" })).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: /Je m'abonne/ })).toBeInTheDocument();
     // Après les articles, avant la fin dorée.
     const fin = document.querySelector(".res-fin") as HTMLElement;
@@ -295,7 +295,7 @@ describe("l'écran Audience", () => {
     // Seule une personne inscrite se désinscrit ; chacune peut être effacée.
     expect(within(paul).queryByRole("button", { name: /Désinscrire/ })).toBeNull();
     expect(within(paul).getByRole("button", { name: "Effacer paul@exemple.fr et son historique" })).toBeInTheDocument();
-    expect(within(marie).getByRole("button", { name: "Désinscrire marie@exemple.fr de la lettre" })).toBeInTheDocument();
+    expect(within(marie).getByRole("button", { name: "Désinscrire marie@exemple.fr de la newsletter" })).toBeInTheDocument();
   });
 
   it("désinscrit après confirmation, et relit la liste", async () => {
@@ -316,7 +316,7 @@ describe("l'écran Audience", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Désinscrire marie/ }));
 
     await waitFor(() => expect(appele).toBe(CONTACTS[0].id));
-    expect(await screen.findByText(/ne recevra plus la lettre/)).toBeInTheDocument();
+    expect(await screen.findByText(/ne recevra plus la newsletter/)).toBeInTheDocument();
     await waitFor(() => expect(lectures).toBeGreaterThanOrEqual(2));
   });
 
@@ -351,7 +351,7 @@ describe("l'écran Audience", () => {
         return new HttpResponse("Adresse e-mail;…", {
           headers: {
             "Content-Type": "text/csv; charset=utf-8",
-            "Content-Disposition": 'attachment; filename="lettre-evkha-inscrits.csv"',
+            "Content-Disposition": 'attachment; filename="newsletter-evkha-inscrits.csv"',
           },
         });
       }),
@@ -362,10 +362,10 @@ describe("l'écran Audience", () => {
     rendreLEcran();
     // Le bouton attend la liste : sans adresse, il n'y a rien à exporter.
     await screen.findByText("marie@exemple.fr");
-    fireEvent.click(screen.getByRole("button", { name: /Inscrits à la lettre/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Inscrits à la newsletter/ }));
 
     await waitFor(() =>
-      expect(document.querySelector(".bandeau")?.textContent ?? "").toMatch(/lettre-evkha-inscrits\.csv/),
+      expect(document.querySelector(".bandeau")?.textContent ?? "").toMatch(/newsletter-evkha-inscrits\.csv/),
     );
     expect(demande).toBe("?lettre=1");
     expect(autorisation).toBe("Bearer jeton-d-administration");

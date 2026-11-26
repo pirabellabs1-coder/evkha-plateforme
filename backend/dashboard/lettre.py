@@ -12,6 +12,7 @@ Protection : celle de tout `/api/dashboard/` (le jeton de l'administration).
 Tout corps est NETTOYÉ à l'enregistrement (`lettre.nettoyage`) : l'aperçu,
 l'essai et l'envoi lisent ce qui a été gardé, pas ce qui a été posté.
 """
+
 from __future__ import annotations
 
 import io
@@ -46,8 +47,8 @@ from lettre.models import (
 )
 from lettre.nettoyage import nettoyer
 
-from audience.models import Contact, inscrits_q
-from audience.vues_publiques import adresse_normalisee
+from audience.adresses import adresse_normalisee, empreinte, lire_les_adresses
+from audience.models import Contact, Demande, Opposition, Origine, inscrits_q
 from evkha.signatures import absolu
 from organisations import limitation
 
@@ -118,9 +119,7 @@ def _compte_inscrits() -> int:
 def resume(request: HttpRequest) -> HttpResponse:
     """Les chiffres de tête : qui reçoit la lettre, qui attend de confirmer."""
     en_attente = (
-        Contact.objects.filter(confirmation_demandee_le__isnull=False)
-        .exclude(inscrits_q())
-        .count()
+        Contact.objects.filter(confirmation_demandee_le__isnull=False).exclude(inscrits_q()).count()
     )
     return _sans_cache(
         JsonResponse(
@@ -208,7 +207,7 @@ def _trouver_lettre(lettre_id: str) -> Lettre | None:
 def lettre(request: HttpRequest, lettre_id: str) -> HttpResponse:
     cible = _trouver_lettre(lettre_id)
     if cible is None:
-        return _refus("Lettre introuvable.", "introuvable", 404)
+        return _refus("Newsletter introuvable.", "introuvable", 404)
     if request.method == "GET":
         return _sans_cache(JsonResponse(_vue_lettre(cible, complet=True)))
     if request.method == "DELETE":
@@ -245,7 +244,7 @@ def programmer(request: HttpRequest, lettre_id: str) -> HttpResponse:
     """`{"quand": null}` : maintenant ; `{"quand": "<ISO 8601>"}` : plus tard."""
     cible = _trouver_lettre(lettre_id)
     if cible is None:
-        return _refus("Lettre introuvable.", "introuvable", 404)
+        return _refus("Newsletter introuvable.", "introuvable", 404)
     if cible.statut != StatutLettre.BROUILLON:
         return _refus("Cette lettre est déjà programmée ou partie.", "lettre_engagee", 409)
     if not cible.corps_html.strip():
@@ -282,7 +281,7 @@ def annuler(request: HttpRequest, lettre_id: str) -> HttpResponse:
     ne partira pas — ce qui est parti l'est."""
     cible = _trouver_lettre(lettre_id)
     if cible is None:
-        return _refus("Lettre introuvable.", "introuvable", 404)
+        return _refus("Newsletter introuvable.", "introuvable", 404)
     with transaction.atomic():
         verrou = Lettre.objects.select_for_update().get(pk=cible.pk)
         if verrou.statut == StatutLettre.PROGRAMMEE:
@@ -406,6 +405,111 @@ def image(request: HttpRequest) -> HttpResponse:
         f"{PREFIXE_IMAGES}/{uuid.uuid4().hex}.{extension}", ContentFile(donnees)
     )
     return JsonResponse({"url": absolu(default_storage.url(nom))}, status=201)
+
+
+# --- Abonnés ajoutés par la gérante -------------------------------------------
+
+#: Assez pour reprendre une liste entière d'un coup, borné pour une requête.
+AJOUTS_MAX = 10_000
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def ajouter_des_abonnes(request: HttpRequest) -> HttpResponse:
+    """`{"texte", "provenance", "consentement": true}` : abonne directement les
+    adresses lues dans le texte (`audience.adresses.lire_les_adresses`).
+
+    Pas de courriel de confirmation : la gérante atteste, case cochée, que ces
+    personnes ont accepté la newsletter, et dit d'où vient la liste — la
+    provenance est gardée sur chaque `Demande` (preuve du consentement).
+
+    Jamais réabonnées par ce chemin : une personne désinscrite, une personne
+    effacée à sa demande (`Opposition`), une ligne d'export marquée comme
+    désinscrite ou en rebond. Leur retrait vaut plus qu'une liste importée ;
+    elles seules peuvent revenir, par le site et son courriel de confirmation.
+    """
+    charge = _corps(request)
+    if charge.get("consentement") is not True:
+        return _refus(
+            "Cochez la case : ces personnes doivent avoir accepté de recevoir la newsletter.",
+            "consentement_manquant",
+        )
+    provenance = _texte(charge, "provenance", 200)
+    if not provenance:
+        return _refus(
+            "Dites d'où vient la liste (par exemple : export Systeme.io de novembre).",
+            "provenance_manquante",
+        )
+    texte = charge.get("texte")
+    if not isinstance(texte, str) or "@" not in texte:
+        return _refus("Collez au moins une adresse e-mail.", "aucune_adresse")
+    lecture = lire_les_adresses(texte)
+    if len(lecture.valides) + len(lecture.invalides) > AJOUTS_MAX:
+        return _refus(
+            f"{AJOUTS_MAX} adresses au plus en une fois : coupez la liste en deux.",
+            "trop_d_adresses",
+        )
+    maintenant = timezone.now()
+    with transaction.atomic():
+        existants = {c.email: c for c in Contact.objects.filter(email__in=lecture.valides)}
+        # L'opposition vaut pour TOUTE adresse lue — y compris celle d'une
+        # personne effacée qui a, depuis, repris une ressource sans cocher la
+        # newsletter : son contact existe de nouveau, son refus aussi.
+        opposees = set(
+            Opposition.objects.filter(
+                empreinte__in=[empreinte(a) for a in lecture.valides]
+            ).values_list("empreinte", flat=True)
+        )
+        nouvelles = [
+            a for a in lecture.valides if a not in existants and empreinte(a) not in opposees
+        ]
+        Contact.objects.bulk_create(
+            [Contact(email=a, lettre_le=maintenant) for a in nouvelles],
+            batch_size=1000,
+            ignore_conflicts=True,
+        )
+        crees = list(
+            Contact.objects.filter(email__in=nouvelles, lettre_le=maintenant).values_list(
+                "pk", flat=True
+            )
+        )
+        deja = [c for c in existants.values() if c.inscrit_a_la_lettre]
+        desinscrites = [
+            c
+            for c in existants.values()
+            if not c.inscrit_a_la_lettre and c.desinscrit_le is not None
+        ]
+        connues = [
+            c.pk
+            for c in existants.values()
+            if not c.inscrit_a_la_lettre
+            and c.desinscrit_le is None
+            and empreinte(c.email) not in opposees
+        ]
+        Contact.objects.filter(pk__in=connues).update(
+            lettre_le=maintenant, confirmations_sans_reponse=0, updated_at=maintenant
+        )
+        Demande.objects.bulk_create(
+            [
+                Demande(contact_id=pk, origine=Origine.AJOUT, provenance=provenance)
+                for pk in [*crees, *connues]
+            ],
+            batch_size=1000,
+        )
+    return JsonResponse(
+        {
+            "ajoutees": len(crees) + len(connues),
+            "deja_inscrites": len(deja),
+            "desinscrites_non_reinscrites": len(
+                {c.email for c in desinscrites}
+                | {a for a in lecture.valides if empreinte(a) in opposees}
+            ),
+            "lignes_ecartees": lecture.lignes_ecartees,
+            "invalides": lecture.invalides[:20],
+            "invalides_total": len(lecture.invalides),
+            "inscrits": _compte_inscrits(),
+        }
+    )
 
 
 # --- Modèles ----------------------------------------------------------------
@@ -540,8 +644,7 @@ def _enregistrer_automatisation(
             # sur l'unicité (automatisation, ordre).
             cible = Automatisation.objects.select_for_update().get(pk=cible.pk)
         if not cible._state.adding and (
-            cible.declencheur != declencheur
-            and cible.etapes.filter(envois__isnull=False).exists()
+            cible.declencheur != declencheur and cible.etapes.filter(envois__isnull=False).exists()
         ):
             return None, _refus(
                 "Des messages sont déjà partis : créez une autre automatisation "
@@ -557,9 +660,7 @@ def _enregistrer_automatisation(
             cible.active_depuis = timezone.now()
         if cible.active and not active:
             # En pause : ce qui attendait en file ne part pas.
-            Envoi.objects.filter(
-                etape__automatisation=cible, statut=StatutEnvoi.A_ENVOYER
-            ).delete()
+            Envoi.objects.filter(etape__automatisation=cible, statut=StatutEnvoi.A_ENVOYER).delete()
         cible.active = active
         cible.save()
         existantes = {etape.id: etape for etape in cible.etapes.all()}
@@ -592,11 +693,7 @@ def automatisations(request: HttpRequest) -> HttpResponse:
     if request.method == "GET":
         return _sans_cache(
             JsonResponse(
-                {
-                    "automatisations": [
-                        _vue_automatisation(a) for a in Automatisation.objects.all()
-                    ]
-                }
+                {"automatisations": [_vue_automatisation(a) for a in Automatisation.objects.all()]}
             )
         )
     cible, refus = _enregistrer_automatisation(None, _corps(request))
@@ -623,4 +720,3 @@ def automatisation(request: HttpRequest, automatisation_id: str) -> HttpResponse
         return refus
     assert resultat is not None
     return JsonResponse(_vue_automatisation(resultat))
-

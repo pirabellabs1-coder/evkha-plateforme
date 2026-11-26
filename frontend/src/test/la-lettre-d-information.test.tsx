@@ -12,6 +12,13 @@
  */
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -67,16 +74,33 @@ function servir({ inscrits = 3, fiche = lettre() } = {}) {
     http.get(`${DASH}/lettres/`, () => HttpResponse.json({ lettres: [fiche], inscrits })),
     http.get(`${DASH}/lettres/l1/`, () => HttpResponse.json(fiche)),
     http.get(`${DASH}/modeles/`, () => HttpResponse.json({ modeles: [] })),
+    // L'aperçu du serveur : le corps reçu, dans un gabarit reconnaissable.
+    http.post(`${DASH}/apercu/`, async ({ request }) => {
+      const corps = (await request.json()) as { corps_html: string };
+      return HttpResponse.json({ html: `<html><body>GABARIT EVKHA ${corps.corps_html}</body></html>` });
+    }),
   );
 }
 
 function rendre() {
   localStorage.setItem("evkha_token", "jeton-d-administration");
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Un routeur minimal : l'onglet Abonnés porte un lien vers l'écran Audience.
+  const racine = createRootRoute({ component: () => <LettreAdmin /> });
+  const routeur = createRouter({
+    routeTree: racine.addChildren([
+      createRoute({ getParentRoute: () => racine, path: "/admin/audience", component: () => null }),
+    ]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+  // Mode strict, comme `main.tsx` : React démonte et remonte chaque composant,
+  // ce qui détruit puis recrée l'éditeur — le cas qui faisait tomber l'écran.
   return render(
-    <QueryClientProvider client={client}>
-      <LettreAdmin />
-    </QueryClientProvider>,
+    <React.StrictMode>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={routeur} />
+      </QueryClientProvider>
+    </React.StrictMode>,
   );
 }
 
@@ -125,7 +149,7 @@ describe("l'écran de la lettre", () => {
     for (const nom of ["Gras", "Italique", "Souligné", "Ajouter un lien", "Insérer une image", "Centrer"]) {
       expect(barre.querySelector(`[aria-label="${nom}"]`), nom).not.toBeNull();
     }
-    expect(screen.getByRole("textbox", { name: "Texte de la lettre" })).toHaveTextContent(
+    expect(screen.getByRole("textbox", { name: "Texte de la newsletter" })).toHaveTextContent(
       "Bonjour à toutes et à tous",
     );
   });
@@ -187,7 +211,7 @@ describe("l'écran de la lettre", () => {
     await ouvrirLaLettre();
     fireEvent.click(await screen.findByRole("button", { name: "Envoyer maintenant" }));
 
-    expect(await screen.findByText(/C'est parti : la lettre part dans la minute à 3 inscrits/)).toBeInTheDocument();
+    expect(await screen.findByText(/C'est parti : la newsletter part dans la minute à 3 inscrits/)).toBeInTheDocument();
     expect(appels).toEqual(["enregistrer", "programmer"]);
     expect(programme).toEqual({ quand: null });
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining("3 inscrits"));
@@ -254,7 +278,11 @@ describe("l'écran de la lettre", () => {
     expect(await screen.findByText(/41 reçues, 1 échec/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Envoyer maintenant" })).toBeNull();
     expect(screen.queryByRole("toolbar")).toBeNull();
-    const cadre = container.querySelector('iframe[title="Texte de la lettre"]');
+    const cadre = await waitFor(() => {
+      const trouve = container.querySelector('iframe[title="Aperçu du courriel"]');
+      expect(trouve).not.toBeNull();
+      return trouve;
+    });
     expect(cadre).toHaveAttribute("sandbox", "");
   });
 
@@ -280,5 +308,113 @@ describe("l'écran de la lettre", () => {
     await waitFor(() => expect(objets()).toHaveLength(1));
     expect(objets()[0].value).toBe("Trois jours après");
     expect(essais()[0].value).toBe("");
+  });
+
+  it("montre le courriel EN MÊME TEMPS que l'éditeur, tel que le serveur le rend", async () => {
+    servir();
+    const { container } = rendre();
+    await ouvrirLaLettre();
+    await screen.findByRole("toolbar", { name: "Mise en forme du texte" }, { timeout: 5000 });
+    await waitFor(() => {
+      const cadre = container.querySelector('iframe[title="Aperçu du courriel"]');
+      expect(cadre?.getAttribute("srcdoc")).toContain("GABARIT EVKHA <p>Bonjour à toutes et à tous</p>");
+    });
+    expect(container.querySelector('iframe[title="Aperçu du courriel"]')).toHaveAttribute("sandbox", "");
+  });
+
+  it("chaque modèle se voit en vignette", async () => {
+    servir();
+    server.use(
+      http.get(`${DASH}/modeles/`, () =>
+        HttpResponse.json({
+          modeles: [
+            {
+              id: "m1",
+              nom: "Modèle EVKHA",
+              objet: "Les nouvelles",
+              apercu: "",
+              corps_html: "<h1>Les nouvelles d'EVKHA</h1>",
+              modifie_le: "2026-11-26T10:00:00Z",
+            },
+          ],
+        }),
+      ),
+    );
+    const { container } = rendre();
+    fireEvent.click(await screen.findByRole("button", { name: "Modèles" }));
+    expect(await screen.findByText("Modèle EVKHA")).toBeInTheDocument();
+    await waitFor(() => {
+      const vignette = container.querySelector('iframe[title="Aperçu du modèle Modèle EVKHA"]');
+      expect(vignette?.getAttribute("srcdoc")).toContain("<h1>Les nouvelles d'EVKHA</h1>");
+    });
+  });
+
+  it("ajoute des abonnés collés, seulement une fois l'accord coché", async () => {
+    servir();
+    let recu: unknown = null;
+    server.use(
+      http.post(`${DASH}/abonnes/`, async ({ request }) => {
+        recu = await request.json();
+        return HttpResponse.json({
+          ajoutees: 2,
+          deja_inscrites: 0,
+          desinscrites_non_reinscrites: 1,
+          lignes_ecartees: 0,
+          invalides: [],
+          invalides_total: 0,
+          inscrits: 5,
+        });
+      }),
+    );
+    rendre();
+    fireEvent.click(await screen.findByRole("button", { name: "Abonnés" }));
+    const liste = "marie@exemple.fr\npaul@exemple.fr, partie@exemple.fr";
+    fireEvent.change(await screen.findByLabelText("Adresses e-mail"), { target: { value: liste } });
+    expect(screen.getByText("3 adresses repérées.")).toBeInTheDocument();
+    // « élise@… » se compte une fois, comme un tout : jamais « lise@… » en plus.
+    fireEvent.change(screen.getByLabelText("Adresses e-mail"), {
+      target: { value: "élise@exemple.fr" },
+    });
+    expect(screen.getByText("1 adresse repérée.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Adresses e-mail"), { target: { value: liste } });
+    const bouton = screen.getByRole("button", { name: "Ajouter à la newsletter" });
+    const accord = screen.getByRole("checkbox", { name: /ont accepté de recevoir la newsletter/ });
+    fireEvent.click(accord);
+    // Sans provenance, rien ne part : c'est la trace de leur accord.
+    expect(bouton).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("D'où vient cette liste ?"), {
+      target: { value: "Export Systeme.io" },
+    });
+    fireEvent.click(bouton);
+    expect(await screen.findByText(/2 adresses ajoutées ; 1 désinscrite laissée hors de la liste/)).toBeInTheDocument();
+    expect(recu).toEqual({ texte: liste, provenance: "Export Systeme.io", consentement: true });
+    // Chaque lot s'atteste à nouveau.
+    expect(accord).not.toBeChecked();
+  });
+
+  it("écrire une newsletter depuis un modèle ouvre l'éditeur avec son texte", async () => {
+    servir();
+    server.use(
+      http.get(`${DASH}/modeles/`, () =>
+        HttpResponse.json({
+          modeles: [
+            {
+              id: "m1",
+              nom: "Modèle EVKHA",
+              objet: "Les nouvelles",
+              apercu: "",
+              corps_html: "<h1>Les nouvelles d'EVKHA</h1>",
+              modifie_le: "2026-11-26T10:00:00Z",
+            },
+          ],
+        }),
+      ),
+    );
+    rendre();
+    fireEvent.click(await screen.findByRole("button", { name: "Modèles" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Écrire une newsletter" }));
+    const texte = await screen.findByRole("textbox", { name: "Texte de la newsletter" }, { timeout: 5000 });
+    await waitFor(() => expect(texte).toHaveTextContent("Les nouvelles d'EVKHA"));
+    expect(screen.getByLabelText(/^Objet/)).toHaveValue("Les nouvelles");
   });
 });
